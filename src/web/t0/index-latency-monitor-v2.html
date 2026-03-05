@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RT 指数计算系统 · 数据流量与延迟监控</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#05070b;
+      --panel:#0c1119cc;
+      --panel-strong:#111a27;
+      --line:#27354a;
+      --text:#e7f1ff;
+      --muted:#8ca5c2;
+      --blue:#58b7ff;
+      --green:#2fe2a5;
+      --amber:#ffc24f;
+      --red:#ff6677;
+      --violet:#8e7dff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1000px 500px at -10% -20%, #102031 0%, transparent 55%),
+        radial-gradient(800px 400px at 120% -20%, #1f1b3b 0%, transparent 55%),
+        linear-gradient(180deg,#03060a,var(--bg));
+      color:var(--text);
+      font-family:'Outfit',sans-serif;
+      padding:20px;
+      min-height:100vh;
+    }
+    .grid-bg::before{
+      content:"";
+      position:fixed; inset:0; pointer-events:none;
+      background:
+        linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+      background-size:40px 40px;
+      mask-image:radial-gradient(circle at center, black 55%, transparent 95%);
+    }
+    .app{max-width:1400px;margin:0 auto;position:relative;z-index:1}
+    .top{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+    .title{font-size:clamp(24px,3.2vw,38px);font-weight:800;letter-spacing:.3px}
+    .subtitle{font-size:13px;color:var(--muted)}
+    .clock{font:500 13px 'IBM Plex Mono',monospace;color:#b8d3f1;border:1px solid #30445f;padding:6px 10px;border-radius:999px;background:#0b1320}
+
+    .kpis{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+    .kpi{background:linear-gradient(145deg,#101827cc,#0d141fcc);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+    .kpi .k{font-size:12px;color:var(--muted)}
+    .kpi .v{margin-top:6px;font-size:28px;font-weight:800;line-height:1}
+    .kpi .d{margin-top:8px;font-size:12px;color:#a7c0dd}
+
+    .layout{display:grid;grid-template-columns:1.7fr 1fr;gap:12px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;backdrop-filter:blur(3px);overflow:hidden}
+    .hd{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+    .hd h3{margin:0;font-size:14px;letter-spacing:.2px}
+    .tag{font:500 12px 'IBM Plex Mono',monospace;color:#8ec8ff;border:1px solid #3e5777;border-radius:999px;padding:4px 9px}
+
+    .flow-wrap{padding:14px}
+    .flow{
+      display:grid;
+      grid-template-columns:repeat(6,1fr);
+      gap:8px;
+      align-items:center;
+    }
+    .node{
+      min-height:74px;
+      border:1px solid #30445d;
+      border-radius:12px;
+      padding:10px;
+      background:linear-gradient(180deg,#122032aa,#0b1626aa);
+      position:relative;
+      overflow:hidden;
+    }
+    .node::after{
+      content:"";position:absolute;inset:auto -40% -70% -40%;height:120%;
+      background:radial-gradient(circle, rgba(88,183,255,.35), transparent 60%);
+      opacity:.4;
+    }
+    .node h4{margin:0;font-size:12px;color:#cce3ff}
+    .node p{margin:7px 0 0;font:500 12px 'IBM Plex Mono',monospace;color:#8ab4d9}
+    .arrow{height:2px;background:linear-gradient(90deg,transparent,#6dbfff,transparent);position:relative;border-radius:999px}
+    .arrow::before{content:"";position:absolute;right:-2px;top:-3px;border:4px solid transparent;border-left-color:#7cc5ff}
+
+    .table-wrap{overflow:auto;max-height:365px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 12px;text-align:left;font-size:13px}
+    th{position:sticky;top:0;background:#131f30;color:#9fc0de;font-weight:600}
+    tr{border-top:1px solid #25364b}
+    tbody tr:hover{background:#12223799}
+    td:nth-child(3),td:nth-child(4),td:nth-child(5){font-family:'IBM Plex Mono',monospace}
+    .st{display:inline-flex;align-items:center;gap:7px;font-weight:700}
+    .dot{width:8px;height:8px;border-radius:50%}
+    .ok{color:var(--green)} .ok .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
+    .warn{color:var(--amber)} .warn .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
+    .err{color:var(--red)} .err .dot{background:var(--red);box-shadow:0 0 10px var(--red)}
+
+    .side{padding:12px}
+    .blk{background:#0d1523d9;border:1px solid #2a3f59;border-radius:12px;padding:10px;margin-bottom:10px}
+    .blk h4{margin:0 0 8px;font-size:13px;color:#b8d4f3}
+    canvas{display:block;width:100%;height:92px}
+    .events{max-height:230px;overflow:auto}
+    .event{font:12px/1.5 'IBM Plex Mono',monospace;color:#b6d1ea;padding:6px;border-radius:8px}
+    .event:nth-child(odd){background:#15263a80}
+
+    @media (max-width:1120px){
+      .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .layout{grid-template-columns:1fr}
+      .flow{grid-template-columns:1fr}
+      .arrow{height:18px;width:2px;justify-self:center;background:linear-gradient(180deg,transparent,#6dbfff,transparent)}
+      .arrow::before{right:-3px;top:auto;bottom:-2px;border:4px solid transparent;border-top-color:#7cc5ff;border-left-color:transparent}
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <main class="app">
+    <header class="top">
+      <div>
+        <div class="title">Index Compute Latency Monitor</div>
+        <div class="subtitle">监控指数计算系统各模块数据流量、端到端延迟与异常传播路径</div>
+      </div>
+      <div class="clock" id="clock">--</div>
+    </header>
+
+    <section class="kpis">
+      <article class="kpi"><div class="k">总吞吐（msg/s）</div><div class="v" id="throughput">0</div><div class="d">全链路每秒消息量</div></article>
+      <article class="kpi"><div class="k">P50 延迟</div><div class="v" id="p50">0ms</div><div class="d">模块中位响应</div></article>
+      <article class="kpi"><div class="k">P95 延迟</div><div class="v" id="p95">0ms</div><div class="d">尾延迟关键指标</div></article>
+      <article class="kpi"><div class="k">E2E 延迟</div><div class="v" id="e2e">0ms</div><div class="d">从采集到发布</div></article>
+      <article class="kpi"><div class="k">异常模块</div><div class="v" id="bad">0</div><div class="d">WARN/ERR 模块计数</div></article>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="hd"><h3>数据流拓扑（实时）</h3><span class="tag" id="tick">tick #0</span></div>
+        <div class="flow-wrap">
+          <div class="flow" id="flowRow"></div>
+        </div>
+
+        <div class="hd"><h3>模块明细</h3><span class="tag">latency + traffic</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>模块</th><th>阶段</th><th>流量(msg/s)</th><th>latency</th><th>last update</th><th>状态</th></tr></thead>
+            <tbody id="tb"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="panel side">
+        <div class="blk">
+          <h4>P95 趋势（最近40次）</h4>
+          <canvas id="lineP95" width="460" height="120"></canvas>
+        </div>
+        <div class="blk">
+          <h4>吞吐趋势（最近40次）</h4>
+          <canvas id="lineTps" width="460" height="120"></canvas>
+        </div>
+        <div class="blk">
+          <h4>事件流</h4>
+          <div id="events" class="events"></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const modules = [
+      {name:'Collector', stage:'行情采集', baseTps:8500, baseLat:22},
+      {name:'Normalizer', stage:'数据清洗', baseTps:8100, baseLat:41},
+      {name:'FactorEngine', stage:'因子计算', baseTps:7900, baseLat:76},
+      {name:'IndexCore', stage:'指数聚合', baseTps:7600, baseLat:93},
+      {name:'Publisher', stage:'结果发布', baseTps:7500, baseLat:38},
+      {name:'CacheSync', stage:'缓存同步', baseTps:7300, baseLat:51}
+    ];
+
+    const tb = document.getElementById('tb');
+    const flowRow = document.getElementById('flowRow');
+    const events = document.getElementById('events');
+
+    const hP95 = []; const hTps = [];
+    let tick = 0;
+
+    const nowFmt = ()=> new Intl.DateTimeFormat('zh-CN',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
+
+    function judge(lat){
+      if(lat > 165 || Math.random()<0.04) return 'ERR';
+      if(lat > 110 || Math.random()<0.15) return 'WARN';
+      return 'OK';
+    }
+
+    function dotStatus(st){
+      const c = st==='OK' ? 'ok' : st==='WARN' ? 'warn' : 'err';
+      return `<span class="st ${c}"><span class="dot"></span>${st}</span>`;
+    }
+
+    function pushEvent(msg){
+      const el = document.createElement('div');
+      el.className = 'event';
+      el.innerHTML = `[${nowFmt()}] ${msg}`;
+      events.prepend(el);
+      while(events.children.length > 20) events.removeChild(events.lastChild);
+    }
+
+    function drawLine(canvasId, arr, color){
+      const c = document.getElementById(canvasId), ctx = c.getContext('2d');
+      const w = c.width, h = c.height, pad = 12;
+      ctx.clearRect(0,0,w,h);
+      const max = Math.max(...arr, 1), min = Math.min(...arr, 0);
+      const X = i => pad + (w-pad*2)*(i/(arr.length-1||1));
+      const Y = v => h-pad - (h-pad*2)*((v-min)/(max-min||1));
+
+      ctx.beginPath();
+      arr.forEach((v,i)=> i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = color; ctx.shadowBlur = 10;
+      ctx.stroke(); ctx.shadowBlur = 0;
+
+      const g = ctx.createLinearGradient(0,0,0,h);
+      g.addColorStop(0, color.replace(')', ', .35)').replace('rgb','rgba'));
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.lineTo(X(arr.length-1), h-pad);
+      ctx.lineTo(X(0), h-pad);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    }
+
+    function tickRender(){
+      tick++;
+      document.getElementById('tick').textContent = `tick #${tick}`;
+      document.getElementById('clock').textContent = `Local ${new Date().toLocaleString('zh-CN',{hour12:false})}`;
+
+      const rows = modules.map((m, i)=>{
+        const wave = Math.sin((tick+i*1.7)/5);
+        const tps = Math.max(5000, Math.round(m.baseTps + wave*600 + (Math.random()-0.5)*500));
+        const lat = Math.max(12, Math.round(m.baseLat + (Math.random()-0.5)*55 + Math.abs(wave)*24));
+        const st = judge(lat);
+        return {...m, tps, lat, st};
+      });
+
+      const totalTps = rows.reduce((a,b)=>a+b.tps,0);
+      const sortedLat = rows.map(r=>r.lat).sort((a,b)=>a-b);
+      const p50 = sortedLat[Math.floor(sortedLat.length*0.5)];
+      const p95 = sortedLat[Math.floor(sortedLat.length*0.95)-1] || sortedLat[sortedLat.length-1];
+      const e2e = rows.reduce((a,b)=>a+b.lat,0);
+      const bad = rows.filter(r=>r.st!=='OK').length;
+
+      document.getElementById('throughput').textContent = totalTps.toLocaleString();
+      document.getElementById('p50').textContent = `${p50}ms`;
+      document.getElementById('p95').textContent = `${p95}ms`;
+      document.getElementById('e2e').textContent = `${e2e}ms`;
+      document.getElementById('bad').textContent = bad;
+
+      tb.innerHTML = rows.map(r => `<tr>
+        <td>${r.name}</td>
+        <td>${r.stage}</td>
+        <td>${r.tps.toLocaleString()}</td>
+        <td>${r.lat}ms</td>
+        <td>${nowFmt()}</td>
+        <td>${dotStatus(r.st)}</td>
+      </tr>`).join('');
+
+      flowRow.innerHTML = rows.map((r,idx)=>`
+        <div class="node"><h4>${r.name}</h4><p>${r.tps.toLocaleString()} msg/s</p><p>${r.lat} ms · ${r.st}</p></div>
+        ${idx < rows.length-1 ? '<div class="arrow"></div>' : ''}
+      `).join('');
+
+      hP95.push(p95); if(hP95.length>40) hP95.shift();
+      hTps.push(totalTps); if(hTps.length>40) hTps.shift();
+      drawLine('lineP95', hP95, 'rgb(94, 196, 255)');
+      drawLine('lineTps', hTps, 'rgb(142, 125, 255)');
+
+      if(bad===0) pushEvent('全链路稳定，暂无异常模块。');
+      else{
+        const e = rows.filter(r=>r.st==='ERR').map(r=>r.name);
+        const w = rows.filter(r=>r.st==='WARN').map(r=>r.name);
+        if(e.length) pushEvent(`ERR: ${e.join(', ')} 延迟突增，建议检查上游依赖/队列堆积。`);
+        else pushEvent(`WARN: ${w.join(', ')} 出现高延迟波动。`);
+      }
+    }
+
+    tickRender();
+    setInterval(tickRender, 2500);
+  </script>
+</body>
+</html>
