@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8"/>
+	<title>NXGEN Performance Monitor</title>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/>
+	<link rel="stylesheet" th:href="@{/custom/newui/roboto.css}"/>
+	<link rel="stylesheet" th:href="@{/custom/newui/animate.min.css}"/>
+	<link rel="stylesheet" th:href="@{/custom/newui/quasar.prod.css}"/>
+	<link rel="stylesheet" th:href="@{/custom/css/realtime-monitor/index-info.css}"/>
+</head>
+<body class="cmc-body-bg">
+	<div id="q-app" class="monitor-container">
+		<q-card class="q-pa-md" v-if="ready">
+			<q-card-section>
+				<div class="card-title">
+					<span>NXGEN Performance Monitor</span>
+					<q-btn flat round color="white" icon="download" @click="downloadReport()"></q-btn>
+					<q-btn flat round color="white" icon="history" @click="showWarnHistoryDialog()"></q-btn>
+				</div>
+			</q-card-section>
+			<q-banner inline-actions rounded v-for="item in hasWarn.info" :class="getWarnClass(item)">
+				<template v-slot:avatar>
+					<q-icon :name="getWarnIcon(item)"></q-icon>
+				</template>
+				{{ displayWarn(item) }}
+
+				<template v-slot:action>
+					<q-btn flat round color="gray" icon="close" @click="acceptWarn(item)"></q-btn>
+				</template>
+			</q-banner>
+
+			<q-card class="latency-container" v-for="item in rows">
+				<div class="card-header text-center">
+					<span>{{ item.label + (item.isPrimary && ' (Primary)' || '') }} - {{ item.time }}</span>
+				</div>
+				<q-card-section>
+					<q-card class="latency-container" v-for="typeFlag in [1, 0]">
+						<q-table table-class="latency-table"
+								:rows="[]"
+								:columns="filterByLayer(item.layerColumns, typeFlag)"
+								separator="cell"
+								row-key="name"
+								hide-bottom
+						>
+							<template v-slot:header="props">
+								<q-tr>
+									<q-th v-for="(header, idx) in filterByLayer(item.layerColumns, typeFlag)" :class="getLayerStyle(header.name, idx)" :colSpan="header.colSpan"><q-chip class="no-border layer-header" :icon-right="getWarnIcon(header)" :text-color="getPerfTextColor(header)" :color="getPerfColor(header)" :outline="!header.flag">{{ header.label }}</q-chip></q-th>
+								</q-tr>
+								<q-tr>
+									<q-td v-for="(layer, idx) in filterByLayer(item.layerColumns, typeFlag)">
+										<div v-if="getPerfKind(item, layer) == 'C'">
+											<q-badge class="latency-info">Avg. Latency / 10s</q-badge>
+										</div>
+										<div v-if="getPerfKind(item, layer) == 'B'">
+											<q-badge class="latency-info">-</q-badge>
+										</div>
+										<div class="latency-row" v-if="getPerfKind(item, layer) == 'A'" v-for="detail in item.detailColumns[layer.field]">
+											<q-badge v-if="detail.kind == 'A'" class="latency-info bg-primary">Src: {{ detail.label }}</q-badge>
+											<q-badge v-if="detail.kind == 'B'" class="latency-info bg-secondary">{{ detail.label }}</q-badge>
+											<q-badge v-if="detail.data.time < item.time" class="latency-info">{{ detail.data.time }}</q-badge>
+											<q-chip v-if="detail.data.flag" class="latency-info latency-detail" :icon-right="getWarnIcon(detail.data)" :text-color="getPerfTextColor(detail.data)" :color="getPerfColor(detail.data)" :outline="!detail.data.flag" :clickable="true" @click="showChartDialog(detail)">{{ displayLatency(detail.data) }}</q-chip>
+											<q-badge v-if="!detail.data.flag" class="latency-info latency-detail" clickable="true" @click="showChartDialog(detail)">{{ displayLatency(detail.data) }}</q-badge>
+										</div>
+									</q-td>
+								</q-tr>
+							</template>
+						</q-table>
+					</q-card>
+				</q-card-section>
+			</q-card>
+		</q-card>
+	</div>
+
+	<template id='CommonDialog'>
+		<q-dialog ref="dialog" @hide="onDialogHide">
+			<q-card class="q-dialog-plugin">
+				<q-toolbar>
+					<q-btn color="white" flat round dense></q-btn>
+					<q-toolbar-title class="text-h6 dialog-title">{{ title }}</q-toolbar-title>
+					<q-btn color="white" icon="close" flat round dense v-close-popup></q-btn>
+				</q-toolbar>
+
+				<q-table table-class="dialog-table"
+						:rows="rows"
+						:columns="columns"
+						rowsPerPage="20"
+						:rows-per-page-options="[10, 20, 50, 100]"
+						:filter="filter"
+						:filter-method="customFilter"
+						row-key="name"
+				>
+					<template v-slot:top>
+						<div class="q-space"></div>
+						<q-input borderless dense debounce="300" color="primary" v-model="filter">
+							<template v-slot:append>
+								<q-icon name="search"></q-icon>
+							</template>
+						</q-input>
+						<q-btn flat round color="primary" icon="download" @click="downloadCsv()"></q-btn>
+					</template>
+				</q-table>
+			</q-card>
+		</q-dialog>
+	</template>
+
+	<template id='ChartDialog'>
+		<q-dialog ref="dialog" @hide="onDialogHide">
+			<q-card class="q-dialog-plugin no-auto-scrollbar">
+				<q-toolbar>
+					<q-btn color="white" flat round dense></q-btn>
+					<q-toolbar-title class="text-h6 dialog-title">{{ title }}</q-toolbar-title>
+					<q-btn :icon="getPlayIcon()" :color="getPlayIconColor()" flat round dense @click="onPlayIconClick()"></q-btn>
+					<q-btn color="white" icon="close" flat round dense v-close-popup></q-btn>
+				</q-toolbar>
+
+				<div id="latency-chart" class="latency-chart"></div>
+			</q-card>
+		</q-dialog>
+	</template>
+
+	<script type="text/javascript" th:src="@{/custom/newui/vue.global.prod.js}"></script>
+	<script type="text/javascript" th:src="@{/custom/newui/axios.min.js}"></script>
+	<script type="text/javascript" th:src="@{/custom/newui/quasar.umd.prod.js}"></script>
+	<script type="text/javascript" th:src="@{/custom/newui/echarts.min.js}"></script>
+	<script type="text/javascript" th:src="@{/custom/js/common/utils.js}"></script>
+	<script type="text/javascript" th:src="@{/custom/js/realtime-monitor/index-info.js}"></script>
+</body>
+</html>
