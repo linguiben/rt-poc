@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NXGEN Performance Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
+        .data-grid { display: grid; grid-template-columns: minmax(60px, auto) 1fr 1fr 1fr; gap: 0.5rem; align-items: center; }
+        .pipeline-card { background: #1e293b; border: 1px solid #334155; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .pipeline-header { border-bottom: 1px solid #334155; padding-bottom: 0.5rem; margin-bottom: 0.5rem; font-weight: 600; color: #cbd5e1; }
+        .arrow { display: flex; align-items: center; justify-content: center; color: #475569; padding: 0 0.5rem; }
+    </style>
+</head>
+<body class="min-h-screen p-4">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-6">
+        <div class="flex items-center gap-3">
+            <i class="fa-solid fa-server text-blue-500 text-2xl"></i>
+            <h1 class="text-2xl font-bold tracking-tight text-white">NXGEN <span class="text-slate-400 font-normal">Performance Monitor</span></h1>
+        </div>
+        <div class="flex items-center gap-4 text-sm text-slate-400">
+            <span><i class="fa-regular fa-clock mr-1"></i> Global Time: 09:24:40</span>
+            <button class="hover:text-white"><i class="fa-solid fa-download"></i></button>
+            <button class="hover:text-white"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+    </header>
+
+    <!-- Alerts -->
+    <div class="flex flex-col gap-2 mb-6">
+        <div class="bg-red-900/50 border border-red-500/50 text-red-200 px-4 py-3 rounded flex justify-between items-center shadow-lg">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-circle-exclamation text-red-400"></i>
+                <span class="font-bold text-red-400">[CRITICAL]</span>
+                <span>TKO2-L2L3 (Source: BIS) abnormal latency 138,299ms / 141,467ms / 141,622ms [08:39:00]</span>
+            </div>
+            <button class="text-red-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="bg-yellow-900/30 border border-yellow-500/30 text-yellow-200 px-4 py-2 rounded flex justify-between items-center">
+            <div class="flex items-center gap-3 text-sm">
+                <i class="fa-solid fa-triangle-exclamation text-yellow-500"></i>
+                <span class="font-bold text-yellow-500">[WARN]</span>
+                <span>TKO2-L2L3 (Source: BIS) abnormal latency 35,113ms / 36,117ms / 36,121ms[08:39:20]</span>
+            </div>
+            <button class="text-yellow-500 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+    </div>
+
+    <!-- TKO2 Primary Section -->
+    <section class="mb-10 relative">
+        <h2 class="text-lg font-bold text-blue-400 mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-location-dot"></i> TKO2 (Primary) <span class="text-sm font-normal text-slate-400 ml-2">As of 09:24:40</span>
+        </h2>
+        
+        <div class="flex flex-nowrap overflow-x-auto pb-4 items-stretch gap-2">
+            
+            <!-- L1 to L2 -->
+            <div class="pipeline-card flex-none w-[180px]">
+                <div class="pipeline-header text-indigo-400"><i class="fa-solid fa-network-wired text-xs mr-1"></i> L1 to L2</div>
+                <div class="data-grid text-xs mt-2 text-slate-300">
+                    <span class="text-slate-500">Metric</span><span>Avg</span><span>P90</span><span>P95</span>
+                    <span class="text-slate-400">Total</span>
+                    <span class="text-emerald-400">88ms</span>
+                    <span class="text-emerald-400">105ms</span>
+                    <span class="text-emerald-400">110ms</span>
+                </div>
+            </div>
+
+            <div class="arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <!-- L2 Processing -->
+            <div class="pipeline-card flex-none w-[220px]">
+                <div class="pipeline-header text-purple-400"><i class="fa-solid fa-microchip text-xs mr-1"></i> L2 Processing</div>
+                <div class="data-grid text-xs mt-2 text-slate-300">
+                    <span class="text-slate-500">Node</span><span>Avg</span><span>P90</span><span>P95</span>
+                    <span class="bg-slate-700 px-1 rounded text-center">Blade1</span><span class="text-emerald-400">1ms</span><span class="text-emerald-400">1ms</span><span class="text-emerald-400">1ms</span>
+                    <span class="bg-slate-700 px-1 rounded text-center">Blade2</span><span class="text-emerald-400">1ms</span><span class="text-emerald-400">1ms</span><span class="text-yellow-400">2ms</span>
+                    <span class="bg-slate-700 px-1 rounded text-center">Blade3</span><span class="text-emerald-400">1ms</span><span class="text-yellow-400">2ms</span><span class="text-red-400">23ms</span>
+                </div>
+            </div>
+
+            <div class="arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <!-- L2 to L3 (WITH ALERT) -->
+            <div class="pipeline-card flex-none w-[280px] border-red-500/50 relative overflow-hidden">
+                <div class="absolute top-0 right-0 w-16 h-16 bg-red-500/10 blur-xl rounded-full"></div>
+                <div class="pipeline-header text-indigo-400"><i class="fa-solid fa-network-wired text-xs mr-1"></i> L2 to L3</div>
+                <div class="data-grid text-xs mt-2 text-slate-300">
+                    <span class="text-slate-500">Source</span><span>Avg</span><span>P90</span><span>P95</span>
+                    <span class="bg-blue-900/50 text-blue-300 px-1 rounded text-center">TKO1</span><span>110ms</span><span>117ms</span><span>117ms</span>
+                    <span class="bg-blue-900/50 text-blue-300 px-1 rounded text-center">TKO2</span><span>69ms</span><span>101ms</span><span>116ms</span>
+                    <span class="bg-red-900 text-red-200 font-bold px-1 rounded text-center animate-pulse">BIS</span><span class="text-red-400 font-bold">206ms</span><span class="text-red-400 font-bold">218ms</span><span class="text-red-400 font-bold">218ms</span>
+                </div>
+            </div>
+
+            <div class="arrow"><i class="fa-solid fa-chevron-right"></i></div>
+
+            <!-- L3 Processing -->
+            <div class="pipeline-card flex-none w-[180px]">
+                <div class="pipeline-header text-purple-400"><i class="fa-solid fa-microchip text-xs mr-1"></i> L3 Processing</div>
+                 <div class="data-grid text-xs mt-2 text-slate-300">
+                    <span class="text-slate-500">Metric</span><span>Avg</span><span>P90</span><span>P95</span>
+                    <span class="text-slate-400">Total</span><span>22ms</span><span>32ms</span><span class="text-yellow-400">41ms</span>
+                </div>
+            </div>
+
+            <div class="arrow"><i class="fa-solid fa-chevron-right"></i></div>
+            
+            <!-- More Nodes abbreviated for clarity, mirroring style -->
+            <div class="pipeline-card flex-none w-[220px]">
+                <div class="pipeline-header text-indigo-400">L3 to BG</div>
+                 <div class="data-grid text-xs mt-2 text-slate-300">
+                    <span class="text-slate-500">Source</span><span>Avg</span><span>P90</span><span>P95</span>
+                    <span class="bg-blue-900/50 text-blue-300 px-1 rounded text-center">TKO2</span><span>15ms</span><span class="text-yellow-400">66ms</span><span>39ms</span>
+                </div>
+            </div>
+            
+             <div class="arrow"><i class="fa-solid fa-chevron-right"></i></div>
+             
+             <div class="pipeline-card flex-none w-[180px]">
+                <div class="pipeline-header text-purple-400">BG Process</div>
+                 <div class="data-grid text-xs mt-2 text-slate-300">
+                     <span class="text-slate-500">Metric</span><span>Avg</span><span>P90</span><span>P95</span>
+                     <span class="text-slate-400">Total</span><span>25ms</span><span>25ms</span><span>25ms</span>
+                 </div>
+            </div>
+        </div>
+
+        <!-- Feedback Loops -->
+        <div class="flex gap-4 mt-2 px-4">
+            <div class="bg-slate-800/50 border border-slate-700 rounded p-2 flex items-center gap-4 text-xs">
+                <div class="text-slate-400"><i class="fa-solid fa-arrow-rotate-left mr-1"></i> L3 to L1 (Feedback)</div>
+                <div class="text-emerald-400">Avg: 5ms | P90: 66ms | P95: 80ms</div>
+            </div>
+            <div class="bg-slate-800/50 border border-slate-700 rounded p-2 flex items-center gap-4 text-xs">
+                <div class="text-slate-400"><i class="fa-solid fa-arrow-rotate-left mr-1"></i> BG to L3 (Feedback)</div>
+                <div class="text-yellow-400">Avg: 82ms | P90: 293ms | P95: 316ms</div>
+            </div>
+        </div>
+    </section>
+
+</body>
+</html>
