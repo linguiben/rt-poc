@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NXGEN Performance Monitor v4</title>
+  <style>
+    :root {
+      --bg: #03111a;
+      --bg-soft: #071d2a;
+      --panel: rgba(7, 24, 35, 0.9);
+      --panel-strong: rgba(10, 32, 46, 0.96);
+      --line: rgba(103, 188, 231, 0.2);
+      --text: #eef8ff;
+      --muted: #93b9cb;
+      --cyan: #5ee6ff;
+      --cyan-soft: rgba(94, 230, 255, 0.18);
+      --green: #38f3b2;
+      --amber: #ffd35f;
+      --red: #ff6675;
+      --blue: #79a9ff;
+      --purple: #a388ff;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Barlow Condensed", "DIN Alternate", "Arial Narrow", sans-serif;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(56,243,178,0.12), transparent 24%),
+        radial-gradient(circle at 100% 0%, rgba(121,169,255,0.13), transparent 28%),
+        linear-gradient(180deg, #082231, var(--bg));
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, #000 58%, transparent 100%);
+      opacity: 0.35;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(94,230,255,0); }
+      50% { box-shadow: 0 0 18px rgba(94,230,255,0.18); }
+    }
+
+    @keyframes routeFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -64; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.42; }
+    }
+
+    .app {
+      max-width: 1720px;
+      margin: 0 auto;
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .shell {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(8, 26, 38, 0.98), rgba(3, 12, 18, 0.96));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .header {
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(12, 42, 59, 0.9), rgba(7, 21, 31, 0.5));
+    }
+
+    .header-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      color: var(--cyan);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-size: 13px;
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+    }
+
+    h1 {
+      margin: 8px 0 0;
+      font-size: clamp(34px, 4vw, 58px);
+      line-height: 0.95;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 0.7px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .hero-card {
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(10, 31, 46, 0.98), rgba(6, 18, 27, 0.92));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -24% -70% -24%;
+      height: 120%;
+      background: radial-gradient(circle, rgba(94,230,255,0.16), transparent 60%);
+    }
+
+    .hero-card .name {
+      position: relative;
+      z-index: 1;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+    }
+
+    .hero-card .val {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .hero-card .meta {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 13px;
+      color: #d3e7f2;
+    }
+
+    .kpis {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 31, 46, 0.94), rgba(4, 14, 21, 0.92));
+      padding: 10px 12px;
+    }
+
+    .kpi-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .kpi-value {
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .kpi-bar {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .kpi-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 16px rgba(94,230,255,0.35);
+      transition: width 0.4s ease;
+    }
+
+    .main {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 31, 46, 0.96), rgba(5, 16, 24, 0.96));
+      position: relative;
+    }
+
+    .panel-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-size: 13px;
+    }
+
+    .panel-head strong {
+      color: var(--text);
+      font-size: 17px;
+      letter-spacing: 0.8px;
+    }
+
+    .panel-body {
+      padding: 14px;
+    }
+
+    .legend {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .topology-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 2px;
+    }
+
+    .topology-board {
+      width: 1600px;
+      height: 860px;
+      position: relative;
+      border: 1px solid rgba(94,230,255,0.12);
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(94,230,255,0.08), transparent 42%),
+        linear-gradient(180deg, rgba(4, 15, 23, 0.94), rgba(7, 20, 29, 0.98));
+      background-size: 44px 44px, 44px 44px, auto, auto;
+      overflow: hidden;
+    }
+
+    .site-band {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      height: 300px;
+      border-radius: 18px;
+      border: 1px solid rgba(94,230,255,0.12);
+      background: linear-gradient(180deg, rgba(11, 37, 53, 0.35), rgba(4, 13, 20, 0.25));
+    }
+
+    .site-band.primary { top: 40px; }
+    .site-band.backup { top: 514px; }
+
+    .site-tag {
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(6, 21, 33, 0.92);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .site-tag .primary-mark {
+      color: var(--amber);
+      margin-left: 8px;
+      animation: blink 2s ease-in-out infinite;
+    }
+
+    .topology-svg,
+    .node-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    .topology-svg {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .route-base {
+      fill: none;
+      stroke: rgba(94,230,255,0.14);
+      stroke-width: 2;
+    }
+
+    .route-flow {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 10 14;
+      animation: routeFlow 3s linear infinite;
+      filter: drop-shadow(0 0 10px rgba(94,230,255,0.15));
+    }
+
+    .route-flow.intra { stroke: var(--cyan); }
+    .route-flow.cross { stroke: var(--blue); }
+    .route-flow.feedback { stroke: var(--amber); }
+    .route-flow.warn { stroke: var(--amber); }
+    .route-flow.critical { stroke: var(--red); }
+
+    .route-label rect {
+      fill: rgba(6, 22, 34, 0.88);
+      stroke: rgba(94,230,255,0.18);
+      rx: 10;
+      ry: 10;
+    }
+
+    .route-label text {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+      fill: #e6f7ff;
+      text-anchor: middle;
+    }
+
+    .route-label .tiny {
+      font-size: 10px;
+      fill: #a7cad8;
+    }
+
+    .node {
+      position: absolute;
+      border-radius: 16px;
+      border: 1px solid rgba(94,230,255,0.18);
+      background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+      color: var(--text);
+      animation: pulseGlow 3.4s ease-in-out infinite;
+    }
+
+    .node.source {
+      width: 86px;
+      height: 58px;
+      border-radius: 14px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 2px;
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
+    }
+
+    .node.source small {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.8px;
+    }
+
+    .node.stage {
+      width: 154px;
+      min-height: 110px;
+      padding: 10px 12px 12px;
+    }
+
+    .node.stage.process {
+      border-color: rgba(163, 137, 255, 0.22);
+      background: linear-gradient(180deg, rgba(47, 33, 85, 0.96), rgba(17, 13, 35, 0.96));
+    }
+
+    .node.stage .title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .badge {
+      padding: 2px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      border: 1px solid currentColor;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .node.stage .sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .node.stage .metrics {
+      margin-top: 12px;
+      display: grid;
+      gap: 6px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    .node.stage .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .meter {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 16px rgba(94,230,255,0.3);
+      transition: width 0.35s ease;
+    }
+
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .critical { color: var(--red); }
+    .cyan { color: var(--cyan); }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(320px, 0.8fr);
+      gap: 14px;
+    }
+
+    .watch-list,
+    .heat-grid,
+    .feed-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .watch-item,
+    .feed-item {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.025);
+      padding: 10px 12px;
+    }
+
+    .watch-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+    }
+
+    .watch-val {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: end;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .watch-val strong {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .heat-grid {
+      grid-template-columns: 160px repeat(3, minmax(0, 1fr));
+    }
+
+    .heat-head,
+    .heat-label,
+    .heat-cell {
+      min-height: 62px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      align-content: center;
+    }
+
+    .heat-head,
+    .heat-label {
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    .heat-cell {
+      background: rgba(255,255,255,0.03);
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .heat-cell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: currentColor;
+    }
+
+    .heat-cell strong {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .heat-cell span {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #d4e8f3;
+    }
+
+    .feed-item {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      border-left: 4px solid var(--cyan);
+    }
+
+    .feed-item.warn { border-left-color: var(--amber); }
+    .feed-item.critical { border-left-color: var(--red); }
+
+    .feed-item time {
+      color: var(--muted);
+      margin-right: 8px;
+    }
+
+    @media (max-width: 1420px) {
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+      .header-top {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 1080px) {
+      .hero,
+      .kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .heat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 0; }
+      .shell { border-radius: 0; }
+      .header,
+      .main {
+        padding: 12px;
+      }
+      .hero,
+      .kpis,
+      .heat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <header class="header">
+        <div class="header-top">
+          <div>
+            <div class="eyebrow">NXGEN Data Flow Monitor</div>
+            <h1>Index Computation Flow Map</h1>
+            <div class="subtitle">参考系统数据流图重构的 v4 监控页，以跨中心拓扑、链路状态和异常传播路径为主视图</div>
+          </div>
+          <div class="hero">
+            <div class="hero-card">
+              <div class="name">Active Primary</div>
+              <div class="val cyan" id="heroPrimary">TKO2</div>
+              <div class="meta"><span>Routing Master</span><span id="heroClock">09:24:40</span></div>
+            </div>
+            <div class="hero-card">
+              <div class="name">Worst Route</div>
+              <div class="val critical" id="heroWorst">214ms</div>
+              <div class="meta"><span id="heroWorstName">TKO2 L2 -> TKO1 L3</span><span>Cross-DC</span></div>
+            </div>
+            <div class="hero-card">
+              <div class="name">Flow Health</div>
+              <div class="val warn" id="heroHealth">72</div>
+              <div class="meta"><span>Weighted Topology Score</span><span id="heroState">Degraded</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-head"><span>Source Feeds</span><span>10 total</span></div>
+            <div class="kpi-value" id="kpiFeeds">10</div>
+            <div class="kpi-bar"><span style="width:100%"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Intra-Site Routes</span><span>steady</span></div>
+            <div class="kpi-value" id="kpiIntra">16</div>
+            <div class="kpi-bar"><span id="kpiIntraBar" style="width:64%"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Cross-Site Routes</span><span>hot zone</span></div>
+            <div class="kpi-value" id="kpiCross">8</div>
+            <div class="kpi-bar"><span id="kpiCrossBar" style="width:70%; background: linear-gradient(90deg, var(--blue), var(--cyan));"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Feedback Routes</span><span>L3 back to L1</span></div>
+            <div class="kpi-value" id="kpiFeedback">2</div>
+            <div class="kpi-bar"><span id="kpiFeedbackBar" style="width:34%; background: linear-gradient(90deg, var(--amber), #fff0a1);"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Warn / Critical</span><span>rolling</span></div>
+            <div class="kpi-value warn" id="kpiAlerts">5 / 1</div>
+            <div class="kpi-bar"><span id="kpiAlertsBar" style="width:48%; background: linear-gradient(90deg, var(--amber), var(--red));"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Refresh</span><span>client side</span></div>
+            <div class="kpi-value" id="kpiRefresh">2.2s</div>
+            <div class="kpi-bar"><span style="width:100%; background: linear-gradient(90deg, var(--purple), var(--cyan));"></span></div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="panel">
+          <div class="panel-head">
+            <strong>System Flow Topology</strong>
+            <div class="legend">
+              <span><i style="background:var(--cyan)"></i>Intra-site</span>
+              <span><i style="background:var(--blue)"></i>Cross-site</span>
+              <span><i style="background:var(--amber)"></i>Feedback</span>
+              <span><i style="background:var(--red)"></i>Critical route</span>
+            </div>
+          </div>
+          <div class="panel-body topology-wrap">
+            <div class="topology-board" id="topologyBoard">
+              <div class="site-band primary">
+                <div class="site-tag">TKO2 <span class="primary-mark">Primary</span></div>
+              </div>
+              <div class="site-band backup">
+                <div class="site-tag">TKO1 Backup</div>
+              </div>
+              <svg class="topology-svg" viewBox="0 0 1600 860" preserveAspectRatio="xMidYMid meet">
+                <g id="routeLayer"></g>
+                <g id="labelLayer"></g>
+              </svg>
+              <div class="node-layer" id="nodeLayer"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="bottom-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Route Watchlist</strong>
+              <span id="watchMeta">highest latency paths first</span>
+            </div>
+            <div class="panel-body">
+              <div class="watch-list" id="watchList"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Flow Heat Grid</strong>
+              <span id="heatMeta">route-group averages</span>
+            </div>
+            <div class="panel-body">
+              <div class="heat-grid" id="heatGrid"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Event Feed</strong>
+              <span id="eventMeta">topology-driven anomalies</span>
+            </div>
+            <div class="panel-body">
+              <div class="feed-list" id="feedList"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const layout = {
+      top: 190,
+      bottom: 650,
+      x: {
+        RT: 92,
+        BB: 182,
+        OMDC: 272,
+        CIICS: 362,
+        BJ: 452,
+        L1: 610,
+        L2: 830,
+        L3: 1048,
+        BG: 1264,
+        HCS: 1478
+      }
+    };
+
+    const sourceNames = ["RT", "BB", "OMDC", "CIICS", "BJ"];
+
+    const nodes = [
+      { id: "TKO2-RT", name: "RT", type: "source", site: "TKO2", x: layout.x.RT, y: layout.top, rate: 980, status: "ok" },
+      { id: "TKO2-BB", name: "BB", type: "source", site: "TKO2", x: layout.x.BB, y: layout.top, rate: 960, status: "ok" },
+      { id: "TKO2-OMDC", name: "OMDC", type: "source", site: "TKO2", x: layout.x.OMDC, y: layout.top, rate: 940, status: "ok" },
+      { id: "TKO2-CIICS", name: "CIICS", type: "source", site: "TKO2", x: layout.x.CIICS, y: layout.top, rate: 920, status: "ok" },
+      { id: "TKO2-BJ", name: "BJ", type: "source", site: "TKO2", x: layout.x.BJ, y: layout.top, rate: 910, status: "ok" },
+
+      { id: "TKO1-RT", name: "RT", type: "source", site: "TKO1", x: layout.x.RT, y: layout.bottom, rate: 880, status: "ok" },
+      { id: "TKO1-BB", name: "BB", type: "source", site: "TKO1", x: layout.x.BB, y: layout.bottom, rate: 870, status: "ok" },
+      { id: "TKO1-OMDC", name: "OMDC", type: "source", site: "TKO1", x: layout.x.OMDC, y: layout.bottom, rate: 860, status: "ok" },
+      { id: "TKO1-CIICS", name: "CIICS", type: "source", site: "TKO1", x: layout.x.CIICS, y: layout.bottom, rate: 850, status: "ok" },
+      { id: "TKO1-BJ", name: "BJ", type: "source", site: "TKO1", x: layout.x.BJ, y: layout.bottom, rate: 840, status: "ok" },
+
+      { id: "TKO2-L1", name: "L1", type: "stage", site: "TKO2", kind: "flow", x: layout.x.L1, y: layout.top, avg: 31, p95: 42, load: 36 },
+      { id: "TKO2-L2", name: "L2", type: "stage", site: "TKO2", kind: "process", x: layout.x.L2, y: layout.top, avg: 34, p95: 51, load: 44 },
+      { id: "TKO2-L3", name: "L3", type: "stage", site: "TKO2", kind: "process", x: layout.x.L3, y: layout.top, avg: 76, p95: 148, load: 74 },
+      { id: "TKO2-BG", name: "BG", type: "stage", site: "TKO2", kind: "process", x: layout.x.BG, y: layout.top, avg: 24, p95: 41, load: 28 },
+      { id: "TKO2-HCS", name: "HCS", type: "stage", site: "TKO2", kind: "flow", x: layout.x.HCS, y: layout.top, avg: 3, p95: 5, load: 12 },
+
+      { id: "TKO1-L1", name: "L1", type: "stage", site: "TKO1", kind: "flow", x: layout.x.L1, y: layout.bottom, avg: 33, p95: 47, load: 34 },
+      { id: "TKO1-L2", name: "L2", type: "stage", site: "TKO1", kind: "process", x: layout.x.L2, y: layout.bottom, avg: 37, p95: 58, load: 41 },
+      { id: "TKO1-L3", name: "L3", type: "stage", site: "TKO1", kind: "process", x: layout.x.L3, y: layout.bottom, avg: 82, p95: 132, load: 69 },
+      { id: "TKO1-BG", name: "BG", type: "stage", site: "TKO1", kind: "process", x: layout.x.BG, y: layout.bottom, avg: 21, p95: 39, load: 24 },
+      { id: "TKO1-HCS", name: "HCS", type: "stage", site: "TKO1", kind: "flow", x: layout.x.HCS, y: layout.bottom, avg: 4, p95: 6, load: 10 }
+    ];
+
+    const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
+
+    const links = [];
+
+    function addLink(from, to, base, group, kind, current) {
+      links.push({
+        id: from + "__" + to,
+        from,
+        to,
+        base,
+        group,
+        kind,
+        current
+      });
+    }
+
+    sourceNames.forEach((source) => {
+      addLink("TKO2-" + source, "TKO2-L1", 30, "source-fan-in", "intra", 31);
+      addLink("TKO1-" + source, "TKO1-L1", 30, "source-fan-in", "intra", 30);
+    });
+
+    addLink("TKO2-L1", "TKO2-L2", 30, "l1-l2", "intra", 33);
+    addLink("TKO1-L1", "TKO1-L2", 30, "l1-l2", "intra", 34);
+
+    addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 148);
+    addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "cross", 214);
+    addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 132);
+    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 176);
+
+    addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 34);
+    addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "cross", 92);
+    addLink("TKO1-L3", "TKO1-BG", 30, "l3-bg", "intra", 32);
+    addLink("TKO1-L3", "TKO2-BG", 30, "l3-bg", "cross", 88);
+
+    addLink("TKO2-L3", "TKO2-L1", 30, "feedback", "feedback", 61);
+    addLink("TKO2-L3", "TKO1-L1", 30, "feedback", "feedback", 124);
+
+    addLink("TKO2-BG", "TKO2-HCS", 30, "bg-hcs", "intra", 25);
+    addLink("TKO2-BG", "TKO1-HCS", 30, "bg-hcs", "cross", 76);
+    addLink("TKO1-BG", "TKO1-HCS", 30, "bg-hcs", "intra", 26);
+    addLink("TKO1-BG", "TKO2-HCS", 30, "bg-hcs", "cross", 69);
+
+    const routeLayer = document.getElementById("routeLayer");
+    const labelLayer = document.getElementById("labelLayer");
+    const nodeLayer = document.getElementById("nodeLayer");
+    const watchList = document.getElementById("watchList");
+    const heatGrid = document.getElementById("heatGrid");
+    const feedList = document.getElementById("feedList");
+
+    function nowText() {
+      const d = new Date();
+      const p = (v) => String(v).padStart(2, "0");
+      return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+    }
+
+    function statusClass(value) {
+      if (value >= 180) return "critical";
+      if (value >= 100) return "warn";
+      return "ok";
+    }
+
+    function routeTone(link) {
+      const severity = statusClass(link.current);
+      if (severity !== "ok") return severity;
+      return link.kind;
+    }
+
+    function meterColor(status) {
+      if (status === "critical") return "linear-gradient(90deg, var(--red), #ff9ca5)";
+      if (status === "warn") return "linear-gradient(90deg, var(--amber), #fff0a1)";
+      return "linear-gradient(90deg, var(--cyan), var(--green))";
+    }
+
+    function nodeStatus(node) {
+      return statusClass(node.p95 || node.rate / 10);
+    }
+
+    function nodeHtml(node) {
+      if (node.type === "source") {
+        return `
+          <div class="node source ${nodeStatus(node)}" style="left:${node.x - 43}px; top:${node.y - 29}px;">
+            <div>${node.name}</div>
+            <small>${node.rate}/s</small>
+          </div>
+        `;
+      }
+
+      const tone = nodeStatus(node);
+      const processClass = node.kind === "process" ? " process" : "";
+      return `
+        <article class="node stage${processClass}" style="left:${node.x - 77}px; top:${node.y - 55}px;">
+          <div class="title">
+            <span>${node.name}</span>
+            <span class="badge ${tone}">${tone}</span>
+          </div>
+          <div class="sub">${node.site} ${node.kind === "process" ? "Compute" : "Flow Gate"}</div>
+          <div class="metrics">
+            <div class="line"><span>AVG</span><strong>${node.avg}ms</strong></div>
+            <div class="line"><span>P95</span><strong class="${tone}">${node.p95}ms</strong></div>
+            <div class="line"><span>LOAD</span><strong>${node.load}%</strong></div>
+          </div>
+          <div class="meter"><span style="width:${node.load}%; background:${meterColor(tone)}"></span></div>
+        </article>
+      `;
+    }
+
+    function pathForLink(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+
+      if (link.kind === "feedback") {
+        const midY = from.site === "TKO2" && to.site === "TKO2" ? 82 : 410;
+        return `M ${from.x} ${from.y} C ${from.x - 130} ${midY}, ${to.x + 90} ${midY}, ${to.x} ${to.y}`;
+      }
+
+      if (from.site === to.site) {
+        const bend = Math.max(70, Math.abs(to.x - from.x) / 3);
+        return `M ${from.x + (from.type === "source" ? 42 : 77)} ${from.y} C ${from.x + bend} ${from.y}, ${to.x - bend} ${to.y}, ${to.x - 77} ${to.y}`;
+      }
+
+      return `M ${from.x + 77} ${from.y} C ${from.x + 180} ${from.y}, ${to.x - 180} ${to.y}, ${to.x - 77} ${to.y}`;
+    }
+
+    function labelPoint(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+      if (link.kind === "feedback") {
+        return { x: (from.x + to.x) / 2 - 20, y: (from.y + to.y) / 2 - 90 };
+      }
+      return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - (from.site !== to.site ? 16 : 18) };
+    }
+
+    function renderTopology() {
+      nodeLayer.innerHTML = nodes.map(nodeHtml).join("");
+      routeLayer.innerHTML = links.map((link) => {
+        const path = pathForLink(link);
+        const tone = routeTone(link);
+        return `
+          <g>
+            <path class="route-base" d="${path}"></path>
+            <path class="route-flow ${tone}" d="${path}"></path>
+          </g>
+        `;
+      }).join("");
+
+      labelLayer.innerHTML = links.map((link) => {
+        const point = labelPoint(link);
+        return `
+          <g class="route-label" transform="translate(${point.x}, ${point.y})">
+            <rect x="-46" y="-18" width="92" height="34"></rect>
+            <text x="0" y="-2">${link.current}ms</text>
+            <text class="tiny" x="0" y="11">base ${link.base}ms</text>
+          </g>
+        `;
+      }).join("");
+    }
+
+    function renderWatchlist() {
+      const hottest = [...links].sort((a, b) => b.current - a.current).slice(0, 6);
+      watchList.innerHTML = hottest.map((link) => {
+        const tone = statusClass(link.current);
+        return `
+          <div class="watch-item">
+            <div class="watch-top">
+              <span>${link.from.replace("-", " ")} -> ${link.to.replace("-", " ")}</span>
+              <span class="${tone}">${tone.toUpperCase()}</span>
+            </div>
+            <div class="watch-val">
+              <strong class="${tone}">${link.current}ms</strong>
+              <span>base ${link.base}ms</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const top = hottest[0];
+      document.getElementById("heroWorst").textContent = top.current + "ms";
+      document.getElementById("heroWorstName").textContent = top.from.replace("-", " ") + " -> " + top.to.replace("-", " ");
+    }
+
+    function avgFor(filter) {
+      const subset = links.filter(filter);
+      const avg = subset.reduce((sum, item) => sum + item.current, 0) / Math.max(subset.length, 1);
+      return Math.round(avg);
+    }
+
+    function heatCell(label, value, note) {
+      const tone = statusClass(value);
+      return `
+        <div class="heat-cell ${tone}">
+          <strong>${value}ms</strong>
+          <span>${note}</span>
+        </div>
+      `;
+    }
+
+    function renderHeatGrid() {
+      const rows = [
+        {
+          name: "Source fan-in",
+          tko2: avgFor((link) => link.group === "source-fan-in" && link.from.startsWith("TKO2")),
+          tko1: avgFor((link) => link.group === "source-fan-in" && link.from.startsWith("TKO1")),
+          cross: avgFor((link) => link.group === "source-fan-in")
+        },
+        {
+          name: "L1 -> L2",
+          tko2: avgFor((link) => link.group === "l1-l2" && link.from.startsWith("TKO2")),
+          tko1: avgFor((link) => link.group === "l1-l2" && link.from.startsWith("TKO1")),
+          cross: avgFor((link) => link.group === "l1-l2")
+        },
+        {
+          name: "L2 -> L3",
+          tko2: avgFor((link) => link.group === "l2-l3" && link.from.startsWith("TKO2") && link.to.startsWith("TKO2")),
+          tko1: avgFor((link) => link.group === "l2-l3" && link.from.startsWith("TKO1") && link.to.startsWith("TKO1")),
+          cross: avgFor((link) => link.group === "l2-l3" && link.kind === "cross")
+        },
+        {
+          name: "L3 -> BG",
+          tko2: avgFor((link) => link.group === "l3-bg" && link.from.startsWith("TKO2") && link.to.startsWith("TKO2")),
+          tko1: avgFor((link) => link.group === "l3-bg" && link.from.startsWith("TKO1") && link.to.startsWith("TKO1")),
+          cross: avgFor((link) => link.group === "l3-bg" && link.kind === "cross")
+        },
+        {
+          name: "BG -> HCS",
+          tko2: avgFor((link) => link.group === "bg-hcs" && link.from.startsWith("TKO2") && link.to.startsWith("TKO2")),
+          tko1: avgFor((link) => link.group === "bg-hcs" && link.from.startsWith("TKO1") && link.to.startsWith("TKO1")),
+          cross: avgFor((link) => link.group === "bg-hcs" && link.kind === "cross")
+        },
+        {
+          name: "Feedback",
+          tko2: avgFor((link) => link.group === "feedback" && link.to.startsWith("TKO2")),
+          tko1: avgFor((link) => link.group === "feedback" && link.to.startsWith("TKO1")),
+          cross: avgFor((link) => link.group === "feedback")
+        }
+      ];
+
+      heatGrid.innerHTML = [
+        '<div class="heat-head">Route Group</div>',
+        '<div class="heat-head">TKO2</div>',
+        '<div class="heat-head">TKO1</div>',
+        '<div class="heat-head">Cross / Mixed</div>',
+        ...rows.flatMap((row) => [
+          `<div class="heat-label">${row.name}</div>`,
+          heatCell("TKO2", row.tko2, "local routes"),
+          heatCell("TKO1", row.tko1, "local routes"),
+          heatCell("Cross", row.cross, "mixed paths")
+        ])
+      ].join("");
+    }
+
+    function renderFeed() {
+      const stamp = nowText();
+      const hottest = [...links].sort((a, b) => b.current - a.current).slice(0, 5);
+      const feed = hottest.map((link, index) => {
+        const tone = statusClass(link.current);
+        let text = link.from.replace("-", " ") + " -> " + link.to.replace("-", " ");
+        if (link.kind === "feedback") text += " feedback route elevated.";
+        else if (link.kind === "cross") text += " cross-site transfer above baseline.";
+        else text += " local route within observation band.";
+        return { tone, text: text + " Current " + link.current + "ms vs base " + link.base + "ms." };
+      });
+
+      feedList.innerHTML = feed.map((item) => `
+        <div class="feed-item ${item.tone}">
+          <time>${stamp}</time>${item.text}
+        </div>
+      `).join("");
+    }
+
+    function renderSummary() {
+      const criticalCount = links.filter((link) => statusClass(link.current) === "critical").length;
+      const warnCount = links.filter((link) => statusClass(link.current) === "warn").length;
+      const health = Math.max(45, 100 - warnCount * 4 - criticalCount * 11);
+      const crossAvg = avgFor((link) => link.kind === "cross");
+
+      document.getElementById("heroClock").textContent = nowText();
+      document.getElementById("heroHealth").textContent = String(health);
+      document.getElementById("heroState").textContent = criticalCount > 0 ? "Degraded" : "Stable";
+      document.getElementById("kpiIntra").textContent = String(links.filter((link) => link.kind === "intra").length);
+      document.getElementById("kpiCross").textContent = String(links.filter((link) => link.kind === "cross").length);
+      document.getElementById("kpiFeedback").textContent = String(links.filter((link) => link.kind === "feedback").length);
+      document.getElementById("kpiAlerts").textContent = warnCount + " / " + criticalCount;
+      document.getElementById("watchMeta").textContent = "updated " + nowText();
+      document.getElementById("heatMeta").textContent = "cross-site avg " + crossAvg + "ms";
+      document.getElementById("eventMeta").textContent = "updated " + nowText();
+      document.getElementById("kpiIntraBar").style.width = Math.min(100, links.filter((link) => link.kind === "intra").length * 4) + "%";
+      document.getElementById("kpiCrossBar").style.width = Math.min(100, crossAvg / 2) + "%";
+      document.getElementById("kpiFeedbackBar").style.width = Math.min(100, avgFor((link) => link.group === "feedback")) + "%";
+      document.getElementById("kpiAlertsBar").style.width = Math.min(100, warnCount * 8 + criticalCount * 14) + "%";
+    }
+
+    function tickNode(node, span) {
+      if (node.type === "source") {
+        node.rate = Math.max(720, Math.round(node.rate + (Math.random() - 0.5) * span * 10));
+        return;
+      }
+      node.avg = Math.max(3, Math.round(node.avg + (Math.random() - 0.5) * span));
+      node.p95 = Math.max(node.avg + 3, Math.round(node.p95 + (Math.random() - 0.5) * span * 1.4));
+      node.load = Math.max(8, Math.min(96, Math.round(node.load + (Math.random() - 0.5) * span * 1.2)));
+    }
+
+    function tickLink(link) {
+      const hot = {
+        "TKO2-L2__TKO1-L3": 214,
+        "TKO1-L2__TKO2-L3": 176,
+        "TKO2-L3__TKO1-L1": 124,
+        "TKO2-L2__TKO2-L3": 148
+      };
+      const anchor = hot[link.id] || link.base + (link.kind === "cross" ? 46 : link.kind === "feedback" ? 58 : 3);
+      const swing = link.kind === "cross" ? 18 : link.kind === "feedback" ? 16 : 6;
+      link.current = Math.max(link.base, Math.round(anchor + (Math.random() - 0.5) * swing));
+    }
+
+    function evolve() {
+      nodes.forEach((node) => {
+        if (node.name === "L3") tickNode(node, 10);
+        else if (node.type === "source") tickNode(node, 8);
+        else tickNode(node, 6);
+      });
+
+      links.forEach(tickLink);
+
+      renderTopology();
+      renderWatchlist();
+      renderHeatGrid();
+      renderFeed();
+      renderSummary();
+    }
+
+    evolve();
+    setInterval(evolve, 2200);
+  </script>
+</body>
+</html>

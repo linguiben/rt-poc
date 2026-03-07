@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NXGEN Performance Monitor v2</title>
+  <style>
+    :root {
+      --bg-0: #041b2f;
+      --bg-1: #08304f;
+      --bg-2: #0a4264;
+      --panel: #0b3555cc;
+      --panel-strong: #0e4469;
+      --line: #3f7ea3;
+      --text: #e9f6ff;
+      --muted: #9ec0d5;
+      --ok: #58e0a7;
+      --warn: #ffd856;
+      --critical: #ff5f6d;
+      --flow: #84d8ff;
+      --proc: #b08cff;
+      --shadow: 0 14px 28px rgba(1, 16, 30, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "IBM Plex Sans", "Barlow", "Noto Sans SC", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 680px at 0% 0%, #0f4d76 0%, transparent 58%),
+        radial-gradient(1000px 680px at 100% 0%, #123460 0%, transparent 62%),
+        linear-gradient(170deg, var(--bg-2), var(--bg-0));
+    }
+
+    .shell {
+      max-width: 1560px;
+      margin: 8px auto 24px;
+      border-radius: 10px;
+      border: 1px solid #2f6788;
+      background: linear-gradient(180deg, #0c3e62 0%, #082b47 100%);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .topbar {
+      padding: 18px 20px 12px;
+      border-bottom: 1px solid #2f6888;
+      background: linear-gradient(180deg, rgba(14, 82, 125, 0.7), rgba(8, 48, 79, 0));
+    }
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 3vw, 44px);
+      letter-spacing: 0.3px;
+      font-weight: 700;
+    }
+
+    .meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .clock {
+      border: 1px solid #4f88a8;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+      color: #d6ecff;
+      background: #083755;
+    }
+
+    .kpi-row {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(140px, 1fr));
+      gap: 10px;
+    }
+
+    .kpi {
+      border: 1px solid #3f7697;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: linear-gradient(180deg, #10456a, #0a3554);
+    }
+
+    .kpi .name { font-size: 12px; color: var(--muted); }
+    .kpi .val { margin-top: 6px; font-weight: 700; font-size: 26px; line-height: 1; }
+
+    .alerts {
+      padding: 0 8px;
+      display: grid;
+      gap: 6px;
+      margin: 8px 0 10px;
+    }
+
+    .alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 4px;
+      padding: 9px 12px;
+      border: 1px solid transparent;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .alert.warn { background: #f4df3f; color: #1f2127; border-color: #fff19f; }
+    .alert.critical { background: #e7383a; color: #fff6f6; border-color: #ff9fa0; }
+
+    .content {
+      display: grid;
+      grid-template-columns: minmax(0, 3fr) minmax(260px, 1fr);
+      gap: 14px;
+      padding: 6px 10px 14px;
+    }
+
+    .main { display: grid; gap: 12px; }
+    .side { display: grid; gap: 10px; align-content: start; }
+
+    .dc-card {
+      border: 1px solid #2d6f94;
+      border-radius: 10px;
+      background: #072f4d;
+      overflow: hidden;
+    }
+
+    .dc-head {
+      text-align: center;
+      font-size: clamp(24px, 2.1vw, 34px);
+      font-weight: 700;
+      padding: 12px 14px;
+      background: linear-gradient(180deg, #0d4d77, #09365a);
+      border-bottom: 1px solid #2f7094;
+    }
+
+    .dc-body {
+      padding: 12px 10px 14px;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .stage {
+      border: 1px solid #3f7494;
+      border-radius: 8px;
+      background: #0a3555;
+      overflow: hidden;
+    }
+
+    .stage-hd {
+      padding: 8px 8px;
+      font-size: 16px;
+      font-weight: 700;
+      text-align: center;
+      border-bottom: 1px solid #44789a;
+      background: linear-gradient(180deg, #1f5f73, #194d63);
+    }
+    .stage.process .stage-hd { background: linear-gradient(180deg, #6f57a8, #43386c); }
+
+    .stage-bd { padding: 8px 9px 10px; min-height: 108px; }
+    .label { color: var(--muted); font-size: 12px; font-weight: 600; }
+    .line {
+      margin-top: 5px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 14px;
+      font-family: "IBM Plex Mono", "JetBrains Mono", monospace;
+      white-space: nowrap;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      border: 1px solid #4a88ab;
+      background: #0f4f7a;
+      color: #d0ebff;
+      font-family: "IBM Plex Sans", "Barlow", "Noto Sans SC", sans-serif;
+    }
+
+    .metric { color: #d8efff; }
+    .ok { color: var(--ok); font-weight: 700; }
+    .warn { color: var(--warn); font-weight: 700; }
+    .critical { color: var(--critical); font-weight: 700; }
+
+    .feedback {
+      grid-column: span 2;
+      border: 1px solid #3d7091;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #093554;
+    }
+
+    .feedback .stage-hd { text-align: left; padding-left: 14px; }
+    .feedback .stage-bd { min-height: auto; }
+
+    .panel {
+      border: 1px solid #397193;
+      border-radius: 10px;
+      background: #0a3554;
+      overflow: hidden;
+    }
+    .panel-hd {
+      padding: 8px 10px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #dcf0ff;
+      border-bottom: 1px solid #3f7595;
+      background: #0f4468;
+    }
+    .panel-bd { padding: 10px; }
+
+    .legend {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 8px; color: #cae6fa; }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .timeline { display: grid; gap: 8px; max-height: 380px; overflow: auto; }
+    .event {
+      border: 1px solid #396f8f;
+      border-left-width: 4px;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #0e4266;
+      font-size: 12px;
+      color: #d4ebff;
+    }
+    .event.warn { border-left-color: var(--warn); }
+    .event.critical { border-left-color: var(--critical); }
+
+    @media (max-width: 1400px) {
+      .content { grid-template-columns: 1fr; }
+      .side { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 1120px) {
+      .dc-body { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .feedback { grid-column: span 1; }
+      .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .side { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .shell { border-radius: 0; margin: 0; }
+      .topbar { padding: 14px 12px 10px; }
+      .dc-head { font-size: 22px; }
+      .stage-hd { font-size: 14px; }
+      .line { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="title-row">
+        <h1>NXGEN Performance Monitor v2</h1>
+        <div class="meta">
+          <span>Equity Index Calculation Platform</span>
+          <span class="clock" id="clock">--:--:--</span>
+        </div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi"><div class="name">全链路 E2E P95</div><div class="val critical">141,622ms</div></div>
+        <div class="kpi"><div class="name">跨中心链路异常</div><div class="val warn">2</div></div>
+        <div class="kpi"><div class="name">Primary Center</div><div class="val">TKO2</div></div>
+        <div class="kpi"><div class="name">观察窗口</div><div class="val">10s</div></div>
+        <div class="kpi"><div class="name">服务健康度</div><div class="val warn">Degraded</div></div>
+      </div>
+    </header>
+
+    <div class="alerts">
+      <div class="alert warn">
+        <span>[WARN] TKO2-L2L3 (Source: BIS) abnormal latency 35,113ms / 36,117ms / 36,121ms [08:39:20]</span>
+        <span>x</span>
+      </div>
+      <div class="alert critical">
+        <span>[CRITICAL] TKO2-L2L3 (Source: BIS) abnormal latency 138,299ms / 141,467ms / 141,622ms [08:39:00]</span>
+        <span>x</span>
+      </div>
+    </div>
+
+    <main class="content">
+      <section class="main">
+        <article class="dc-card">
+          <div class="dc-head">TKO2 (Primary) - 09:24:40</div>
+          <div class="dc-body">
+            <div class="stage">
+              <div class="stage-hd">L1 to L2</div>
+              <div class="stage-bd">
+                <div class="label">Latency in ms/10s (Avg/P90/P95)</div>
+                <div class="line"><span class="metric">Total</span><span>88ms/105ms/110ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage process">
+              <div class="stage-hd">L2 Processing</div>
+              <div class="stage-bd">
+                <div class="line"><span class="tag">Blade1</span><span class="ok">1ms/1ms/1ms</span></div>
+                <div class="line"><span class="tag">Blade2</span><span>1ms/1ms/2ms</span></div>
+                <div class="line"><span class="tag">Blade3</span><span class="warn">1ms/2ms/23ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage">
+              <div class="stage-hd">L2 to L3</div>
+              <div class="stage-bd">
+                <div class="line"><span class="tag">Src: TKO1</span><span>110ms/117ms/117ms</span></div>
+                <div class="line"><span class="tag">Src: TKO2</span><span>69ms/101ms/116ms</span></div>
+                <div class="line"><span class="tag">Src: BIS</span><span class="critical">206ms/218ms/218ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage process">
+              <div class="stage-hd">L3 Processing</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>22ms/32ms/41ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage">
+              <div class="stage-hd">L3 to BG</div>
+              <div class="stage-bd">
+                <div class="line"><span class="tag">Src: TKO2</span><span>15ms/66ms/39ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage process">
+              <div class="stage-hd">BG Processing</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>25ms/25ms/25ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage">
+              <div class="stage-hd">BG to HCS</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>1ms/1ms/1ms</span></div>
+              </div>
+            </div>
+
+            <div class="feedback stage process">
+              <div class="stage-hd">L3 to L1 (Feedback)</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>5ms/66ms/80ms</span></div>
+              </div>
+            </div>
+
+            <div class="feedback stage">
+              <div class="stage-hd">BG to L3 (Feedback)</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>82ms/293ms/316ms</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="dc-card">
+          <div class="dc-head">TKO1 - 09:24:40</div>
+          <div class="dc-body">
+            <div class="stage">
+              <div class="stage-hd">L1 to L2</div>
+              <div class="stage-bd">
+                <div class="label">Latency in ms/10s (Avg/P90/P95)</div>
+                <div class="line"><span class="metric">08:42:40</span><span class="warn">276ms/330ms/330ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage process">
+              <div class="stage-hd">L2 Processing</div>
+              <div class="stage-bd">
+                <div class="line"><span class="tag">Blade1 08:42:40</span><span>1ms/1ms/1ms</span></div>
+                <div class="line"><span class="tag">Blade3 08:35:10</span><span>&lt;1ms/1ms/1ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage">
+              <div class="stage-hd">L2 to L3</div>
+              <div class="stage-bd">
+                <div class="line"><span class="tag">Src: TKO1</span><span>111ms/118ms/119ms</span></div>
+                <div class="line"><span class="tag">Src: TKO2</span><span>70ms/98ms/114ms</span></div>
+                <div class="line"><span class="tag">Src: BIS</span><span class="critical">661ms/668ms/668ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage process">
+              <div class="stage-hd">L3 Processing</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>18ms/24ms/26ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage">
+              <div class="stage-hd">L3 to BG</div>
+              <div class="stage-bd">
+                <div class="line"><span class="tag">Src: TKO2</span><span>12ms/39ms/31ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage process">
+              <div class="stage-hd">BG Processing</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>17ms/29ms/29ms</span></div>
+              </div>
+            </div>
+
+            <div class="stage">
+              <div class="stage-hd">BG to HCS</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>1ms/1ms/1ms</span></div>
+              </div>
+            </div>
+
+            <div class="feedback stage process">
+              <div class="stage-hd">L3 to L1 (Feedback)</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>3ms/27ms/36ms</span></div>
+              </div>
+            </div>
+
+            <div class="feedback stage">
+              <div class="stage-hd">BG to L3 (Feedback)</div>
+              <div class="stage-bd">
+                <div class="line"><span class="metric">Total</span><span>13ms/57ms/63ms</span></div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <aside class="side">
+        <section class="panel">
+          <div class="panel-hd">状态图例</div>
+          <div class="panel-bd legend">
+            <div class="legend-item"><span class="dot" style="color: var(--ok); background: var(--ok);"></span><span>Normal: P95 &lt; 120ms</span></div>
+            <div class="legend-item"><span class="dot" style="color: var(--warn); background: var(--warn);"></span><span>Warn: 120ms - 300ms</span></div>
+            <div class="legend-item"><span class="dot" style="color: var(--critical); background: var(--critical);"></span><span>Critical: &gt;= 300ms</span></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-hd">运行摘要</div>
+          <div class="panel-bd legend">
+            <div class="legend-item"><span>链路数量</span><strong>18</strong></div>
+            <div class="legend-item"><span>节点实例</span><strong>6</strong></div>
+            <div class="legend-item"><span>告警累计</span><strong class="critical">14</strong></div>
+            <div class="legend-item"><span>最后刷新</span><strong id="refreshAt">09:24:40</strong></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-hd">最近事件</div>
+          <div class="panel-bd timeline">
+            <div class="event critical">[08:39:00] TKO2-L2L3 Source:BIS latency reached 141,622ms.</div>
+            <div class="event warn">[08:39:20] TKO2-L2L3 Source:BIS still above warning threshold.</div>
+            <div class="event warn">[08:42:40] TKO1 L1-L2 observed 330ms tail latency.</div>
+            <div class="event">[09:24:40] BG-HCS link stable at 1ms in both data centers.</div>
+            <div class="event">[09:24:40] L2 processing blades remain within 1-2ms baseline.</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    function updateClock() {
+      const now = new Date();
+      const f = (v) => String(v).padStart(2, "0");
+      const text = f(now.getHours()) + ":" + f(now.getMinutes()) + ":" + f(now.getSeconds());
+      document.getElementById("clock").textContent = text;
+      document.getElementById("refreshAt").textContent = text;
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+</html>

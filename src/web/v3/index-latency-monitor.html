@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NXGEN Performance Monitor v3</title>
+  <style>
+    :root {
+      --bg-0: #031018;
+      --bg-1: #071d2b;
+      --bg-2: #0b2d40;
+      --ink: #eef7ff;
+      --muted: #8fb5c9;
+      --line: rgba(120, 190, 230, 0.22);
+      --cyan: #56e1ff;
+      --aqua: #00ffa3;
+      --amber: #ffcc33;
+      --red: #ff4d5a;
+      --blue: #5ea8ff;
+      --panel: rgba(6, 21, 33, 0.78);
+      --panel-strong: rgba(10, 31, 47, 0.94);
+      --glow: 0 0 22px rgba(86, 225, 255, 0.22);
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body { min-height: 100%; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Rajdhani", "DIN Alternate", "Arial Narrow", sans-serif;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(0, 255, 163, 0.14), transparent 22%),
+        radial-gradient(circle at 88% 12%, rgba(94, 168, 255, 0.16), transparent 24%),
+        radial-gradient(circle at 50% 100%, rgba(255, 77, 90, 0.12), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-0));
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    body::before {
+      background:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at 50% 45%, #000 58%, transparent 100%);
+      opacity: 0.28;
+    }
+
+    body::after {
+      background: linear-gradient(180deg, transparent 0%, rgba(86, 225, 255, 0.07) 48%, transparent 100%);
+      animation: scan 7s linear infinite;
+      opacity: 0.45;
+    }
+
+    @keyframes scan {
+      from { transform: translateY(-55%); }
+      to { transform: translateY(55%); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 rgba(86, 225, 255, 0); }
+      50% { box-shadow: 0 0 18px rgba(86, 225, 255, 0.22); }
+    }
+
+    @keyframes beam {
+      from { background-position: 0 0; }
+      to { background-position: 140px 0; }
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.42; }
+    }
+
+    .app {
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .shell {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(8, 28, 42, 0.96), rgba(4, 16, 24, 0.92));
+      box-shadow: var(--shadow);
+      border-radius: 18px;
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(12, 42, 63, 0.95), rgba(7, 25, 37, 0.3));
+    }
+
+    .title-row,
+    .control-row,
+    .alert-row,
+    .grid-main {
+      display: grid;
+      gap: 12px;
+    }
+
+    .title-row {
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--cyan);
+      text-transform: uppercase;
+      font-size: 13px;
+      letter-spacing: 2px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+    }
+
+    h1 {
+      margin: 8px 0 0;
+      font-size: clamp(34px, 4vw, 56px);
+      line-height: 0.95;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .subline {
+      margin-top: 10px;
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 0.7px;
+    }
+
+    .status-banner {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .status-card {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(13, 37, 55, 0.95), rgba(8, 21, 32, 0.84));
+      min-height: 92px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .status-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -30% -80% -30%;
+      height: 130%;
+      background: radial-gradient(circle, rgba(86,225,255,0.18), transparent 60%);
+      pointer-events: none;
+    }
+
+    .status-card .label {
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    .status-card .value {
+      margin-top: 10px;
+      font-size: 34px;
+      line-height: 1;
+      font-weight: 700;
+      text-shadow: 0 0 16px rgba(255,255,255,0.08);
+    }
+
+    .status-card .meta {
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #c4dded;
+      font-size: 13px;
+    }
+
+    .control-row {
+      margin-top: 14px;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+
+    .kpi {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(10, 31, 47, 0.96), rgba(5, 18, 27, 0.92));
+      padding: 10px 12px;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .kpi-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+
+    .kpi-value {
+      margin-top: 8px;
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+      color: #f3fbff;
+    }
+
+    .kpi-bar {
+      margin-top: 10px;
+      height: 7px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .kpi-bar span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--aqua));
+      box-shadow: 0 0 14px rgba(86, 225, 255, 0.4);
+    }
+
+    .ticker {
+      margin-top: 12px;
+      border: 1px solid rgba(255, 77, 90, 0.28);
+      background: linear-gradient(90deg, rgba(255, 77, 90, 0.16), rgba(255, 204, 51, 0.08));
+      border-radius: 12px;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .ticker-track {
+      display: flex;
+      gap: 42px;
+      padding: 10px 18px;
+      white-space: nowrap;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      animation: ticker 24s linear infinite;
+    }
+
+    @keyframes ticker {
+      from { transform: translateX(0); }
+      to { transform: translateX(-45%); }
+    }
+
+    .ticker .critical { color: #ffb8bd; }
+    .ticker .warn { color: #ffe89b; }
+
+    .grid-main {
+      padding: 16px;
+      grid-template-columns: minmax(0, 1.65fr) minmax(330px, 0.85fr);
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(10, 31, 47, 0.95), rgba(5, 17, 27, 0.92));
+      overflow: hidden;
+      position: relative;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(120deg, rgba(86,225,255,0.06), transparent 36%, rgba(255,255,255,0.02) 64%, transparent 100%);
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .panel-head strong {
+      color: var(--ink);
+      font-size: 16px;
+      letter-spacing: 0.8px;
+    }
+
+    .panel-body { padding: 14px; }
+
+    .topology {
+      position: relative;
+      min-height: 530px;
+      border: 1px solid rgba(86, 225, 255, 0.12);
+      border-radius: 14px;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px),
+        radial-gradient(circle at 50% 50%, rgba(86,225,255,0.08), transparent 44%),
+        linear-gradient(180deg, rgba(5, 18, 27, 0.5), rgba(5, 18, 27, 0.9));
+      background-size: 46px 46px, 46px 46px, auto, auto;
+      overflow: hidden;
+    }
+
+    .topology::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(86,225,255,0.08), transparent);
+      transform: translateX(-100%);
+      animation: beamSweep 10s linear infinite;
+      pointer-events: none;
+    }
+
+    @keyframes beamSweep {
+      to { transform: translateX(100%); }
+    }
+
+    .dc-lane {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      height: 190px;
+      border: 1px solid rgba(86, 225, 255, 0.14);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 36, 53, 0.24), rgba(3, 10, 16, 0.3));
+    }
+
+    .dc-lane.primary {
+      top: 28px;
+      box-shadow: inset 0 0 0 1px rgba(255, 204, 51, 0.16);
+    }
+
+    .dc-lane.secondary { top: 296px; }
+
+    .dc-label {
+      position: absolute;
+      left: 16px;
+      top: 14px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(8, 28, 42, 0.82);
+      border: 1px solid var(--line);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .dc-label.primary::after {
+      content: "Primary";
+      margin-left: 8px;
+      color: var(--amber);
+      animation: blink 1.8s ease-in-out infinite;
+    }
+
+    .nodes {
+      position: absolute;
+      left: 132px;
+      right: 30px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+      top: 62px;
+    }
+
+    .nodes.bottom { top: 330px; }
+
+    .node {
+      position: relative;
+      min-height: 118px;
+      border-radius: 14px;
+      border: 1px solid rgba(86, 225, 255, 0.2);
+      background: linear-gradient(180deg, rgba(12, 44, 66, 0.95), rgba(7, 23, 35, 0.96));
+      padding: 10px 12px 12px;
+      animation: pulse 3s ease-in-out infinite;
+    }
+
+    .node.process {
+      border-color: rgba(161, 124, 255, 0.26);
+      background: linear-gradient(180deg, rgba(53, 34, 84, 0.95), rgba(18, 15, 39, 0.96));
+    }
+
+    .node-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: baseline;
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+    }
+
+    .node-sub {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .node-metrics {
+      margin-top: 12px;
+      display: grid;
+      gap: 7px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+      color: #d7ebf5;
+    }
+
+    .node-line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .mini-meter {
+      margin-top: 9px;
+      height: 6px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .mini-meter span {
+      display: block;
+      height: 100%;
+      width: 40%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--aqua));
+      box-shadow: var(--glow);
+      transition: width 0.5s ease;
+    }
+
+    .node-badge {
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .link-row {
+      position: absolute;
+      left: 214px;
+      right: 66px;
+      height: 2px;
+      top: 154px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 28px;
+    }
+
+    .link-row.bottom { top: 422px; }
+
+    .beam {
+      position: relative;
+      background-image: linear-gradient(90deg, rgba(86,225,255,0.2), rgba(86,225,255,0.96), rgba(0,255,163,0.4), rgba(86,225,255,0.2));
+      background-size: 140px 100%;
+      animation: beam 2.4s linear infinite;
+      border-radius: 999px;
+      box-shadow: 0 0 18px rgba(86,225,255,0.24);
+    }
+
+    .beam::after {
+      content: "";
+      position: absolute;
+      right: -5px;
+      top: -4px;
+      border: 5px solid transparent;
+      border-left-color: rgba(86,225,255,0.9);
+    }
+
+    .feedback-routes {
+      position: absolute;
+      left: 180px;
+      right: 120px;
+      bottom: 18px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .feedback {
+      border: 1px solid rgba(255, 204, 51, 0.2);
+      border-radius: 12px;
+      background: linear-gradient(180deg, rgba(41, 31, 11, 0.45), rgba(12, 19, 24, 0.84));
+      padding: 10px 12px;
+      min-height: 72px;
+    }
+
+    .feedback-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .feedback-body {
+      margin-top: 8px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 13px;
+    }
+
+    .summary-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .health-ring {
+      height: 240px;
+      display: grid;
+      place-items: center;
+      position: relative;
+    }
+
+    .ring {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at center, rgba(6,21,33,1) 0 54%, transparent 55%),
+        conic-gradient(var(--red) 0 18%, var(--amber) 18% 31%, var(--cyan) 31% 100%);
+      filter: drop-shadow(0 0 24px rgba(86,225,255,0.18));
+      position: relative;
+    }
+
+    .ring::after {
+      content: "";
+      position: absolute;
+      inset: 14px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .ring-copy {
+      position: absolute;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .ring-copy .big {
+      font-size: 54px;
+      font-weight: 700;
+      line-height: 0.9;
+      color: var(--amber);
+    }
+
+    .ring-copy .small {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 1.2px;
+    }
+
+    .stats-list,
+    .incident-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .stats-item,
+    .incident {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    .stats-item .name,
+    .incident .name {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    .stats-item .num,
+    .incident .num {
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .chart-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .chart-box {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 29, 43, 0.9), rgba(5, 17, 27, 0.92));
+      padding: 10px 12px 12px;
+    }
+
+    .chart-box h3,
+    .matrix-box h3 {
+      margin: 0 0 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 14px;
+      color: #d7ebf5;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 170px;
+      border-radius: 10px;
+      background:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+        rgba(4, 13, 20, 0.9);
+      background-size: 34px 34px;
+    }
+
+    .bottom-grid {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+      gap: 12px;
+    }
+
+    .matrix-box,
+    .events-box {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 29, 43, 0.9), rgba(5, 17, 27, 0.92));
+      padding: 10px 12px 12px;
+    }
+
+    .matrix {
+      display: grid;
+      grid-template-columns: 150px repeat(5, minmax(92px, 1fr));
+      gap: 8px;
+    }
+
+    .matrix-head,
+    .matrix-cell,
+    .matrix-label {
+      min-height: 56px;
+      border-radius: 12px;
+      display: grid;
+      align-items: center;
+      justify-items: center;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.06);
+      text-align: center;
+    }
+
+    .matrix-head,
+    .matrix-label {
+      background: rgba(255,255,255,0.035);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .matrix-cell {
+      background: rgba(255,255,255,0.03);
+      position: relative;
+      overflow: hidden;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .matrix-cell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: currentColor;
+      opacity: 0.8;
+    }
+
+    .matrix-cell strong {
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .matrix-cell span {
+      margin-top: 3px;
+      display: block;
+      font-size: 12px;
+      color: #dbebf5;
+    }
+
+    .events {
+      display: grid;
+      gap: 8px;
+      max-height: 320px;
+      overflow: auto;
+    }
+
+    .event {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-left: 4px solid var(--cyan);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.025);
+      padding: 10px 12px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .event.warn { border-left-color: var(--amber); }
+    .event.critical { border-left-color: var(--red); }
+
+    .event time {
+      display: inline-block;
+      min-width: 74px;
+      color: var(--muted);
+      margin-right: 6px;
+    }
+
+    .critical { color: var(--red); }
+    .warn { color: var(--amber); }
+    .ok { color: var(--aqua); }
+    .cyan { color: var(--cyan); }
+
+    @media (max-width: 1360px) {
+      .grid-main,
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+      .title-row {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 1180px) {
+      .control-row {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .status-banner {
+        grid-template-columns: 1fr;
+      }
+      .nodes,
+      .nodes.bottom {
+        position: static;
+        margin: 56px 16px 0 116px;
+      }
+      .topology {
+        min-height: auto;
+        padding-bottom: 18px;
+      }
+      .dc-lane,
+      .link-row,
+      .link-row.bottom,
+      .feedback-routes {
+        position: static;
+      }
+      .dc-lane {
+        margin: 14px;
+        height: auto;
+        padding-bottom: 16px;
+      }
+      .link-row,
+      .link-row.bottom {
+        margin: 10px 30px 0 146px;
+        height: 12px;
+      }
+      .feedback-routes {
+        margin: 14px;
+      }
+      .chart-grid {
+        grid-template-columns: 1fr;
+      }
+      .matrix {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .matrix-head:first-child {
+        display: none;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 0; }
+      .shell { border-radius: 0; }
+      .header,
+      .grid-main { padding: 12px; }
+      .control-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .nodes,
+      .nodes.bottom {
+        margin: 56px 10px 0 10px;
+        grid-template-columns: 1fr;
+      }
+      .link-row,
+      .link-row.bottom {
+        display: none;
+      }
+      .feedback-routes {
+        grid-template-columns: 1fr;
+      }
+      .matrix {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <header class="header">
+        <div class="title-row">
+          <div>
+            <div class="eyebrow">NXGEN Market Infra</div>
+            <h1>Index Latency Command Center</h1>
+            <div class="subline">股指指数计算系统交易大屏版，聚焦双中心链路、尾延迟热点与异常传播路径</div>
+          </div>
+          <div class="status-banner">
+            <div class="status-card">
+              <div class="label">Primary Data Center</div>
+              <div class="value cyan" id="primaryDc">TKO2</div>
+              <div class="meta"><span>Role Active</span><span id="clock">09:24:40</span></div>
+            </div>
+            <div class="status-card">
+              <div class="label">Critical Path P95</div>
+              <div class="value critical" id="headlineP95">141,622ms</div>
+              <div class="meta"><span>TKO2 L2-L3 / BIS</span><span>10s Window</span></div>
+            </div>
+            <div class="status-card">
+              <div class="label">Service Condition</div>
+              <div class="value warn" id="headlineState">DEGRADED</div>
+              <div class="meta"><span id="badLinks">2 abnormal links</span><span>Live Scan</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-row">
+          <div class="kpi">
+            <div class="kpi-head"><span>Total Throughput</span><span id="kpiTpsLabel">312k/s</span></div>
+            <div class="kpi-value" id="kpiTps">312,480</div>
+            <div class="kpi-bar"><span id="kpiTpsBar" style="width: 74%"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>E2E Avg</span><span>Target &lt; 500ms</span></div>
+            <div class="kpi-value" id="kpiE2E">428ms</div>
+            <div class="kpi-bar"><span id="kpiE2EBar" style="width: 36%"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Cross-DC Sync</span><span>TKO1 ⇄ TKO2</span></div>
+            <div class="kpi-value" id="kpiCross">97ms</div>
+            <div class="kpi-bar"><span id="kpiCrossBar" style="width: 49%"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Warning Count</span><span>Rolling 5m</span></div>
+            <div class="kpi-value warn" id="kpiWarn">11</div>
+            <div class="kpi-bar"><span id="kpiWarnBar" style="width: 44%; background: linear-gradient(90deg, var(--amber), #ffef8f);"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Critical Count</span><span>Rolling 5m</span></div>
+            <div class="kpi-value critical" id="kpiCritical">3</div>
+            <div class="kpi-bar"><span id="kpiCriticalBar" style="width: 21%; background: linear-gradient(90deg, var(--red), #ff9aa3);"></span></div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-head"><span>Refresh Cycle</span><span>Client-Side</span></div>
+            <div class="kpi-value" id="kpiRefresh">2.5s</div>
+            <div class="kpi-bar"><span style="width: 100%; background: linear-gradient(90deg, var(--blue), var(--cyan));"></span></div>
+          </div>
+        </div>
+
+        <div class="ticker">
+          <div class="ticker-track" id="tickerTrack">
+            <span class="critical">[CRITICAL] TKO2-L2L3 Source:BIS abnormal latency 141,622ms</span>
+            <span class="warn">[WARN] BG to L3 feedback on TKO2 touched 316ms P95</span>
+            <span class="cyan">[INFO] BG to HCS remains stable at 1ms in both data centers</span>
+            <span class="warn">[WARN] TKO1 L1 to L2 still above baseline at 330ms P95</span>
+            <span class="critical">[CRITICAL] TKO2-L2L3 Source:BIS abnormal latency 141,622ms</span>
+            <span class="warn">[WARN] BG to L3 feedback on TKO2 touched 316ms P95</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="grid-main">
+        <section>
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Cross-DC Topology</strong>
+              <span id="topologyMeta">TKO2 primary routing · live flow animation</span>
+            </div>
+            <div class="panel-body">
+              <div class="topology">
+                <div class="dc-lane primary">
+                  <div class="dc-label primary">TKO2</div>
+                </div>
+                <div class="dc-lane secondary">
+                  <div class="dc-label">TKO1</div>
+                </div>
+
+                <div class="nodes" id="nodesTop"></div>
+                <div class="link-row">
+                  <div class="beam"></div>
+                  <div class="beam"></div>
+                  <div class="beam"></div>
+                  <div class="beam"></div>
+                </div>
+
+                <div class="nodes bottom" id="nodesBottom"></div>
+                <div class="link-row bottom">
+                  <div class="beam"></div>
+                  <div class="beam"></div>
+                  <div class="beam"></div>
+                  <div class="beam"></div>
+                </div>
+
+                <div class="feedback-routes" id="feedbackRoutes"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-grid">
+            <div class="chart-box">
+              <h3>P95 Tail Latency Trend</h3>
+              <canvas id="chartLatency" width="720" height="220"></canvas>
+            </div>
+            <div class="chart-box">
+              <h3>Throughput Pulse</h3>
+              <canvas id="chartTps" width="720" height="220"></canvas>
+            </div>
+          </div>
+
+          <div class="bottom-grid">
+            <div class="matrix-box">
+              <h3>Stage Heat Matrix</h3>
+              <div class="matrix" id="matrix"></div>
+            </div>
+            <div class="events-box">
+              <h3>Incident Feed</h3>
+              <div class="events" id="events"></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="summary-stack">
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Global Health</strong>
+              <span id="healthCaption">Weighted by P95 and route severity</span>
+            </div>
+            <div class="panel-body">
+              <div class="health-ring">
+                <div class="ring"></div>
+                <div class="ring-copy">
+                  <div class="big" id="healthScore">68</div>
+                  <div class="small">health score</div>
+                </div>
+              </div>
+              <div class="stats-list" id="statsList"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Hot Incidents</strong>
+              <span>priority ordered</span>
+            </div>
+            <div class="panel-body">
+              <div class="incident-list" id="incidentList"></div>
+            </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const stageOrder = ["L1 to L2", "L2 Processing", "L2 to L3", "L3 Processing", "L3 to BG"];
+    const topoState = {
+      TKO2: [
+        { name: "L1 to L2", kind: "flow", avg: 88, p90: 105, p95: 110, load: 34 },
+        { name: "L2 Processing", kind: "process", avg: 1, p90: 2, p95: 23, load: 18, detail: "Blade3 tail" },
+        { name: "L2 to L3", kind: "flow", avg: 206, p90: 218, p95: 218, load: 84, detail: "Src BIS" },
+        { name: "L3 Processing", kind: "process", avg: 22, p90: 32, p95: 41, load: 22 },
+        { name: "L3 to BG", kind: "flow", avg: 15, p90: 66, p95: 39, load: 25, detail: "Src TKO2" }
+      ],
+      TKO1: [
+        { name: "L1 to L2", kind: "flow", avg: 276, p90: 330, p95: 330, load: 66, detail: "stale at 08:42:40" },
+        { name: "L2 Processing", kind: "process", avg: 1, p90: 1, p95: 1, load: 14, detail: "Blade1 stable" },
+        { name: "L2 to L3", kind: "flow", avg: 661, p90: 668, p95: 668, load: 93, detail: "Src BIS" },
+        { name: "L3 Processing", kind: "process", avg: 18, p90: 24, p95: 26, load: 20 },
+        { name: "L3 to BG", kind: "flow", avg: 12, p90: 39, p95: 31, load: 20, detail: "Src TKO2" }
+      ],
+      feedback: [
+        { name: "L3 to L1 Feedback", site: "TKO2", avg: 5, p90: 66, p95: 80 },
+        { name: "BG to L3 Feedback", site: "TKO2", avg: 82, p90: 293, p95: 316 },
+        { name: "L3 to L1 Feedback", site: "TKO1", avg: 3, p90: 27, p95: 36 },
+        { name: "BG to L3 Feedback", site: "TKO1", avg: 13, p90: 57, p95: 63 }
+      ]
+    };
+
+    const history = {
+      latency: [126, 129, 132, 128, 136, 140, 143, 141, 139, 137, 145, 148, 146, 142, 144, 141, 138, 134, 131, 136],
+      tps: [298, 302, 304, 301, 306, 308, 313, 311, 315, 314, 318, 316, 319, 321, 317, 315, 312, 310, 308, 312]
+    };
+
+    const events = [
+      { level: "critical", text: "TKO2 L2-L3 / BIS source breached 141,622ms P95." },
+      { level: "warn", text: "TKO2 BG to L3 feedback remained above 300ms P95." },
+      { level: "warn", text: "TKO1 L1 to L2 exceeded baseline and last refreshed at 08:42:40." },
+      { level: "ok", text: "BG to HCS remained stable at 1ms for both sites." },
+      { level: "ok", text: "L2 processing blades remained below 2ms except isolated tail on Blade3." }
+    ];
+
+    const nodesTop = document.getElementById("nodesTop");
+    const nodesBottom = document.getElementById("nodesBottom");
+    const feedbackRoutes = document.getElementById("feedbackRoutes");
+    const matrix = document.getElementById("matrix");
+    const eventsEl = document.getElementById("events");
+    const incidentList = document.getElementById("incidentList");
+    const statsList = document.getElementById("statsList");
+
+    function pad(value) {
+      return String(value).padStart(2, "0");
+    }
+
+    function timeNow() {
+      const d = new Date();
+      return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+    }
+
+    function severity(p95) {
+      if (p95 >= 300) return "critical";
+      if (p95 >= 120) return "warn";
+      return "ok";
+    }
+
+    function pct(value, max) {
+      return Math.max(4, Math.min(100, Math.round((value / max) * 100)));
+    }
+
+    function nodeMarkup(item) {
+      const state = severity(item.p95);
+      const label = state === "critical" ? "critical" : state === "warn" ? "warn" : "normal";
+      const cls = item.kind === "process" ? "node process" : "node";
+      return `
+        <article class="${cls}">
+          <div class="node-title">
+            <span>${item.name}</span>
+            <span class="node-badge ${state}">${label}</span>
+          </div>
+          <div class="node-sub">${item.detail || (item.kind === "process" ? "Compute Node" : "Route Metrics")}</div>
+          <div class="node-metrics">
+            <div class="node-line"><span>AVG</span><strong>${item.avg}ms</strong></div>
+            <div class="node-line"><span>P90</span><strong>${item.p90}ms</strong></div>
+            <div class="node-line"><span>P95</span><strong class="${state}">${item.p95}ms</strong></div>
+          </div>
+          <div class="mini-meter"><span style="width:${pct(item.load, 100)}%"></span></div>
+        </article>
+      `;
+    }
+
+    function renderTopology() {
+      nodesTop.innerHTML = topoState.TKO2.map(nodeMarkup).join("");
+      nodesBottom.innerHTML = topoState.TKO1.map(nodeMarkup).join("");
+      feedbackRoutes.innerHTML = topoState.feedback.map((item) => {
+        const state = severity(item.p95);
+        return `
+          <div class="feedback">
+            <div class="feedback-head">
+              <span>${item.site} · ${item.name}</span>
+              <span class="${state}">${state.toUpperCase()}</span>
+            </div>
+            <div class="feedback-body">AVG ${item.avg}ms / P90 ${item.p90}ms / P95 <span class="${state}">${item.p95}ms</span></div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function heatColor(value) {
+      if (value >= 300) return "var(--red)";
+      if (value >= 120) return "var(--amber)";
+      return "var(--aqua)";
+    }
+
+    function renderMatrix() {
+      const head = [
+        '<div class="matrix-head">Site / Stage</div>',
+        ...stageOrder.map((stage) => `<div class="matrix-head">${stage}</div>`)
+      ];
+
+      const rows = ["TKO2", "TKO1"].flatMap((site) => {
+        const items = topoState[site];
+        return [
+          `<div class="matrix-label">${site}</div>`,
+          ...items.map((item) => `
+            <div class="matrix-cell" style="color:${heatColor(item.p95)}">
+              <strong>${item.p95}ms</strong>
+              <span>${item.avg}/${item.p90}/${item.p95}</span>
+            </div>
+          `)
+        ];
+      });
+
+      matrix.innerHTML = [...head, ...rows].join("");
+    }
+
+    function renderEvents() {
+      eventsEl.innerHTML = events.map((event, index) => {
+        const stamp = timeNow();
+        return `<div class="event ${event.level}"><time>${stamp}</time>${event.text}</div>`;
+      }).join("");
+    }
+
+    function renderIncidents() {
+      const incidents = [
+        { name: "TKO2 L2-L3 / BIS", num: topoState.TKO2[2].p95 + "ms", cls: severity(topoState.TKO2[2].p95) },
+        { name: "TKO1 L2-L3 / BIS", num: topoState.TKO1[2].p95 + "ms", cls: severity(topoState.TKO1[2].p95) },
+        { name: "TKO2 BG-L3 Feedback", num: topoState.feedback[1].p95 + "ms", cls: severity(topoState.feedback[1].p95) },
+        { name: "TKO1 L1-L2", num: topoState.TKO1[0].p95 + "ms", cls: severity(topoState.TKO1[0].p95) }
+      ];
+      incidentList.innerHTML = incidents.map((item) => `
+        <div class="incident">
+          <div>
+            <div class="name">${item.name}</div>
+          </div>
+          <div class="num ${item.cls}">${item.num}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderStats() {
+      const stats = [
+        { name: "Observed routes", num: "18" },
+        { name: "Primary center", num: "TKO2" },
+        { name: "Healthy modules", num: "12/18" },
+        { name: "Worst source", num: "BIS" },
+        { name: "Last update", num: timeNow() }
+      ];
+      statsList.innerHTML = stats.map((item) => `
+        <div class="stats-item">
+          <div class="name">${item.name}</div>
+          <div class="num">${item.num}</div>
+        </div>
+      `).join("");
+    }
+
+    function drawChart(canvasId, points, colorA, colorB, suffix) {
+      const canvas = document.getElementById(canvasId);
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      const padX = 18;
+      const padY = 20;
+      ctx.clearRect(0, 0, w, h);
+
+      const max = Math.max(...points) * 1.08;
+      const min = Math.min(...points) * 0.94;
+      const x = (i) => padX + (w - padX * 2) * (i / Math.max(points.length - 1, 1));
+      const y = (v) => h - padY - ((v - min) / Math.max(max - min, 1)) * (h - padY * 2);
+
+      ctx.beginPath();
+      points.forEach((value, index) => {
+        const px = x(index);
+        const py = y(value);
+        if (index === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.strokeStyle = colorA;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = colorA;
+      ctx.shadowBlur = 12;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      ctx.lineTo(x(points.length - 1), h - padY);
+      ctx.lineTo(x(0), h - padY);
+      ctx.closePath();
+      const gradient = ctx.createLinearGradient(0, 0, 0, h);
+      gradient.addColorStop(0, colorB);
+      gradient.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      points.forEach((value, index) => {
+        const px = x(index);
+        const py = y(value);
+        ctx.beginPath();
+        ctx.fillStyle = colorA;
+        ctx.arc(px, py, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.fillStyle = "#d4e8f5";
+      ctx.font = "12px IBM Plex Mono, monospace";
+      ctx.fillText(points[points.length - 1] + suffix, w - 78, 18);
+    }
+
+    function jitter(base, swing) {
+      return Math.max(1, Math.round(base + (Math.random() - 0.5) * swing));
+    }
+
+    function evolve() {
+      topoState.TKO2[0].avg = jitter(88, 10);
+      topoState.TKO2[0].p90 = jitter(105, 16);
+      topoState.TKO2[0].p95 = jitter(110, 18);
+      topoState.TKO2[2].avg = jitter(188, 48);
+      topoState.TKO2[2].p90 = jitter(208, 36);
+      topoState.TKO2[2].p95 = jitter(220, 32);
+      topoState.TKO2[4].avg = jitter(15, 8);
+      topoState.TKO2[4].p90 = jitter(66, 18);
+      topoState.TKO2[4].p95 = jitter(39, 14);
+
+      topoState.TKO1[0].avg = jitter(276, 44);
+      topoState.TKO1[0].p90 = jitter(330, 36);
+      topoState.TKO1[0].p95 = jitter(330, 42);
+      topoState.TKO1[2].avg = jitter(640, 52);
+      topoState.TKO1[2].p90 = jitter(668, 28);
+      topoState.TKO1[2].p95 = jitter(668, 30);
+
+      topoState.TKO2[0].load = jitter(34, 14);
+      topoState.TKO2[1].load = jitter(18, 10);
+      topoState.TKO2[2].load = jitter(84, 10);
+      topoState.TKO2[3].load = jitter(22, 12);
+      topoState.TKO2[4].load = jitter(25, 12);
+      topoState.TKO1[0].load = jitter(66, 12);
+      topoState.TKO1[1].load = jitter(14, 10);
+      topoState.TKO1[2].load = jitter(93, 6);
+      topoState.TKO1[3].load = jitter(20, 10);
+      topoState.TKO1[4].load = jitter(20, 8);
+
+      topoState.feedback[1].p95 = jitter(316, 26);
+      topoState.feedback[1].p90 = jitter(293, 24);
+      topoState.feedback[1].avg = jitter(82, 16);
+
+      history.latency.push(Math.max(118, Math.round((topoState.TKO2[2].p95 + topoState.TKO1[2].p95) / 6)));
+      history.tps.push(jitter(312, 16));
+      if (history.latency.length > 24) history.latency.shift();
+      if (history.tps.length > 24) history.tps.shift();
+
+      const totalTps = history.tps[history.tps.length - 1] * 1000;
+      const e2e = Math.round((topoState.TKO2[0].avg + topoState.TKO2[2].avg + topoState.TKO2[3].avg + topoState.TKO2[4].avg + 25 + 1) * 0.95);
+      const cross = Math.round((topoState.TKO2[2].avg + topoState.TKO1[2].avg) / 9);
+      const warnCount = 8 + Math.round(Math.random() * 5);
+      const criticalCount = 2 + Math.round(Math.random() * 2);
+      const bad = criticalCount + Math.max(0, warnCount - 7);
+      const health = Math.max(42, 100 - Math.round((topoState.TKO2[2].p95 + topoState.TKO1[2].p95 + topoState.feedback[1].p95) / 28));
+
+      document.getElementById("clock").textContent = timeNow();
+      document.getElementById("headlineP95").textContent = topoState.TKO2[2].p95.toLocaleString() + "ms";
+      document.getElementById("headlineState").textContent = topoState.TKO2[2].p95 >= 300 ? "CRITICAL" : "DEGRADED";
+      document.getElementById("badLinks").textContent = bad + " abnormal links";
+      document.getElementById("kpiTps").textContent = totalTps.toLocaleString();
+      document.getElementById("kpiTpsLabel").textContent = history.tps[history.tps.length - 1] + "k/s";
+      document.getElementById("kpiE2E").textContent = e2e + "ms";
+      document.getElementById("kpiCross").textContent = cross + "ms";
+      document.getElementById("kpiWarn").textContent = String(warnCount);
+      document.getElementById("kpiCritical").textContent = String(criticalCount);
+      document.getElementById("healthScore").textContent = String(health);
+      document.getElementById("healthCaption").textContent = "Updated " + timeNow();
+      document.getElementById("topologyMeta").textContent = "TKO2 primary routing · updated " + timeNow();
+
+      document.getElementById("kpiTpsBar").style.width = pct(history.tps[history.tps.length - 1], 400) + "%";
+      document.getElementById("kpiE2EBar").style.width = pct(e2e, 1200) + "%";
+      document.getElementById("kpiCrossBar").style.width = pct(cross, 200) + "%";
+      document.getElementById("kpiWarnBar").style.width = pct(warnCount, 20) + "%";
+      document.getElementById("kpiCriticalBar").style.width = pct(criticalCount, 10) + "%";
+
+      renderTopology();
+      renderMatrix();
+      renderIncidents();
+      renderStats();
+      renderEvents();
+      drawChart("chartLatency", history.latency, "rgba(255, 204, 51, 1)", "rgba(255, 204, 51, 0.18)", "ms");
+      drawChart("chartTps", history.tps, "rgba(86, 225, 255, 1)", "rgba(86, 225, 255, 0.18)", "k/s");
+    }
+
+    evolve();
+    setInterval(evolve, 2500);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NXGEN Performance Monitor v5</title>
+  <style>
+    :root {
+      --bg-0: #041018;
+      --bg-1: #092331;
+      --bg-2: #103649;
+      --panel: rgba(8, 25, 36, 0.94);
+      --panel-soft: rgba(10, 31, 45, 0.9);
+      --line: rgba(113, 192, 235, 0.2);
+      --text: #f1f9ff;
+      --muted: #8db3c8;
+      --cyan: #63e6ff;
+      --green: #37efb0;
+      --amber: #ffd768;
+      --red: #ff6374;
+      --blue: #7da8ff;
+      --violet: #a28dff;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Barlow Condensed", "DIN Alternate", "Arial Narrow", sans-serif;
+      background:
+        radial-gradient(circle at 14% 0%, rgba(55,239,176,0.11), transparent 24%),
+        radial-gradient(circle at 90% 0%, rgba(125,168,255,0.15), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-0));
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, #000 60%, transparent 100%);
+      opacity: 0.34;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(99,230,255,0); }
+      50% { box-shadow: 0 0 18px rgba(99,230,255,0.16); }
+    }
+
+    @keyframes routeFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -58; }
+    }
+
+    @keyframes signalBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    .app {
+      max-width: 1760px;
+      margin: 0 auto;
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .shell {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(8, 26, 39, 0.98), rgba(4, 14, 20, 0.97));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .header {
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(12, 43, 60, 0.9), rgba(6, 20, 29, 0.55));
+    }
+
+    .header-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 13px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+    }
+
+    h1 {
+      margin: 8px 0 0;
+      font-size: clamp(34px, 4vw, 60px);
+      line-height: 0.95;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 0.7px;
+    }
+
+    .headline {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .headline-card {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.98), rgba(6, 18, 27, 0.92));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .headline-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -24% -72% -24%;
+      height: 130%;
+      background: radial-gradient(circle, rgba(99,230,255,0.14), transparent 60%);
+    }
+
+    .headline-card .name,
+    .stat .name,
+    .kpi .name {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-size: 12px;
+    }
+
+    .headline-card .val {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      font-size: 36px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .headline-card .meta {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #d4e8f3;
+      font-size: 13px;
+    }
+
+    .stats {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.94), rgba(5, 15, 22, 0.94));
+      padding: 10px 12px;
+    }
+
+    .stat .val {
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .meter {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 14px rgba(99,230,255,0.32);
+      transition: width 0.35s ease;
+    }
+
+    .main {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.96), rgba(5, 16, 24, 0.96));
+    }
+
+    .panel-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-size: 13px;
+    }
+
+    .panel-head strong {
+      color: var(--text);
+      font-size: 17px;
+      letter-spacing: 0.8px;
+    }
+
+    .panel-body { padding: 14px; }
+
+    .legend {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .topology-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    .topology-board {
+      width: 1580px;
+      height: 1120px;
+      position: relative;
+      border: 1px solid rgba(99,230,255,0.12);
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+        radial-gradient(circle at 50% 40%, rgba(99,230,255,0.06), transparent 42%),
+        linear-gradient(180deg, rgba(4, 15, 23, 0.96), rgba(7, 20, 29, 0.98));
+      background-size: 44px 44px, 44px 44px, auto, auto;
+      overflow: hidden;
+    }
+
+    .tower {
+      position: absolute;
+      top: 40px;
+      width: 590px;
+      height: 1040px;
+      border-radius: 18px;
+      border: 1px solid rgba(99,230,255,0.12);
+      background: linear-gradient(180deg, rgba(11, 37, 53, 0.26), rgba(4, 13, 20, 0.18));
+    }
+
+    .tower.left { left: 66px; }
+    .tower.right { right: 66px; }
+
+    .tower-tag {
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(6, 21, 33, 0.92);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .tower-tag .mark {
+      color: var(--amber);
+      margin-left: 8px;
+      animation: signalBlink 1.9s ease-in-out infinite;
+    }
+
+    .topology-svg,
+    .node-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    .topology-svg {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .route-base {
+      fill: none;
+      stroke: rgba(99,230,255,0.12);
+      stroke-width: 2;
+    }
+
+    .route-flow {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 10 14;
+      animation: routeFlow 3s linear infinite;
+      filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
+    }
+
+    .route-flow.intra { stroke: var(--cyan); }
+    .route-flow.cross { stroke: var(--blue); }
+    .route-flow.feedback { stroke: var(--amber); }
+    .route-flow.warn { stroke: var(--amber); }
+    .route-flow.critical { stroke: var(--red); }
+
+    .route-label rect {
+      fill: rgba(6, 22, 34, 0.88);
+      stroke: rgba(99,230,255,0.18);
+      rx: 10;
+      ry: 10;
+    }
+
+    .route-label text {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+      fill: #e6f7ff;
+      text-anchor: middle;
+    }
+
+    .route-label .tiny {
+      font-size: 10px;
+      fill: #aacada;
+    }
+
+    .tower-caption {
+      position: absolute;
+      width: 160px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 12px;
+    }
+
+    .node {
+      position: absolute;
+      border-radius: 16px;
+      border: 1px solid rgba(99,230,255,0.18);
+      background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
+      animation: pulseGlow 3.4s ease-in-out infinite;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .node.source {
+      width: 84px;
+      height: 64px;
+      padding-top: 8px;
+      text-align: center;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
+    }
+
+    .node.source small {
+      display: block;
+      margin-top: 4px;
+      font-size: 10px;
+      color: var(--muted);
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .node.stage {
+      width: 176px;
+      min-height: 126px;
+      padding: 10px 12px 12px;
+    }
+
+    .node.stage.process {
+      border-color: rgba(162, 141, 255, 0.22);
+      background: linear-gradient(180deg, rgba(47, 33, 85, 0.96), rgba(17, 13, 35, 0.96));
+    }
+
+    .node.stage .title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .node.stage .sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .node.stage .metrics {
+      margin-top: 12px;
+      display: grid;
+      gap: 6px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    .node.stage .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .node-stage-meter {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .node-stage-meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 14px rgba(99,230,255,0.28);
+      transition: width 0.35s ease;
+    }
+
+    .badge {
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .critical { color: var(--red); }
+    .cyan { color: var(--cyan); }
+
+    .lower {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(320px, 0.8fr);
+      gap: 14px;
+    }
+
+    .watch-list,
+    .heat-grid,
+    .feed-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .watch-item,
+    .feed-item {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.025);
+      padding: 10px 12px;
+    }
+
+    .watch-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    .watch-value {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: end;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .watch-value strong {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    .heat-grid {
+      grid-template-columns: 170px repeat(3, minmax(0, 1fr));
+    }
+
+    .heat-head,
+    .heat-label,
+    .heat-cell {
+      min-height: 64px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      align-content: center;
+    }
+
+    .heat-head,
+    .heat-label {
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    .heat-cell {
+      background: rgba(255,255,255,0.03);
+      position: relative;
+      overflow: hidden;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .heat-cell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: currentColor;
+    }
+
+    .heat-cell strong {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .heat-cell span {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #d4e7f2;
+    }
+
+    .feed-item {
+      border-left: 4px solid var(--cyan);
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .feed-item.warn { border-left-color: var(--amber); }
+    .feed-item.critical { border-left-color: var(--red); }
+
+    .feed-item time {
+      color: var(--muted);
+      margin-right: 8px;
+    }
+
+    @media (max-width: 1460px) {
+      .header-top,
+      .lower {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .headline,
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .heat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .app { padding: 0; }
+      .shell { border-radius: 0; }
+      .header,
+      .main { padding: 12px; }
+      .headline,
+      .stats,
+      .heat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <header class="header">
+        <div class="header-top">
+          <div>
+            <div class="eyebrow">NXGEN Vertical Twin-DC View</div>
+            <h1>Index Flow Towers</h1>
+            <div class="subtitle">根据最新 `data_flow.md` 重构，TKO2 与 TKO1 以竖排并联展示，外部数据源 RT / BB / OMDC / CIIC / BJ 从塔顶统一输入 L1</div>
+          </div>
+          <div class="headline">
+            <div class="headline-card">
+              <div class="name">Primary Tower</div>
+              <div class="val cyan" id="heroPrimary">TKO2</div>
+              <div class="meta"><span>Dispatch Tower</span><span id="heroClock">09:24:40</span></div>
+            </div>
+            <div class="headline-card">
+              <div class="name">Cross-Tower Hot Path</div>
+              <div class="val critical" id="heroHot">196ms</div>
+              <div class="meta"><span id="heroHotName">TKO2-L2 -> TKO1-L3</span><span>Bridge Route</span></div>
+            </div>
+            <div class="headline-card">
+              <div class="name">Topology Health</div>
+              <div class="val warn" id="heroHealth">74</div>
+              <div class="meta"><span>Weighted Route Score</span><span id="heroState">Degraded</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats">
+          <div class="stat">
+            <div class="name">External Sources</div>
+            <div class="val" id="statSources">10</div>
+            <div class="meter"><span style="width:100%"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Tower Inputs to L1</div>
+            <div class="val" id="statInputs">10</div>
+            <div class="meter"><span style="width:88%"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Cross-Tower Bridges</div>
+            <div class="val" id="statBridges">6</div>
+            <div class="meter"><span id="statBridgesBar" style="width:68%; background: linear-gradient(90deg, var(--blue), var(--cyan));"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Feedback Loops</div>
+            <div class="val" id="statFeedback">6</div>
+            <div class="meter"><span id="statFeedbackBar" style="width:72%; background: linear-gradient(90deg, var(--amber), #ffefaa);"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Warn / Critical</div>
+            <div class="val warn" id="statAlerts">4 / 1</div>
+            <div class="meter"><span id="statAlertsBar" style="width:46%; background: linear-gradient(90deg, var(--amber), var(--red));"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Refresh Cycle</div>
+            <div class="val" id="statRefresh">2.4s</div>
+            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--violet), var(--cyan));"></span></div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="panel">
+          <div class="panel-head">
+            <strong>Vertical Twin-Tower Topology</strong>
+            <div class="legend">
+              <span><i style="background:var(--cyan)"></i>Intra-tower</span>
+              <span><i style="background:var(--blue)"></i>Cross-tower</span>
+              <span><i style="background:var(--amber)"></i>Feedback</span>
+              <span><i style="background:var(--red)"></i>Critical</span>
+            </div>
+          </div>
+          <div class="panel-body topology-wrap">
+            <div class="topology-board" id="topologyBoard">
+              <div class="tower left">
+                <div class="tower-tag">TKO1 Backup</div>
+              </div>
+              <div class="tower right">
+                <div class="tower-tag">TKO2 <span class="mark">Primary</span></div>
+              </div>
+
+              <div class="tower-caption" style="left:361px; top:96px;">External Feeds</div>
+              <div class="tower-caption" style="left:1218px; top:96px;">External Feeds</div>
+              <div class="tower-caption" style="left:361px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:1218px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:361px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:1218px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:361px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:1218px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:361px; top:772px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:1218px; top:772px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:361px; top:932px;">HCS Delivery</div>
+              <div class="tower-caption" style="left:1218px; top:932px;">HCS Delivery</div>
+
+              <svg class="topology-svg" viewBox="0 0 1580 1120" preserveAspectRatio="xMidYMid meet">
+                <g id="routeLayer"></g>
+                <g id="labelLayer"></g>
+              </svg>
+              <div class="node-layer" id="nodeLayer"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="lower">
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Route Watchlist</strong>
+              <span id="watchMeta">sorted by current latency</span>
+            </div>
+            <div class="panel-body">
+              <div class="watch-list" id="watchList"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Flow Group Heatmap</strong>
+              <span id="heatMeta">tower-local vs bridge</span>
+            </div>
+            <div class="panel-body">
+              <div class="heat-grid" id="heatGrid"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Event Feed</strong>
+              <span id="eventMeta">topology anomalies</span>
+            </div>
+            <div class="panel-body">
+              <div class="feed-list" id="feedList"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const towers = {
+      TKO1: { x: 361, sourceStart: 185, stagesX: 361, label: "Backup" },
+      TKO2: { x: 1218, sourceStart: 1042, stagesX: 1218, label: "Primary" }
+    };
+
+    const levelY = {
+      sources: 156,
+      l1: 350,
+      l2: 510,
+      l3: 670,
+      bg: 830,
+      hcs: 990
+    };
+
+    const sourceOffsets = [-176, -88, 0, 88, 176];
+    const sourceNames = ["RT", "BB", "OMDC", "CIIC", "BJ"];
+
+    const nodes = [];
+
+    ["TKO1", "TKO2"].forEach((site) => {
+      sourceNames.forEach((name, idx) => {
+        nodes.push({
+          id: site + "-" + name,
+          site,
+          name,
+          type: "source",
+          x: towers[site].x + sourceOffsets[idx],
+          y: levelY.sources,
+          rate: site === "TKO2" ? 940 - idx * 20 : 890 - idx * 18
+        });
+      });
+    });
+
+    const stageSeed = {
+      TKO1: {
+        L1: { avg: 29, p95: 42, load: 38, kind: "flow" },
+        L2: { avg: 33, p95: 49, load: 42, kind: "process" },
+        L3: { avg: 61, p95: 126, load: 70, kind: "process" },
+        BG: { avg: 18, p95: 35, load: 24, kind: "process" },
+        HCS: { avg: 3, p95: 6, load: 10, kind: "flow" }
+      },
+      TKO2: {
+        L1: { avg: 31, p95: 45, load: 40, kind: "flow" },
+        L2: { avg: 35, p95: 56, load: 47, kind: "process" },
+        L3: { avg: 74, p95: 146, load: 82, kind: "process" },
+        BG: { avg: 22, p95: 38, load: 31, kind: "process" },
+        HCS: { avg: 3, p95: 5, load: 12, kind: "flow" }
+      }
+    };
+
+    ["TKO1", "TKO2"].forEach((site) => {
+      ["L1", "L2", "L3", "BG", "HCS"].forEach((name) => {
+        nodes.push({
+          id: site + "-" + name,
+          site,
+          name,
+          type: "stage",
+          x: towers[site].stagesX,
+          y: levelY[name.toLowerCase()],
+          ...stageSeed[site][name]
+        });
+      });
+    });
+
+    const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
+
+    const links = [];
+
+    function addLink(from, to, base, group, kind, current) {
+      links.push({ id: from + "__" + to, from, to, base, group, kind, current });
+    }
+
+    ["TKO1", "TKO2"].forEach((site) => {
+      sourceNames.forEach((source) => addLink(site + "-" + source, site + "-L1", 30, "sources", "intra", 31));
+      addLink(site + "-L1", site + "-L2", 30, "l1-l2", "intra", site === "TKO2" ? 35 : 33);
+    });
+
+    addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 118);
+    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 168);
+    addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "cross", 196);
+    addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 144);
+
+    addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "cross", 92);
+    addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 34);
+
+    addLink("TKO1-BG", "TKO1-L3", 30, "bg-l3-feedback", "feedback", 56);
+    addLink("TKO1-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 96);
+    addLink("TKO2-BG", "TKO1-L3", 30, "bg-l3-feedback", "feedback", 88);
+    addLink("TKO2-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 52);
+
+    addLink("TKO1-L3", "TKO1-L1", 30, "l3-l1-feedback", "feedback", 48);
+    addLink("TKO1-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 102);
+    addLink("TKO2-L3", "TKO1-L1", 30, "l3-l1-feedback", "feedback", 124);
+    addLink("TKO2-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 61);
+
+    addLink("TKO1-BG", "TKO1-HCS", 30, "bg-hcs", "intra", 24);
+    addLink("TKO1-BG", "TKO2-HCS", 30, "bg-hcs", "cross", 72);
+    addLink("TKO2-BG", "TKO1-HCS", 30, "bg-hcs", "cross", 78);
+    addLink("TKO2-BG", "TKO2-HCS", 30, "bg-hcs", "intra", 26);
+
+    const routeLayer = document.getElementById("routeLayer");
+    const labelLayer = document.getElementById("labelLayer");
+    const nodeLayer = document.getElementById("nodeLayer");
+    const watchList = document.getElementById("watchList");
+    const heatGrid = document.getElementById("heatGrid");
+    const feedList = document.getElementById("feedList");
+
+    function nowText() {
+      const d = new Date();
+      const p = (v) => String(v).padStart(2, "0");
+      return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+    }
+
+    function statusClass(value) {
+      if (value >= 180) return "critical";
+      if (value >= 100) return "warn";
+      return "ok";
+    }
+
+    function routeTone(link) {
+      const severity = statusClass(link.current);
+      if (severity !== "ok") return severity;
+      return link.kind;
+    }
+
+    function nodeStatus(node) {
+      return statusClass(node.p95 || Math.round(node.rate / 12));
+    }
+
+    function meterGradient(status) {
+      if (status === "critical") return "linear-gradient(90deg, var(--red), #ff9ba5)";
+      if (status === "warn") return "linear-gradient(90deg, var(--amber), #fff0a7)";
+      return "linear-gradient(90deg, var(--cyan), var(--green))";
+    }
+
+    function nodeHtml(node) {
+      if (node.type === "source") {
+        return `
+          <div class="node source ${nodeStatus(node)}" style="left:${node.x - 42}px; top:${node.y - 32}px;">
+            <div>${node.name}</div>
+            <small>${node.rate}/s</small>
+          </div>
+        `;
+      }
+
+      const tone = nodeStatus(node);
+      const process = node.kind === "process" ? " process" : "";
+      return `
+        <article class="node stage${process}" style="left:${node.x - 88}px; top:${node.y - 63}px;">
+          <div class="title">
+            <span>${node.name}</span>
+            <span class="badge ${tone}">${tone}</span>
+          </div>
+          <div class="sub">${node.site} ${node.kind === "process" ? "Compute" : "Gateway"}</div>
+          <div class="metrics">
+            <div class="line"><span>AVG</span><strong>${node.avg}ms</strong></div>
+            <div class="line"><span>P95</span><strong class="${tone}">${node.p95}ms</strong></div>
+            <div class="line"><span>LOAD</span><strong>${node.load}%</strong></div>
+          </div>
+          <div class="node-stage-meter"><span style="width:${node.load}%; background:${meterGradient(tone)}"></span></div>
+        </article>
+      `;
+    }
+
+    function edgePoint(node, side, offset) {
+      const ox = offset && offset.x ? offset.x : 0;
+      const oy = offset && offset.y ? offset.y : 0;
+      const halfW = node.type === "source" ? 42 : 88;
+      const halfH = node.type === "source" ? 32 : 63;
+
+      if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
+      if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
+      if (side === "left") return { x: node.x - halfW + ox, y: node.y + oy };
+      return { x: node.x + halfW + ox, y: node.y + oy };
+    }
+
+    function sideBySite(site, mode) {
+      if (mode === "inner") return site === "TKO1" ? "right" : "left";
+      return site === "TKO1" ? "left" : "right";
+    }
+
+    function pathForLink(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+
+      if (link.group === "sources") {
+        const start = edgePoint(from, "bottom");
+        const end = edgePoint(to, "top", { x: (from.x - to.x) * 0.1 });
+        return `M ${start.x} ${start.y} C ${start.x} ${start.y + 46}, ${end.x} ${end.y - 54}, ${end.x} ${end.y}`;
+      }
+
+      if (link.kind === "intra") {
+        const start = edgePoint(from, "bottom");
+        const end = edgePoint(to, "top");
+        return `M ${start.x} ${start.y} C ${start.x} ${start.y + 42}, ${end.x} ${end.y - 42}, ${end.x} ${end.y}`;
+      }
+
+      if (link.kind === "cross" && link.group === "l2-l3") {
+        const start = edgePoint(from, sideBySite(from.site, "inner"), { y: 10 });
+        const end = edgePoint(to, sideBySite(to.site, "inner"), { y: -10 });
+        const bend = (start.x + end.x) / 2;
+        return `M ${start.x} ${start.y} C ${bend} ${start.y}, ${bend} ${end.y}, ${end.x} ${end.y}`;
+      }
+
+      if (link.kind === "cross" && link.group === "l3-bg") {
+        const start = edgePoint(from, sideBySite(from.site, "inner"), { y: 18 });
+        const end = edgePoint(to, sideBySite(to.site, "inner"), { y: -18 });
+        const bend = (start.x + end.x) / 2;
+        return `M ${start.x} ${start.y} C ${bend} ${start.y + 34}, ${bend} ${end.y - 34}, ${end.x} ${end.y}`;
+      }
+
+      if (link.kind === "cross" && link.group === "bg-hcs") {
+        const start = edgePoint(from, sideBySite(from.site, "inner"), { y: 22 });
+        const end = edgePoint(to, sideBySite(to.site, "inner"), { y: 0 });
+        const bend = (start.x + end.x) / 2;
+        return `M ${start.x} ${start.y} C ${bend} ${start.y + 24}, ${bend} ${end.y - 20}, ${end.x} ${end.y}`;
+      }
+
+      if (link.group === "bg-l3-feedback") {
+        const sameSite = from.site === to.site;
+        const sideMode = sameSite ? "outer" : "inner";
+        const side = sideBySite(from.site, sideMode);
+        const dir = side === "right" ? 1 : -1;
+        const start = edgePoint(from, side, { y: -20 });
+        const end = edgePoint(to, sideBySite(to.site, sideMode), { y: 18 });
+        const span = sameSite ? 140 : 110;
+        return `M ${start.x} ${start.y} C ${start.x + dir * span} ${start.y - 28}, ${end.x + dir * span} ${end.y + 28}, ${end.x} ${end.y}`;
+      }
+
+      if (link.group === "l3-l1-feedback") {
+        const sameSite = from.site === to.site;
+        const sideMode = sameSite ? "outer" : "inner";
+        const side = sideBySite(from.site, sideMode);
+        const dir = side === "right" ? 1 : -1;
+        const start = edgePoint(from, side, { y: -30 });
+        const end = edgePoint(to, sideBySite(to.site, sideMode), { y: 24 });
+        const span = sameSite ? 170 : 128;
+        return `M ${start.x} ${start.y} C ${start.x + dir * span} ${start.y - 116}, ${end.x + dir * span} ${end.y + 116}, ${end.x} ${end.y}`;
+      }
+
+      return `M ${from.x} ${from.y} L ${to.x} ${to.y}`;
+    }
+
+    function labelPoint(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+      if (link.group === "sources") {
+        return { x: from.x, y: from.y + 82 };
+      }
+      if (link.kind === "cross" && link.group === "l2-l3") {
+        return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 44 };
+      }
+      if (link.kind === "cross" && (link.group === "l3-bg" || link.group === "bg-hcs")) {
+        return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 26 };
+      }
+      if (link.group === "l3-l1-feedback") {
+        return {
+          x: (from.x + to.x) / 2 + (from.site === to.site ? (from.site === "TKO1" ? -84 : 84) : 0),
+          y: (from.y + to.y) / 2 - 108
+        };
+      }
+      if (link.group === "bg-l3-feedback") {
+        return {
+          x: (from.x + to.x) / 2 + (from.site === to.site ? (from.site === "TKO1" ? -64 : 64) : 0),
+          y: (from.y + to.y) / 2 - 22
+        };
+      }
+      return { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 - 14 };
+    }
+
+    function renderTopology() {
+      nodeLayer.innerHTML = nodes.map(nodeHtml).join("");
+
+      routeLayer.innerHTML = links.map((link) => {
+        const path = pathForLink(link);
+        return `
+          <g>
+            <path class="route-base" d="${path}"></path>
+            <path class="route-flow ${routeTone(link)}" d="${path}"></path>
+          </g>
+        `;
+      }).join("");
+
+      labelLayer.innerHTML = links.map((link) => {
+        const point = labelPoint(link);
+        return `
+          <g class="route-label" transform="translate(${point.x}, ${point.y})">
+            <rect x="-42" y="-18" width="84" height="34"></rect>
+            <text x="0" y="-2">${link.current}ms</text>
+            <text class="tiny" x="0" y="11">base ${link.base}</text>
+          </g>
+        `;
+      }).join("");
+    }
+
+    function renderWatchlist() {
+      const hottest = [...links].sort((a, b) => b.current - a.current).slice(0, 6);
+      watchList.innerHTML = hottest.map((link) => {
+        const tone = statusClass(link.current);
+        return `
+          <div class="watch-item">
+            <div class="watch-top">
+              <span>${link.from} -> ${link.to}</span>
+              <span class="${tone}">${tone.toUpperCase()}</span>
+            </div>
+            <div class="watch-value">
+              <strong class="${tone}">${link.current}ms</strong>
+              <span>base ${link.base}ms</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      document.getElementById("heroHot").textContent = hottest[0].current + "ms";
+      document.getElementById("heroHotName").textContent = hottest[0].from + " -> " + hottest[0].to;
+      document.getElementById("watchMeta").textContent = "updated " + nowText();
+    }
+
+    function avgFor(filter) {
+      const subset = links.filter(filter);
+      const avg = subset.reduce((sum, item) => sum + item.current, 0) / Math.max(1, subset.length);
+      return Math.round(avg);
+    }
+
+    function heatCell(value, note) {
+      const tone = statusClass(value);
+      return `
+        <div class="heat-cell ${tone}">
+          <strong>${value}ms</strong>
+          <span>${note}</span>
+        </div>
+      `;
+    }
+
+    function renderHeat() {
+      const rows = [
+        {
+          name: "Sources -> L1",
+          tko1: avgFor((link) => link.group === "sources" && link.from.startsWith("TKO1")),
+          tko2: avgFor((link) => link.group === "sources" && link.from.startsWith("TKO2")),
+          bridge: avgFor((link) => link.group === "sources")
+        },
+        {
+          name: "L1 -> L2",
+          tko1: avgFor((link) => link.group === "l1-l2" && link.from.startsWith("TKO1")),
+          tko2: avgFor((link) => link.group === "l1-l2" && link.from.startsWith("TKO2")),
+          bridge: avgFor((link) => link.group === "l1-l2")
+        },
+        {
+          name: "L2 -> L3",
+          tko1: avgFor((link) => link.group === "l2-l3" && link.from === "TKO1-L2"),
+          tko2: avgFor((link) => link.group === "l2-l3" && link.from === "TKO2-L2"),
+          bridge: avgFor((link) => link.group === "l2-l3" && link.kind === "cross")
+        },
+        {
+          name: "L3 -> BG",
+          tko1: avgFor((link) => link.group === "l3-bg" && link.to === "TKO1-BG"),
+          tko2: avgFor((link) => link.group === "l3-bg" && link.to === "TKO2-BG"),
+          bridge: avgFor((link) => link.group === "l3-bg")
+        },
+        {
+          name: "BG -> L3 feedback",
+          tko1: avgFor((link) => link.group === "bg-l3-feedback" && link.from.startsWith("TKO1")),
+          tko2: avgFor((link) => link.group === "bg-l3-feedback" && link.from.startsWith("TKO2")),
+          bridge: avgFor((link) => link.group === "bg-l3-feedback")
+        },
+        {
+          name: "L3 -> L1 feedback",
+          tko1: avgFor((link) => link.group === "l3-l1-feedback" && link.from.startsWith("TKO1")),
+          tko2: avgFor((link) => link.group === "l3-l1-feedback" && link.from.startsWith("TKO2")),
+          bridge: avgFor((link) => link.group === "l3-l1-feedback")
+        },
+        {
+          name: "BG -> HCS",
+          tko1: avgFor((link) => link.group === "bg-hcs" && link.from.startsWith("TKO1")),
+          tko2: avgFor((link) => link.group === "bg-hcs" && link.from.startsWith("TKO2")),
+          bridge: avgFor((link) => link.group === "bg-hcs")
+        }
+      ];
+
+      heatGrid.innerHTML = [
+        '<div class="heat-head">Flow Group</div>',
+        '<div class="heat-head">TKO1 Tower</div>',
+        '<div class="heat-head">TKO2 Tower</div>',
+        '<div class="heat-head">Bridge / Mixed</div>',
+        ...rows.flatMap((row) => [
+          `<div class="heat-label">${row.name}</div>`,
+          heatCell(row.tko1, "left tower"),
+          heatCell(row.tko2, "right tower"),
+          heatCell(row.bridge, "all routes")
+        ])
+      ].join("");
+
+      document.getElementById("heatMeta").textContent = "updated " + nowText();
+    }
+
+    function renderFeed() {
+      const time = nowText();
+      const items = [...links]
+        .sort((a, b) => b.current - a.current)
+        .slice(0, 5)
+        .map((link) => {
+          const tone = statusClass(link.current);
+          let text = link.from + " -> " + link.to + " ";
+          if (link.kind === "cross") text += "cross-tower bridge above baseline.";
+          else if (link.kind === "feedback") text += "feedback loop under watch.";
+          else text += "tower-local route stable.";
+          return { tone, text: text + " current " + link.current + "ms, base " + link.base + "ms." };
+        });
+
+      feedList.innerHTML = items.map((item) => `
+        <div class="feed-item ${item.tone}">
+          <time>${time}</time>${item.text}
+        </div>
+      `).join("");
+
+      document.getElementById("eventMeta").textContent = "updated " + time;
+    }
+
+    function renderSummary() {
+      const warns = links.filter((link) => statusClass(link.current) === "warn").length;
+      const criticals = links.filter((link) => statusClass(link.current) === "critical").length;
+      const health = Math.max(44, 100 - warns * 4 - criticals * 12);
+
+      document.getElementById("heroClock").textContent = nowText();
+      document.getElementById("heroHealth").textContent = String(health);
+      document.getElementById("heroState").textContent = criticals > 0 ? "Degraded" : "Stable";
+      document.getElementById("statBridges").textContent = String(links.filter((link) => link.kind === "cross").length);
+      document.getElementById("statFeedback").textContent = String(links.filter((link) => link.kind === "feedback").length);
+      document.getElementById("statAlerts").textContent = warns + " / " + criticals;
+      document.getElementById("statBridgesBar").style.width = Math.min(100, avgFor((link) => link.kind === "cross") / 2) + "%";
+      document.getElementById("statFeedbackBar").style.width = Math.min(100, avgFor((link) => link.kind === "feedback")) + "%";
+      document.getElementById("statAlertsBar").style.width = Math.min(100, warns * 8 + criticals * 16) + "%";
+    }
+
+    function jitter(base, range, floor) {
+      return Math.max(floor, Math.round(base + (Math.random() - 0.5) * range));
+    }
+
+    function evolveNodes() {
+      nodes.forEach((node) => {
+        if (node.type === "source") {
+          node.rate = jitter(node.rate, 40, 700);
+          return;
+        }
+        const scale = node.name === "L3" ? 12 : 7;
+        node.avg = jitter(node.avg, scale, 2);
+        node.p95 = jitter(node.p95, scale * 1.5, node.avg + 3);
+        node.load = Math.max(8, Math.min(96, jitter(node.load, scale * 1.7, 8)));
+      });
+    }
+
+    function evolveLinks() {
+      const anchors = {
+        "TKO1-L2__TKO1-L3": 118,
+        "TKO1-L2__TKO2-L3": 168,
+        "TKO2-L2__TKO1-L3": 196,
+        "TKO2-L2__TKO2-L3": 144,
+        "TKO2-L3__TKO1-BG": 92,
+        "TKO2-L3__TKO2-BG": 34,
+        "TKO1-BG__TKO1-L3": 56,
+        "TKO1-BG__TKO2-L3": 96,
+        "TKO2-BG__TKO1-L3": 88,
+        "TKO2-BG__TKO2-L3": 52,
+        "TKO1-L3__TKO1-L1": 48,
+        "TKO1-L3__TKO2-L1": 102,
+        "TKO2-L3__TKO1-L1": 124,
+        "TKO2-L3__TKO2-L1": 61,
+        "TKO1-BG__TKO1-HCS": 24,
+        "TKO1-BG__TKO2-HCS": 72,
+        "TKO2-BG__TKO1-HCS": 78,
+        "TKO2-BG__TKO2-HCS": 26
+      };
+
+      links.forEach((link) => {
+        const anchor = anchors[link.id] || link.base + 2;
+        const swing = link.kind === "cross" ? 18 : link.kind === "feedback" ? 14 : 6;
+        link.current = jitter(anchor, swing, link.base);
+      });
+    }
+
+    function render() {
+      renderTopology();
+      renderWatchlist();
+      renderHeat();
+      renderFeed();
+      renderSummary();
+    }
+
+    function evolve() {
+      evolveNodes();
+      evolveLinks();
+      render();
+    }
+
+    render();
+    setInterval(evolve, 2400);
+  </script>
+</body>
+</html>
