@@ -1,11 +1,26 @@
 # rt-poc
 
-POC project scaffold.
+Latency monitor POC rebuilt as a Spring Boot application. The backend simulates topology metrics and pushes full snapshots to the v8 page over SSE.
 
-## Quick Start
+## Run Locally
 
-- Add your code under this directory
-- Commit changes to `main` or feature branches
+- `mvn spring-boot:run`
+- Open `http://localhost:8080/`
+- Direct page URL: `http://localhost:8080/web/v8/index-latency-monitor-v8.html`
+- Snapshot endpoint: `http://localhost:8080/api/latency/snapshot`
+- SSE endpoint: `http://localhost:8080/api/latency/stream`
+
+## Package
+
+- `mvn -DskipTests package`
+- Output jar: `target/rt-poc-0.0.1-SNAPSHOT.jar`
+
+## Docker
+
+- `docker build -t rt-poc .`
+- `docker compose up --build`
+
+The application is configured to listen on port `8080`. Static assets under `src/web/` are copied into the Spring Boot jar and served from `/web/**`.
 
 ## v8 Link Visual Classification
 

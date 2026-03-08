@@ -1,0 +1,10 @@
+services:
+  latency-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: Asia/Shanghai
+    restart: unless-stopped
