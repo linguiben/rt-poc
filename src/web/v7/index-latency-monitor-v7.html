@@ -1112,13 +1112,22 @@
         const side = sameSite ? outerSide(from.site, link.group) : sideToward(from, to);
         const endSide = sameSite ? outerSide(to.site, link.group) : oppositeSide(side);
         const dir = side === "right" ? 1 : -1;
+        const endDir = endSide === "right" ? 1 : -1;
+        const singleTouchL3 =
+          link.id === "TKO2-BG__TKO1-L3" ||
+          link.id === "TKO2-BG__SKM-L3" ||
+          link.id === "TKO1-BG__TKO2-L3" ||
+          link.id === "SKM-BG__TKO2-L3";
         const start = edgePoint(from, side, { y: 12 });
         const end = edgePoint(to, endSide, { y: (sameSite ? 46 : 36) });
         const span = sameSite ? 90 : 70; // 减小横向跨度，收紧弧度
         return {
           p0: start,
           p1: { x: start.x + dir * span, y: start.y - 16 },
-          p2: { x: end.x + dir * span, y: end.y + 16 },
+          p2: {
+            x: end.x + (singleTouchL3 ? endDir : dir) * span,
+            y: singleTouchL3 ? end.y : end.y + 16
+          },
           p3: end
         };
       }
@@ -1128,6 +1137,12 @@
         const side = sameSite ? outerSide(from.site, link.group) : sideToward(from, to);
         const endSide = sameSite ? outerSide(to.site, link.group) : oppositeSide(side);
         const dir = side === "right" ? 1 : -1;
+        const endDir = endSide === "right" ? 1 : -1;
+        const singleTouchL1 =
+          link.id === "TKO1-L3__TKO2-L1" ||
+          link.id === "SKM-L3__TKO2-L1" ||
+          link.id === "TKO2-L3__TKO1-L1" ||
+          link.id === "TKO2-L3__SKM-L1";
         // 减小纵向偏移与横向 span，以收紧回流弧度
         const start = edgePoint(from, side, { y: -18 });
         const end = edgePoint(to, endSide, { y: 12 });
@@ -1135,7 +1150,10 @@
         return {
           p0: start,
           p1: { x: start.x + dir * span, y: start.y - 60 },
-          p2: { x: end.x + dir * span, y: end.y + 60 },
+          p2: {
+            x: end.x + (singleTouchL1 ? endDir : dir) * span,
+            y: singleTouchL1 ? end.y : end.y + 60
+          },
           p3: end
         };
       }
@@ -1441,4 +1459,3 @@
   </script>
 </body>
 </html>
-
