@@ -1300,17 +1300,19 @@
         };
       }
 
-      /* L3 -> BG 跨塔桥接：比上一段更强调纵向落差。 */
+      /* L3 -> BG 跨塔桥接：
+         这里刻意做成更扁的下滑弧线，让视觉上更像从 L3 向 BG 滑落。 */
       if (link.kind === "cross" && link.group === "l3-bg") {
         const startSide = sideToward(from, to);
         const endSide = oppositeSide(startSide);
+        const dir = startSide === "right" ? 1 : -1;
         const start = edgePoint(from, startSide, { y: 18 });
         const end = edgePoint(to, endSide, { y: -18 });
-        const bend = (start.x + end.x) / 2;
+        const glide = 170;
         return {
           p0: start,
-          p1: { x: bend, y: start.y + 34 },
-          p2: { x: bend, y: end.y - 34 },
+          p1: { x: start.x + dir * glide, y: start.y + 8 },
+          p2: { x: end.x - dir * glide, y: end.y - 52 },
           p3: end
         };
       }
@@ -1728,7 +1730,7 @@
 
     /* 首次加载先渲染一次，然后每 2.4 秒刷新。 */
     render();
-    setInterval(evolve, 2400);
+    // setInterval(evolve, 2400);
   </script>
 </body>
 </html>
