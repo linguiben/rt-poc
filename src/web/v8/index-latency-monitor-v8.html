@@ -534,9 +534,9 @@
     }
 
     .node.stage .metrics {
-      margin-top: 12px;
+      margin-top: 10px;
       display: grid;
-      gap: 6px;
+      gap: 5px;
       font-family: "IBM Plex Mono", "Consolas", monospace;
       font-size: 12px;
     }
@@ -545,6 +545,55 @@
       display: flex;
       justify-content: space-between;
       gap: 8px;
+    }
+
+    /* stage 卡片底部的资源条容器：CPU / MEM 同一行并排展示。 */
+    .node.stage .resource-row {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    /* 单个资源条本体。背景是低亮度底板，::before 负责实际进度填充。 */
+    .node.stage .resource-bar {
+      position: relative;
+      height: 16px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    .node.stage .resource-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--value, 0%);
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(99,230,255,0.78), rgba(55,239,176,0.72));
+    }
+
+    .node.stage .resource-bar.mem::before {
+      background: linear-gradient(90deg, rgba(125,168,255,0.76), rgba(162,141,255,0.7));
+    }
+
+    /* 半透明文字覆盖在进度条上方，既能读数值，也能保留条形填充。 */
+    .node.stage .resource-bar span {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 10px;
+      line-height: 1;
+      text-transform: uppercase;
+      color: rgba(241,249,255,0.76);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.2px;
+      pointer-events: none;
     }
 
     .badge {
@@ -926,7 +975,7 @@
     /* 同一座塔里，5 个 source 节点相对塔中心的横向偏移。 */
     const sourceOffsets = [-140, -70, 0, 70, 140];
     /* source 节点显示名称。数组顺序会直接映射到横向排布顺序。 */
-    const sourceNames = ["RT", "BB", "OMDC", "CIIC", "BJ"];
+    const sourceNames = ["RT", "BB", "OMDC", "CIIS", "BJ"];
 
     /* 所有节点的运行时数据都放在这里。 */
     const nodes = [];
@@ -949,28 +998,29 @@
 
     /* 每座塔业务层节点的初始种子数据。
        这些值会在首次 render 时显示，后续再由 evolveNodes() 做轻微波动。
-       kind 会影响卡片配色；messages 目前只对 BG 生效。 */
+       kind 会影响卡片配色；messages 目前只对 BG 生效；
+       cpu / mem 用于卡片底部资源条。 */
     const stageSeed = {
       TKO1: {
-        L1: { avg: 29, p95: 42, load: 38, kind: "flow" },
-        L2: { avg: 33, p95: 49, load: 42, kind: "process" },
-        L3: { avg: 61, p95: 126, load: 70, kind: "process" },
-        BG: { avg: 18, p95: 35, load: 24, kind: "process", messages: 182340 },
-        HCS: { avg: 3, p95: 6, load: 10, kind: "flow" }
+        L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, kind: "flow" },
+        L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, kind: "process" },
+        L3: { avg: 61, p95: 126, load: 70, cpu: 70, mem: 76, kind: "process" },
+        BG: { avg: 18, p95: 35, load: 24, cpu: 24, mem: 31, kind: "process", messages: 182340 },
+        HCS: { avg: 3, p95: 6, load: 10, cpu: 10, mem: 18, kind: "flow" }
       },
       SKM: {
-        L1: { avg: 30, p95: 44, load: 36, kind: "flow" },
-        L2: { avg: 34, p95: 52, load: 43, kind: "process" },
-        L3: { avg: 63, p95: 134, load: 72, kind: "process" },
-        BG: { avg: 19, p95: 36, load: 25, kind: "process", messages: 193120 },
-        HCS: { avg: 3, p95: 6, load: 11, kind: "flow" }
+        L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, kind: "flow" },
+        L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, kind: "process" },
+        L3: { avg: 63, p95: 134, load: 72, cpu: 72, mem: 78, kind: "process" },
+        BG: { avg: 19, p95: 36, load: 25, cpu: 25, mem: 33, kind: "process", messages: 193120 },
+        HCS: { avg: 3, p95: 6, load: 11, cpu: 11, mem: 19, kind: "flow" }
       },
       TKO2: {
-        L1: { avg: 31, p95: 45, load: 40, kind: "flow" },
-        L2: { avg: 35, p95: 56, load: 47, kind: "process" },
-        L3: { avg: 74, p95: 146, load: 82, kind: "process" },
-        BG: { avg: 22, p95: 38, load: 31, kind: "process", messages: 241680 },
-        HCS: { avg: 3, p95: 5, load: 12, kind: "flow" }
+        L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, kind: "flow" },
+        L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, kind: "process" },
+        L3: { avg: 74, p95: 146, load: 82, cpu: 82, mem: 87, kind: "process" },
+        BG: { avg: 22, p95: 38, load: 31, cpu: 31, mem: 39, kind: "process", messages: 241680 },
+        HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, kind: "flow" }
       }
     };
 
@@ -1114,6 +1164,17 @@
       return statusClass(node.p95 || Math.round(node.rate / 12));
     }
 
+    /* 生成资源进度条 HTML。
+       label 只区分 CPU / MEM，value 使用百分比并直接决定填充宽度。 */
+    function resourceBarHtml(label, value, className) {
+      const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+      return `
+        <div class="resource-bar ${className}" style="--value:${safeValue}%;">
+          <span>${label}:${safeValue}%</span>
+        </div>
+      `;
+    }
+
     /* 生成节点 HTML。
        这是“数据对象 -> 卡片 DOM 字符串”的唯一入口。
        如果要改节点文案、字段、徽标、卡片 class，优先看这里。 */
@@ -1135,8 +1196,10 @@
       const bgHcsTone = node.name === "BG" ? " bg-hcs-tone" : "";
       /* BG 额外展示消息数，其它层展示站点和角色说明。 */
       const subline = node.name === "BG"
-        ? "Number of Message: " + (node.messages || 0).toLocaleString()
+        ? "No. of Msg " + (node.messages || 0).toLocaleString()
         : node.site + " " + (isProcessLike ? "Compute" : "Gateway");
+      const cpu = node.cpu ?? node.load ?? 0;
+      const mem = node.mem ?? Math.min(100, cpu + 8);
       return `
         <article class="node stage${process}${bgHcsTone}" style="left:${node.x - 88}px; top:${node.y - 63}px;">
           <div class="title">
@@ -1147,6 +1210,10 @@
           <div class="metrics">
             <div class="line"><span>AVG</span><strong>${node.avg}ms</strong></div>
             <div class="line"><span>P95</span><strong class="${tone}">${node.p95}ms</strong></div>
+          </div>
+          <div class="resource-row">
+            ${resourceBarHtml("cpu", cpu, "cpu")}
+            ${resourceBarHtml("mem", mem, "mem")}
           </div>
         </article>
       `;
@@ -1278,7 +1345,7 @@
           link.id === "TKO1-BG__TKO2-L3" ||
           link.id === "SKM-BG__TKO2-L3";
         const start = edgePoint(from, side, { y: 12 });
-        const end = edgePoint(to, endSide, { y: (sameSite ? 46 : 36) });
+        const end = edgePoint(to, endSide, { y: (sameSite ? 46 : 46) });
         /* span 越大，弧线越张开；越小，弧线越贴近节点。 */
         const span = sameSite ? 90 : 70;
         return {
@@ -1305,7 +1372,7 @@
           link.id === "SKM-L3__TKO2-L1" ||
           link.id === "TKO2-L3__TKO1-L1" ||
           link.id === "TKO2-L3__SKM-L1";
-        const start = edgePoint(from, side, { y: -18 });
+        const start = edgePoint(from, side, { y: -46 });
         const end = edgePoint(to, endSide, { y: 12 });
         const span = sameSite ? 100 : 80;
         return {
@@ -1353,6 +1420,14 @@
 
       /* 个别非常拥挤的路径需要单独特判。 */
       if (link.id === "TKO2-L3__TKO1-BG") return 0.25;
+      if (link.id === "TKO2-BG__TKO1-HCS") return 0.25;
+      if (link.id === "SKM-BG__TKO2-HCS") return 0.25;
+      if (link.id === "TKO1-L2__TKO2-L3") return 0.75;
+      if (link.id === "TKO2-L2__SKM-L3") return 0.75;
+      if (link.id === "TKO1-L3__TKO2-L1") return 0.75;
+      if (link.id === "TKO2-L3__SKM-L1") return 0.75;
+      if (link.id === "TKO2-BG__TKO1-L3") return 0.30;
+      if (link.id === "SKM-BG__TKO2-L3") return 0.25;
 
       const midpointCrowded =
         (link.kind === "cross" && (link.group === "l2-l3" || link.group === "l3-bg" || link.group === "bg-hcs")) ||
@@ -1579,7 +1654,10 @@
         const scale = node.name === "L3" ? 12 : 7;
         node.avg = jitter(node.avg, scale, 2);
         node.p95 = jitter(node.p95, scale * 1.5, node.avg + 3);
-        node.load = Math.max(8, Math.min(96, jitter(node.load, scale * 1.7, 8)));
+        node.cpu = Math.max(8, Math.min(96, jitter(node.cpu ?? node.load ?? 20, scale * 1.7, 8)));
+        node.mem = Math.max(10, Math.min(98, jitter(node.mem ?? (node.cpu + 8), scale * 1.4, 10)));
+        /* 保留 load 这个旧字段，避免后续其它逻辑还引用它时拿不到值。 */
+        node.load = node.cpu;
         if (node.name === "BG") {
           node.messages = jitter(node.messages || 180000, 12000, 100000);
         }
