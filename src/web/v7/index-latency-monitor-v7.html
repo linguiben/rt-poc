@@ -898,6 +898,7 @@
       addLink(site + "-L1", site + "-L2", 30, "l1-l2", "intra", site === "TKO2" ? 35 : site === "SKM" ? 34 : 33);
     });
 
+    // addLink(from: , to: , base: , group: , kind: , current: )
     addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 118);
     addLink("SKM-L2", "SKM-L3", 50, "l2-l3", "intra", 124);
     addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 168);
@@ -1110,13 +1111,13 @@
         const side = sameSite ? outerSide(from.site, link.group) : sideToward(from, to);
         const endSide = sameSite ? outerSide(to.site, link.group) : oppositeSide(side);
         const dir = side === "right" ? 1 : -1;
-        const start = edgePoint(from, side, { y: -20 });
-        const end = edgePoint(to, endSide, { y: 18 });
-        const span = sameSite ? 140 : 110;
+        const start = edgePoint(from, side, { y: 12 });
+        const end = edgePoint(to, endSide, { y: (sameSite ? 46 : 36) });
+        const span = sameSite ? 90 : 70; // 减小横向跨度，收紧弧度
         return {
           p0: start,
-          p1: { x: start.x + dir * span, y: start.y - 28 },
-          p2: { x: end.x + dir * span, y: end.y + 28 },
+          p1: { x: start.x + dir * span, y: start.y - 16 },
+          p2: { x: end.x + dir * span, y: end.y + 16 },
           p3: end
         };
       }
@@ -1126,13 +1127,14 @@
         const side = sameSite ? outerSide(from.site, link.group) : sideToward(from, to);
         const endSide = sameSite ? outerSide(to.site, link.group) : oppositeSide(side);
         const dir = side === "right" ? 1 : -1;
-        const start = edgePoint(from, side, { y: -30 });
-        const end = edgePoint(to, endSide, { y: 24 });
-        const span = sameSite ? 170 : 128;
+        // 减小纵向偏移与横向 span，以收紧回流弧度
+        const start = edgePoint(from, side, { y: -18 });
+        const end = edgePoint(to, endSide, { y: 12 });
+        const span = sameSite ? 100 : 80;
         return {
           p0: start,
-          p1: { x: start.x + dir * span, y: start.y - 116 },
-          p2: { x: end.x + dir * span, y: end.y + 116 },
+          p1: { x: start.x + dir * span, y: start.y - 60 },
+          p2: { x: end.x + dir * span, y: end.y + 60 },
           p3: end
         };
       }
@@ -1438,3 +1440,4 @@
   </script>
 </body>
 </html>
+
