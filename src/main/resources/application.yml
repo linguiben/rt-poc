@@ -4,7 +4,7 @@ spring:
       write-dates-as-timestamps: false
   mvc:
     async:
-      request-timeout: 0
+      request-timeout: 120_000
 
 server:
   port: 8080
