@@ -993,10 +993,11 @@
       }
 
       const tone = nodeStatus(node);
-      const process = node.kind === "process" ? " process" : "";
-      const subline = node.name === "BG"
-        ? "Number of Message: " + (node.messages || 0).toLocaleString()
-        : node.site + " " + (node.kind === "process" ? "Compute" : "Gateway");
+        const isProcessLike = node.kind === "process" || node.name === "L1";
+        const process = isProcessLike ? " process" : "";
+        const subline = node.name === "BG"
+          ? "Number of Message: " + (node.messages || 0).toLocaleString()
+          : node.site + " " + (isProcessLike ? "Compute" : "Gateway");
       return `
         <article class="node stage${process}" style="left:${node.x - 88}px; top:${node.y - 63}px;">
           <div class="title">
