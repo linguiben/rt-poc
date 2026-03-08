@@ -973,6 +973,10 @@
       return "";
     }
 
+    function pathIdForLink(link) {
+      return "route-path-" + link.id.replaceAll("_", "-");
+    }
+
     function nodeStatus(node) {
       return statusClass(node.p95 || Math.round(node.rate / 12));
     }
@@ -1183,9 +1187,10 @@
         const path = pathForLink(link);
         const severity = statusClass(link.current);
         const variant = routeVariantClass(link);
+        const pathId = pathIdForLink(link);
         return `
           <g>
-            <path class="route-base ${link.kind} ${variant}" d="${path}"></path>
+            <path id="${pathId}" class="route-base ${link.kind} ${variant}" d="${path}"></path>
             <path class="route-flow ${link.kind} ${severity} ${variant}" d="${path}"></path>
           </g>
         `;
