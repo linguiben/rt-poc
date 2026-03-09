@@ -356,7 +356,7 @@
     }
 
     /* 图例前面的圆点色块。
-       影响范围：legend 中表示 intra / cross / feedback / critical 的小圆点。 */
+       影响范围：legend 中表示 primary / intra / backup / feedback / critical 的小圆点。 */
     .legend i {
       width: 10px;
       height: 10px;
@@ -458,6 +458,18 @@
     .route-base.feedback {
       stroke: rgba(255, 215, 104, 0.22);
       stroke-dasharray: 4 10;
+      stroke-width: 0.6;
+    }
+
+    /* feedback 回流链路的默认样式。
+       影响范围：BG -> L3、L3 -> L1 等反馈线的颜色、虚线节奏和发光。 */
+    .route-flow.feedback {
+      stroke: var(--blue);
+      stroke-dasharray: 4 10;
+      stroke-width: 1.8;
+      stroke-opacity: 0.6;
+      --route-flow-animation: routeFlow 2.2s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
     }
 
     /* 所有动态主路线的默认样式。
@@ -481,39 +493,29 @@
       stroke-width: 4;
     }
 
-    /* 跨塔前向链路的基础视觉。
-       影响范围：l2-l3、l3-bg、bg-hcs 中 kind=cross 的桥接线条。 */
-    .route-flow.cross {
+    /* 主桥接前向链路的基础视觉。
+       影响范围：l3-bg、bg-hcs 中 kind=primary 的主桥接线条。 */
+    .route-flow.primary {
       stroke: var(--cyan);
       stroke-dasharray: 16 11;
       stroke-width: 4;
     }
 
-    /* feedback 回流链路的默认样式。
-       影响范围：BG -> L3、L3 -> L1 等反馈线的颜色、虚线节奏和发光。 */
-    .route-flow.feedback {
-      stroke: var(--blue);
-      stroke-dasharray: 4 10;
-      stroke-width: 3;
+    /* 备份跨塔前向链路。
+       影响范围：l2-l3 中 kind=backup 的跨塔备援路线，视觉权重低于 intra。 */
+    .route-flow.backup {
+      stroke: var(--cyan);
+      stroke-dasharray: 6 14;
+      stroke-width: 1.8;
       stroke-opacity: 0.6;
-      --route-flow-animation: routeFlow 2.2s linear infinite;
-      filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
+      --route-flow-animation: routeFlow 2.6s linear infinite;
+      filter: drop-shadow(0 0 8px rgba(99,230,255,0.10));
     }
 
-    /* 伪反馈风格的底线。
-       影响范围：被 routeVariantClass() 标记为 feedback-like 的桥接线底层轨迹。 */
-    .route-base.feedback-like {
-      stroke-dasharray: 4 10;
+    .route-base.backup {
+      stroke: rgba(99,230,255,0.09);
+      stroke-dasharray: 4 12;
       stroke-width: 0.6;
-      stroke-opacity: 0.8;
-    }
-
-    /* 伪反馈风格的动态线。
-       影响范围：主要用于非直达的 l2-l3 桥接线，让观感更接近回流曲线。 */
-    .route-flow.feedback-like {
-      stroke-dasharray: 4 10;
-      stroke-width: 0.6;
-      --route-flow-animation: routeFlow 2.4s linear infinite;
     }
 
     /* 较弱存在感的虚线底层。
@@ -532,23 +534,19 @@
       opacity: 0.92;
     }
 
-    /* 前向虚线节奏覆盖。
-       影响范围：用于少数 dissem-dashed 路线，只调整 dash 节奏，不改颜色来源。 */
-    .route-flow.dissem-dashed {
-      stroke-dasharray: 16 11;
-    }
-
     /* 告警级别颜色覆盖。
        影响范围：所有动态 route-flow 在 warn / critical 状态下的最终主色。 */
-    .route-flow.warn { stroke: var(--amber); }
+    .route-flow.warn { 
+      stroke: var(--amber); 
+      --route-alert-animation: routeAlertBlink 0.9s linear infinite;
+    }
     .route-flow.critical {
       stroke: var(--red);
       --route-alert-animation: routeAlertBlink 0.9s linear infinite;
     }
 
-    /* 正常状态下的跨塔主链统一使用蓝色。
-       影响范围：ok 状态的 l2-l3、l3-bg、bg-hcs 三组主通道。 */
-    .route-flow.l2-l3.ok,
+    /* 正常状态下主通道保持青色。
+       影响范围：ok 状态的 l3-bg、bg-hcs 两组主桥接通道。 */
     .route-flow.l3-bg.ok,
     .route-flow.bg-hcs.ok {
       stroke: var(--cyan);
@@ -569,9 +567,9 @@
       filter: drop-shadow(0 0 12px rgba(99,230,255,0.22));
     }
 
-    /* 跨塔 L3 -> BG 额外强调。
-       影响范围：TKO2-L3 到两侧 BG 的桥接线，线宽和蓝色辉光更强。 */
-    .route-flow.cross.l3-bg {
+    /* 主桥接 L3 -> BG 额外强调。
+       影响范围：TKO2-L3 到两侧 BG 的主桥接线，线宽和蓝色辉光更强。 */
+    .route-flow.primary.l3-bg {
       stroke-width: 4.6;
       filter: drop-shadow(0 0 14px rgba(125,168,255,0.28));
     }
@@ -606,8 +604,8 @@
 
     /* pulse 颜色映射。
        影响范围：根据 route 的 kind / severity / group，切换 pulse 的填充色。 */
-    .route-pulse-glow.cross { fill: rgba(125,168,255,0.9); }
-    .route-pulse-core.cross { fill: #d7e7ff; }
+    .route-pulse-glow.primary { fill: rgba(125,168,255,0.9); }
+    .route-pulse-core.primary { fill: #d7e7ff; }
     .route-pulse-glow.intra { fill: rgba(99,230,255,0.94); }
     .route-pulse-core.intra { fill: #effdff; }
     .route-pulse-glow.warn { fill: rgba(255,215,104,0.92); }
@@ -1032,7 +1030,7 @@
             <div class="headline-card">
               <div class="name">Cross-Tower Hot Path</div>
               <div class="val critical" id="heroHot">196ms</div>
-              <div class="meta"><span id="heroHotName">TKO2-L2 -> TKO1-L3</span><span>Bridge Route</span></div>
+              <div class="meta"><span id="heroHotName">TKO2-L2 -&gt; TKO1-L3</span><span>Bridge Route</span></div>
             </div>
             <div class="headline-card">
               <div class="name">Topology Health</div>
@@ -1083,9 +1081,10 @@
           <div class="panel-head">
             <strong>Vertical Triple-Tower Topology</strong>
             <div class="legend">
-              <span><i style="background:var(--cyan)"></i>Forward intra-tower</span>
-              <span><i style="background:var(--blue)"></i>Forward cross-tower</span>
-              <span><i style="background:var(--amber)"></i>Feedback loop</span>
+              <span><i style="background:var(--cyan)"></i>Primary</span>
+              <span><i style="background:var(--cyan); opacity:0.85"></i>Intra-tower</span>
+              <span><i style="background:var(--cyan); opacity:0.55"></i>Backup</span>
+              <span><i style="background:var(--blue)"></i>Feedback</span>
               <span><i style="background:var(--red)"></i>Critical</span>
             </div>
           </div>
@@ -1129,7 +1128,7 @@
                 节点卡片不放在 SVG 里，而是放在后面的 node-layer，
                 这样 HTML 卡片更容易写阴影、圆角和文字布局。
               -->
-              <svg class="topology-svg" viewBox="0 0 1640 1180" preserveAspectRatio="xMidYMid meet">
+              <svg class="topology-svg" viewBox="0 0 1640 1180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                 <g id="routeLayer"></g>
                 <g id="labelLayer"></g>
               </svg>
@@ -1306,7 +1305,9 @@
 
     /* 先生成每座塔内部的 source -> L1 和 L1 -> L2。 */
     siteOrder.forEach((site) => {
-      sourceNames.forEach((source) => addLink(site + "-" + source, site + "-L1", 30, "sources", "intra", 31));
+      sourceNames.forEach((source) => {
+        addLink(site + "-" + source, site + "-L1", 30, "sources", "intra", 31);
+      });
       addLink(site + "-L1", site + "-L2", 30, "l1-l2", "intra", site === "TKO2" ? 35 : site === "SKM" ? 34 : 33);
     });
 
@@ -1318,14 +1319,14 @@
     // addLink(from: , to: , base: , group: , kind: , current: )
     addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 18);
     addLink("SKM-L2", "SKM-L3", 50, "l2-l3", "intra", 124);
-    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 68);
-    addLink("SKM-L2", "TKO2-L3", 50, "l2-l3", "cross", 54);
-    addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "cross", 196);
-    addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "cross", 30);
+    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "backup", 68);
+    addLink("SKM-L2", "TKO2-L3", 50, "l2-l3", "backup", 54);
+    addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "backup", 196);
+    addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "backup", 30);
     addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 59);
 
-    addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "cross", 92);
-    addLink("TKO2-L3", "SKM-BG", 30, "l3-bg", "cross", 86);
+    addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "primary", 92);
+    addLink("TKO2-L3", "SKM-BG", 30, "l3-bg", "primary", 86);
     addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 34);
 
     addLink("TKO1-BG", "TKO1-L3", 30, "bg-l3-feedback", "feedback", 56);
@@ -1345,11 +1346,11 @@
     addLink("TKO2-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 61);
 
     addLink("TKO1-BG", "TKO1-HCS", 30, "bg-hcs", "intra", 24);
-    addLink("TKO1-BG", "TKO2-HCS", 30, "bg-hcs", "cross", 72);
+    addLink("TKO1-BG", "TKO2-HCS", 30, "bg-hcs", "backup", 72);
     addLink("SKM-BG", "SKM-HCS", 30, "bg-hcs", "intra", 25);
-    addLink("SKM-BG", "TKO2-HCS", 30, "bg-hcs", "cross", 70);
-    addLink("TKO2-BG", "TKO1-HCS", 30, "bg-hcs", "cross", 78);
-    addLink("TKO2-BG", "SKM-HCS", 30, "bg-hcs", "cross", 74);
+    addLink("SKM-BG", "TKO2-HCS", 30, "bg-hcs", "backup", 70);
+    addLink("TKO2-BG", "TKO1-HCS", 30, "bg-hcs", "backup", 78);
+    addLink("TKO2-BG", "SKM-HCS", 30, "bg-hcs", "backup", 74);
     addLink("TKO2-BG", "TKO2-HCS", 30, "bg-hcs", "intra", 26);
 
     /* 页面上几个关键挂载点。
@@ -1434,20 +1435,10 @@
     }
 
     /* 给特定链路附加视觉变体类。
-       这类规则通常是“为了避免视觉拥挤”或“强调某些路径”。
-       如果新增 / 修改具体 id，这里和 addLink() 中的 id 必须保持一致。 */
+       目前仅 sources 组的 TKO1 / SKM 输入线保留 soft-dashed，
+       用于维持“主站更突出、辅站更克制”的视觉层次。 */
     function routeVariantClass(link) {
-      // if (link.group === "l2-l3" && link.id !== "TKO2-L2__TKO2-L3") return "feedback-like";
-      if (link.kind === "feedback") return "feedback-like";
       if (link.group === "sources" && (link.from.startsWith("TKO1-") || link.from.startsWith("SKM-"))) return "soft-dashed";
-      if (link.id === "TKO1-BG__TKO1-HCS") return "soft-dashed";
-      if (link.id === "TKO1-BG__TKO2-HCS") return "soft-dashed";
-      if (link.id === "SKM-BG__SKM-HCS") return "soft-dashed";
-      if (link.id === "SKM-BG__TKO2-HCS") return "soft-dashed";
-      if (link.id === "TKO2-BG__TKO1-HCS") return "soft-dashed";
-      if (link.id === "TKO2-BG__SKM-HCS") return "soft-dashed";
-      // if (link.id === "TKO2-BG__TKO2-L3") return "dissem-dashed";
-      // if (link.id === "TKO2-L3__TKO2-L1") return "dissem-dashed";
       return "";
     }
 
@@ -1610,7 +1601,7 @@
       }
 
       /* L2 -> L3 跨塔桥接：横向跨过去，再接入目标塔。 */
-      if (link.kind === "cross" && link.group === "l2-l3") {
+      if ((link.kind === "primary" || link.kind === "backup") && link.group === "l2-l3") {
         const startSide = sideToward(from, to);
         const endSide = oppositeSide(startSide);
         const start = edgePoint(from, startSide, { y: 10 });
@@ -1626,7 +1617,7 @@
 
       /* L3 -> BG 跨塔桥接：
          这里刻意做成更扁的下滑弧线，让视觉上更像从 L3 向 BG 滑落。 */
-      if (link.kind === "cross" && link.group === "l3-bg") {
+      if (link.kind === "primary" && link.group === "l3-bg") {
         const startSide = sideToward(from, to);
         const endSide = oppositeSide(startSide);
         const dir = startSide === "right" ? 1 : -1;
@@ -1641,8 +1632,9 @@
         };
       }
 
-      /* BG -> HCS 跨塔：末端较平，避免与底部区域文字重叠。 */
-      if (link.kind === "cross" && link.group === "bg-hcs") {
+      /* BG -> HCS 跨塔：primary/backup 共用同一几何，
+         否则 backup 会掉进兜底分支，退化成直线且标签偏到起点附近。 */
+      if ((link.kind === "primary" || link.kind === "backup") && link.group === "bg-hcs") {
         const startSide = sideToward(from, to);
         const endSide = oppositeSide(startSide);
         const start = edgePoint(from, startSide, { y: 22 });
@@ -1756,7 +1748,7 @@
       if (link.id === "SKM-BG__TKO2-L3") return 0.25;
 
       const midpointCrowded =
-        (link.kind === "cross" && (link.group === "l2-l3" || link.group === "l3-bg" || link.group === "bg-hcs")) ||
+        ((link.kind === "primary" || link.kind === "backup") && (link.group === "l2-l3" || link.group === "l3-bg" || link.group === "bg-hcs")) ||
         (link.group === "bg-l3-feedback" && from.site !== to.site) ||
         (link.group === "l3-l1-feedback" && from.site !== to.site);
 
@@ -1872,7 +1864,7 @@
           tko1: avgFor((link) => link.group === "l2-l3" && link.from === "TKO1-L2"),
           skm: avgFor((link) => link.group === "l2-l3" && link.from === "SKM-L2"),
           tko2: avgFor((link) => link.group === "l2-l3" && link.from === "TKO2-L2"),
-          bridge: avgFor((link) => link.group === "l2-l3" && link.kind === "cross")
+          bridge: avgFor((link) => link.group === "l2-l3" && (link.kind === "primary" || link.kind === "backup"))
         },
         {
           group: "l3-bg",
@@ -1936,7 +1928,8 @@
         .map((link) => {
           const tone = statusClassForLink(link);
           let text = link.from + " -> " + link.to + " ";
-          if (link.kind === "cross") text += "cross-tower bridge above baseline.";
+          if (link.kind === "primary") text += "primary cross-tower bridge above baseline.";
+          else if (link.kind === "backup") text += "backup cross-tower route under watch.";
           else if (link.kind === "feedback") text += "feedback loop under watch.";
           else text += "tower-local route stable.";
           return { tone, text: text + " current " + link.current + "ms, base " + link.base + "ms." };
@@ -1963,10 +1956,10 @@
       document.getElementById("heroState").textContent = criticals > 0 ? "Degraded" : "Stable";
       document.getElementById("statSources").textContent = String(nodes.filter((node) => node.type === "source").length);
       document.getElementById("statInputs").textContent = String(links.filter((link) => link.group === "sources").length);
-      document.getElementById("statBridges").textContent = String(links.filter((link) => link.kind === "cross").length);
+      document.getElementById("statBridges").textContent = String(links.filter((link) => link.kind === "primary" || link.kind === "backup").length);
       document.getElementById("statFeedback").textContent = String(links.filter((link) => link.kind === "feedback").length);
       document.getElementById("statAlerts").textContent = warns + " / " + criticals;
-      document.getElementById("statBridgesBar").style.width = Math.min(100, avgFor((link) => link.kind === "cross") / 2) + "%";
+      document.getElementById("statBridgesBar").style.width = Math.min(100, avgFor((link) => link.kind === "primary" || link.kind === "backup") / 2) + "%";
       document.getElementById("statFeedbackBar").style.width = Math.min(100, avgFor((link) => link.kind === "feedback")) + "%";
       document.getElementById("statAlertsBar").style.width = Math.min(100, warns * 8 + criticals * 16) + "%";
     }
@@ -2038,7 +2031,7 @@
 
       links.forEach((link) => {
         const anchor = anchors[link.id] || link.base + 2;
-        const swing = link.kind === "cross" ? 18 : link.kind === "feedback" ? 14 : 6;
+        const swing = link.kind === "primary" ? 18 : link.kind === "backup" ? 14 : link.kind === "feedback" ? 14 : 6;
         link.current = jitter(anchor, swing, link.base);
       });
     }
