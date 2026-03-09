@@ -458,7 +458,7 @@
     .route-base.feedback {
       stroke: rgba(255, 215, 104, 0.22);
       stroke-dasharray: 4 10;
-      stroke-width: 0.6;
+      stroke-width: 0.5;
     }
 
     /* feedback 回流链路的默认样式。
@@ -466,8 +466,8 @@
     .route-flow.feedback {
       stroke: var(--blue);
       stroke-dasharray: 4 10;
-      stroke-width: 1.8;
-      stroke-opacity: 0.6;
+      stroke-width: 1.0;
+      stroke-opacity: 0.5;
       --route-flow-animation: routeFlow 2.2s linear infinite;
       filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
     }
@@ -631,6 +631,23 @@
       stroke: rgba(4, 16, 24, 0.92);
       stroke-width: 4px;
       stroke-linejoin: round;
+    }
+
+    @keyframes routeLabelAlertBlink {
+      0%, 42%, 100% { opacity: 1; }
+      52%, 78% { opacity: 0.32; }
+    }
+
+    .route-label.warn text {
+      fill: var(--amber);
+      filter: drop-shadow(0 0 8px rgba(255,215,104,0.48));
+      animation: routeLabelAlertBlink 1.35s ease-in-out infinite;
+    }
+
+    .route-label.critical text {
+      fill: var(--red);
+      filter: drop-shadow(0 0 9px rgba(255,99,116,0.58));
+      animation: routeLabelAlertBlink 0.95s ease-in-out infinite;
     }
 
     /* 每一层的文字标题，比如 External Feeds / BG Dispatch。
@@ -994,6 +1011,11 @@
       .route-flow,
       .route-flow.l3-bg,
       .route-flow.critical {
+        animation: none !important;
+      }
+
+      .route-label.warn text,
+      .route-label.critical text {
         animation: none !important;
       }
 
@@ -1391,6 +1413,10 @@
        当前 primary 是 TKO2，因此脉冲链路是 TKO2-L1 -> TKO2-L2 -> TKO2-L3 -> TKO2-BG。 */
     const primaryPulseLinks = new Set([
       "TKO2-OMDC__TKO2-L1",
+      "TKO2-RT__TKO2-L1",
+      "TKO2-BB__TKO2-L1",
+      "TKO2-CIIS__TKO2-L1",
+      "TKO2-BJ__TKO2-L1",
       "TKO2-L1__TKO2-L2",
       "TKO2-L2__TKO2-L3",
       "TKO2-L3__TKO1-BG",
@@ -1786,8 +1812,9 @@
 
       labelLayer.innerHTML = links.map((link) => {
         const point = labelPoint(link);
+        const severity = statusClassForLink(link);
         return `
-          <g class="route-label" transform="translate(${point.x}, ${point.y})">
+          <g class="route-label ${severity}" transform="translate(${point.x}, ${point.y})">
             <text x="0" y="4">${link.current}ms</text>
           </g>
         `;
