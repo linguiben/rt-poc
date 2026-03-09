@@ -69,6 +69,38 @@
       to { stroke-dashoffset: -58; }
     }
 
+    /* L3 -> BG 专用的心跳脉冲。保持原有流向感，再叠一层短促增强。 */
+    @keyframes routeHeartbeat {
+      0%, 46%, 100% {
+        stroke-opacity: 0.72;
+        stroke-width: 4.5;
+      }
+      10% {
+        stroke-opacity: 1;
+        stroke-width: 6.4;
+      }
+      18% {
+        stroke-opacity: 0.9;
+        stroke-width: 5.6;
+      }
+      28% {
+        stroke-opacity: 0.78;
+        stroke-width: 4.8;
+      }
+    }
+
+    /* critical 路径闪烁提醒。只闪主动态线，不闪底线。 */
+    @keyframes routeAlertBlink {
+      0%, 42%, 100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 14px rgba(255,99,116,0.42));
+      }
+      52%, 78% {
+        opacity: 0.22;
+        filter: drop-shadow(0 0 6px rgba(255,99,116,0.12));
+      }
+    }
+
     /* 主站标签闪烁效果。只作用在塔顶部 Primary 标记。 */
     @keyframes signalBlink {
       0%, 100% { opacity: 1; }
@@ -385,7 +417,9 @@
       stroke-width: 4;
       stroke-linecap: round;
       stroke-dasharray: 10 14;
-      animation: routeFlow 3s linear infinite;
+      --route-flow-animation: routeFlow 3s linear infinite;
+      --route-alert-animation: none;
+      animation: var(--route-flow-animation), var(--route-alert-animation);
       filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
     }
 
@@ -405,7 +439,7 @@
       stroke: var(--amber);
       stroke-dasharray: 4 16;
       stroke-width: 3;
-      animation-duration: 2.2s;
+      --route-flow-animation: routeFlow 2.2s linear infinite;
       filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
     }
 
@@ -417,7 +451,7 @@
     .route-flow.feedback-like {
       stroke-dasharray: 4 16;
       stroke-width: 3;
-      animation-duration: 2.4s;
+      --route-flow-animation: routeFlow 2.4s linear infinite;
     }
 
     .route-base.soft-dashed {
@@ -428,7 +462,7 @@
     .route-flow.soft-dashed {
       stroke-dasharray: 3 18;
       stroke-width: 2.6;
-      animation-duration: 2.6s;
+      --route-flow-animation: routeFlow 2.6s linear infinite;
       opacity: 0.92;
     }
 
@@ -437,7 +471,67 @@
     }
 
     .route-flow.warn { stroke: var(--amber); }
-    .route-flow.critical { stroke: var(--red); }
+    .route-flow.critical {
+      stroke: var(--red);
+      --route-alert-animation: routeAlertBlink 0.9s linear infinite;
+    }
+
+    .route-flow.l2-l3.ok,
+    .route-flow.l3-bg.ok,
+    .route-flow.bg-hcs.ok {
+      stroke: var(--blue);
+    }
+
+    .route-base.l3-bg {
+      stroke-width: 2.4;
+      stroke-opacity: 0.2;
+    }
+
+    .route-flow.l3-bg {
+      stroke-dasharray: 24 18;
+      --route-flow-animation: routeFlow 2.3s linear infinite, routeHeartbeat 1.8s ease-in-out infinite;
+      filter: drop-shadow(0 0 12px rgba(99,230,255,0.22));
+    }
+
+    .route-flow.cross.l3-bg {
+      stroke-width: 4.6;
+      filter: drop-shadow(0 0 14px rgba(125,168,255,0.28));
+    }
+
+    .route-flow.intra.l3-bg {
+      stroke-width: 4.4;
+      filter: drop-shadow(0 0 13px rgba(99,230,255,0.26));
+    }
+
+    .route-pulse-glow,
+    .route-pulse-core {
+      pointer-events: none;
+    }
+
+    .route-pulse-glow {
+      opacity: 0;
+      filter: drop-shadow(0 0 18px rgba(99,230,255,0.68));
+    }
+
+    .route-pulse-core {
+      opacity: 0;
+      filter: drop-shadow(0 0 9px rgba(255,255,255,0.7));
+    }
+
+    .route-pulse-glow.cross { fill: rgba(125,168,255,0.9); }
+    .route-pulse-core.cross { fill: #d7e7ff; }
+    .route-pulse-glow.intra { fill: rgba(99,230,255,0.94); }
+    .route-pulse-core.intra { fill: #effdff; }
+    .route-pulse-glow.warn { fill: rgba(255,215,104,0.92); }
+    .route-pulse-core.warn { fill: #fff2c1; }
+    .route-pulse-glow.critical { fill: rgba(255,99,116,0.92); }
+    .route-pulse-core.critical { fill: #ffe6ea; }
+    .route-pulse-glow.l3-bg { fill: rgba(125,168,255,0.9); }
+    .route-pulse-core.l3-bg { fill: #d7e7ff; }
+    .route-pulse-glow.l3-bg.warn { fill: rgba(255,215,104,0.92); }
+    .route-pulse-core.l3-bg.warn { fill: #fff2c1; }
+    .route-pulse-glow.l3-bg.critical { fill: rgba(255,99,116,0.92); }
+    .route-pulse-core.l3-bg.critical { fill: #ffe6ea; }
 
     .route-label text {
       font-family: "IBM Plex Mono", "Consolas", monospace;
@@ -749,6 +843,18 @@
       .stats,
       .heat-grid {
         grid-template-columns: 1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .route-flow,
+      .route-flow.l3-bg,
+      .route-flow.critical {
+        animation: none !important;
+      }
+
+      .route-pulse-pack {
+        display: none;
       }
     }
   </style>
@@ -1064,13 +1170,13 @@
        2. id 可能被 routeVariantClass() / labelT() / evolveLinks() 特判
        3. 如果新增一类 group，通常还要同步补 renderHeat() 统计逻辑 */
     // addLink(from: , to: , base: , group: , kind: , current: )
-    addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 118);
+    addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 18);
     addLink("SKM-L2", "SKM-L3", 50, "l2-l3", "intra", 124);
-    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 168);
+    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 68);
     addLink("SKM-L2", "TKO2-L3", 50, "l2-l3", "cross", 174);
     addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "cross", 196);
-    addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "cross", 182);
-    addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 144);
+    addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "cross", 30);
+    addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 59);
 
     addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "cross", 92);
     addLink("TKO2-L3", "SKM-BG", 30, "l3-bg", "cross", 86);
@@ -1116,23 +1222,52 @@
       return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
     }
 
+    /* 默认阈值给节点和未配置链路兜底；group/link 可按需覆盖。 */
+    const defaultThresholds = { threshold1: 100, threshold2: 180 };
+
+    /* heatmap 走 group 阈值；没有专门配置的 group 会回落到 defaultThresholds。 */
+    const groupThresholds = {
+      sources: { threshold1: 100, threshold2: 180 },
+      "l1-l2": { threshold1: 100, threshold2: 180 },
+      "l2-l3": { threshold1: 100, threshold2: 180 },
+      "l3-bg": { threshold1: 100, threshold2: 180 },
+      "bg-l3-feedback": { threshold1: 100, threshold2: 180 },
+      "l3-l1-feedback": { threshold1: 100, threshold2: 180 },
+      "bg-hcs": { threshold1: 100, threshold2: 180 }
+    };
+
+    /* 单链路阈值覆盖入口。只在需要偏离 group 规则时填。 */
+    const linkThresholds = {};
+
     /* 根据延迟数值映射成 ok / warn / critical 三档。
        这会影响：
        1. 节点 badge 颜色
        2. 连线颜色
        3. watchlist / heatmap / feed 的状态色
        4. summary 里的健康度计算 */
-    function statusClass(value) {
-      if (value >= 180) return "critical";
-      if (value >= 100) return "warn";
+    function statusClass(value, thresholds = defaultThresholds) {
+      if (value >= thresholds.threshold2) return "critical";
+      if (value >= thresholds.threshold1) return "warn";
       return "ok";
+    }
+
+    function thresholdsForGroup(group) {
+      return groupThresholds[group] || defaultThresholds;
+    }
+
+    function thresholdsForLink(link) {
+      return linkThresholds[link.id] || thresholdsForGroup(link.group);
+    }
+
+    function statusClassForLink(link) {
+      return statusClass(link.current, thresholdsForLink(link));
     }
 
     /* 预留的链路主色选择函数。
        当前 renderTopology() 直接使用 statusClass + kind 组合，没有显式使用本函数，
        但保留它有助于后续收口“路径视觉规则”的逻辑。 */
     function routeTone(link) {
-      const severity = statusClass(link.current);
+      const severity = statusClassForLink(link);
       if (severity !== "ok") return severity;
       return link.kind;
     }
@@ -1159,9 +1294,35 @@
       return "route-path-" + link.id.replaceAll("_", "-");
     }
 
+    /* 只给 L3 -> BG 增加沿路径前进的脉冲包，强调主下行链路。 */
+    function pulseMarkup(link, pathId, severity) {
+      if (link.group !== "l3-bg") return "";
+
+      const travelDur = 2;
+      const beatDur = 2;
+      return `
+        <g class="route-pulse-pack">
+          <circle class="route-pulse-glow ${link.group} ${link.kind} ${severity}" r="9">
+            <animate attributeName="r" values="4;13;8;11;4" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="0;0.95;0.45;0.92;0" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#${pathId}"></mpath>
+            </animateMotion>
+          </circle>
+          <circle class="route-pulse-core ${link.group} ${link.kind} ${severity}" r="3.4">
+            <animate attributeName="r" values="2.4;4.8;3.2;4.2;2.4" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="0;1;0.62;1;0" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#${pathId}"></mpath>
+            </animateMotion>
+          </circle>
+        </g>
+      `;
+    }
+
     /* source 节点用 rate 粗略映射状态，stage 节点用 p95 映射状态。 */
     function nodeStatus(node) {
-      return statusClass(node.p95 || Math.round(node.rate / 12));
+      return statusClass(node.p95 || Math.round(node.rate / 12), defaultThresholds);
     }
 
     /* 生成资源进度条 HTML。
@@ -1456,13 +1617,14 @@
 
       routeLayer.innerHTML = links.map((link) => {
         const path = pathForLink(link);
-        const severity = statusClass(link.current);
+        const severity = statusClassForLink(link);
         const variant = routeVariantClass(link);
         const pathId = pathIdForLink(link);
         return `
           <g>
-            <path id="${pathId}" class="route-base ${link.kind} ${variant}" d="${path}"></path>
-            <path class="route-flow ${link.kind} ${severity} ${variant}" d="${path}"></path>
+            <path id="${pathId}" class="route-base ${link.group} ${link.kind} ${variant}" d="${path}"></path>
+            <path class="route-flow ${link.group} ${link.kind} ${severity} ${variant}" d="${path}"></path>
+            ${pulseMarkup(link, pathId, severity)}
           </g>
         `;
       }).join("");
@@ -1481,7 +1643,7 @@
     function renderWatchlist() {
       const hottest = [...links].sort((a, b) => b.current - a.current).slice(0, 6);
       watchList.innerHTML = hottest.map((link) => {
-        const tone = statusClass(link.current);
+        const tone = statusClassForLink(link);
         return `
           <div class="watch-item">
             <div class="watch-top">
@@ -1509,8 +1671,8 @@
     }
 
     /* heatmap 单元格 HTML 工厂函数。 */
-    function heatCell(value, note) {
-      const tone = statusClass(value);
+    function heatCell(value, note, group) {
+      const tone = statusClass(value, thresholdsForGroup(group));
       return `
         <div class="heat-cell ${tone}">
           <strong>${value}ms</strong>
@@ -1526,6 +1688,7 @@
     function renderHeat() {
       const rows = [
         {
+          group: "sources",
           name: "Sources -> L1",
           tko1: avgFor((link) => link.group === "sources" && link.from.startsWith("TKO1")),
           skm: avgFor((link) => link.group === "sources" && link.from.startsWith("SKM")),
@@ -1533,6 +1696,7 @@
           bridge: avgFor((link) => link.group === "sources")
         },
         {
+          group: "l1-l2",
           name: "L1 -> L2",
           tko1: avgFor((link) => link.group === "l1-l2" && link.from.startsWith("TKO1")),
           skm: avgFor((link) => link.group === "l1-l2" && link.from.startsWith("SKM")),
@@ -1540,6 +1704,7 @@
           bridge: avgFor((link) => link.group === "l1-l2")
         },
         {
+          group: "l2-l3",
           name: "L2 -> L3",
           tko1: avgFor((link) => link.group === "l2-l3" && link.from === "TKO1-L2"),
           skm: avgFor((link) => link.group === "l2-l3" && link.from === "SKM-L2"),
@@ -1547,6 +1712,7 @@
           bridge: avgFor((link) => link.group === "l2-l3" && link.kind === "cross")
         },
         {
+          group: "l3-bg",
           name: "L3 -> BG",
           tko1: avgFor((link) => link.group === "l3-bg" && link.to === "TKO1-BG"),
           skm: avgFor((link) => link.group === "l3-bg" && link.to === "SKM-BG"),
@@ -1554,6 +1720,7 @@
           bridge: avgFor((link) => link.group === "l3-bg")
         },
         {
+          group: "bg-l3-feedback",
           name: "BG -> L3 feedback",
           tko1: avgFor((link) => link.group === "bg-l3-feedback" && link.from.startsWith("TKO1")),
           skm: avgFor((link) => link.group === "bg-l3-feedback" && link.from.startsWith("SKM")),
@@ -1561,6 +1728,7 @@
           bridge: avgFor((link) => link.group === "bg-l3-feedback")
         },
         {
+          group: "l3-l1-feedback",
           name: "L3 -> L1 feedback",
           tko1: avgFor((link) => link.group === "l3-l1-feedback" && link.from.startsWith("TKO1")),
           skm: avgFor((link) => link.group === "l3-l1-feedback" && link.from.startsWith("SKM")),
@@ -1568,6 +1736,7 @@
           bridge: avgFor((link) => link.group === "l3-l1-feedback")
         },
         {
+          group: "bg-hcs",
           name: "BG -> HCS",
           tko1: avgFor((link) => link.group === "bg-hcs" && link.from.startsWith("TKO1")),
           skm: avgFor((link) => link.group === "bg-hcs" && link.from.startsWith("SKM")),
@@ -1584,10 +1753,10 @@
         '<div class="heat-head">Bridge / Mixed</div>',
         ...rows.flatMap((row) => [
           `<div class="heat-label">${row.name}</div>`,
-          heatCell(row.tko1, "left tower"),
-          heatCell(row.skm, "center tower"),
-          heatCell(row.tko2, "right tower"),
-          heatCell(row.bridge, "all routes")
+          heatCell(row.tko1, "left tower", row.group),
+          heatCell(row.skm, "center tower", row.group),
+          heatCell(row.tko2, "right tower", row.group),
+          heatCell(row.bridge, "all routes", row.group)
         ])
       ].join("");
 
@@ -1602,7 +1771,7 @@
         .sort((a, b) => b.current - a.current)
         .slice(0, 5)
         .map((link) => {
-          const tone = statusClass(link.current);
+          const tone = statusClassForLink(link);
           let text = link.from + " -> " + link.to + " ";
           if (link.kind === "cross") text += "cross-tower bridge above baseline.";
           else if (link.kind === "feedback") text += "feedback loop under watch.";
@@ -1622,8 +1791,8 @@
     /* 渲染顶部摘要和统计卡。
        这是多个模块的汇总层，依赖 links / nodes 当前状态。 */
     function renderSummary() {
-      const warns = links.filter((link) => statusClass(link.current) === "warn").length;
-      const criticals = links.filter((link) => statusClass(link.current) === "critical").length;
+      const warns = links.filter((link) => statusClassForLink(link) === "warn").length;
+      const criticals = links.filter((link) => statusClassForLink(link) === "critical").length;
       const health = Math.max(44, 100 - warns * 4 - criticals * 12);
 
       document.getElementById("heroClock").textContent = nowText();
