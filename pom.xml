@@ -45,6 +45,9 @@
         <includes>
           <include>**/*</include>
         </includes>
+        <excludes>
+          <exclude>rt/**</exclude>
+        </excludes>
       </resource>
     </resources>
 
