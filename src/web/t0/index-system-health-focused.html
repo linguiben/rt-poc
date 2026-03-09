@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RT System Health Overview</title>
+  <style>
+    :root{
+      --bg:#0b1220;--panel:#121b2e;--panel2:#17233b;--text:#dbe7ff;--muted:#90a3c8;
+      --ok:#1ec97f;--warn:#ffb84d;--err:#ff5f6d;--line:#22365b;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(circle at top,#152542,#0b1220 48%);color:var(--text);font-family:Inter,Arial,"Microsoft JhengHei",sans-serif}
+    .wrap{max-width:1280px;margin:0 auto;padding:18px}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+    .title{font-size:24px;font-weight:800}
+    .sub{font-size:12px;color:var(--muted);margin-top:4px}
+    .clock{font-size:12px;color:#b8c7e6;background:var(--panel);border:1px solid var(--line);padding:8px 10px;border-radius:10px}
+
+    .kpis{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;margin-bottom:12px}
+    .k{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .k .label{font-size:12px;color:var(--muted)}
+    .k .val{font-size:30px;font-weight:800;line-height:1.1;margin:6px 0}
+    .ok{color:var(--ok)}.warn{color:var(--warn)}.err{color:var(--err)}
+
+    .alerts{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px}
+    .alert{display:flex;justify-content:space-between;gap:12px;padding:8px 10px;border-radius:8px;margin-top:6px;font-size:13px}
+    .alert:first-child{margin-top:0}
+    .a-w{background:rgba(255,184,77,.12);border:1px solid rgba(255,184,77,.35)}
+    .a-e{background:rgba(255,95,109,.12);border:1px solid rgba(255,95,109,.35)}
+
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+    .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .panel h3{margin:0 0 10px;font-size:15px}
+
+    .lanes{display:grid;gap:10px}
+    .lane{border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:10px}
+    .lh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .name{font-weight:700}
+    .badge{font-size:11px;padding:3px 8px;border-radius:999px;border:1px solid transparent}
+    .b-ok{background:rgba(30,201,127,.16);color:var(--ok);border-color:rgba(30,201,127,.35)}
+    .b-w{background:rgba(255,184,77,.15);color:var(--warn);border-color:rgba(255,184,77,.35)}
+    .b-e{background:rgba(255,95,109,.15);color:var(--err);border-color:rgba(255,95,109,.35)}
+
+    .flow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+    .n{border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;background:#10192b}
+    .n .t{font-size:11px;color:var(--muted)}
+    .n .v{font-size:18px;font-weight:700;margin-top:4px}
+
+    .mini{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px}
+    .m{height:6px;border-radius:999px;background:#243756;overflow:hidden}
+    .m span{display:block;height:100%;background:var(--ok)}
+
+    .list{display:grid;gap:8px}
+    .item{padding:9px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;font-size:13px}
+    .small{color:var(--muted);font-size:12px}
+
+    @media (max-width:980px){.kpis{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <div class="title">Realtime System Health Overview</div>
+        <div class="sub">Focus on current health state · auto refresh every 3s (mock data)</div>
+      </div>
+      <div class="clock" id="clock">--</div>
+    </div>
+
+    <section class="kpis">
+      <article class="k"><div class="label">Overall Health Score</div><div class="val" id="healthScore">--</div><div class="small">0 - 100</div></article>
+      <article class="k"><div class="label">Healthy Lanes</div><div class="val ok" id="healthyCount">--</div><div class="small">systems in good state</div></article>
+      <article class="k"><div class="label">At Risk / Critical</div><div class="val warn" id="riskCount">--</div><div class="small">need attention</div></article>
+      <article class="k"><div class="label">P95 End-to-End Latency</div><div class="val" id="p95">--</div><div class="small">L1 → Health Check</div></article>
+    </section>
+
+    <section class="alerts" id="alerts"></section>
+
+    <section class="grid">
+      <div class="panel">
+        <h3>Lane Health</h3>
+        <div class="lanes" id="lanes"></div>
+      </div>
+      <div class="panel">
+        <h3>Current Action Items</h3>
+        <div class="list" id="todos"></div>
+      </div>
+    </section>
+  </div>
+
+<script>
+  const laneNames=['TKO','SKM','HOT','CLOUD','BIS-C'];
+  const stages=['L1','L2','L3','BG','Health'];
+
+  function now(){
+    const d=new Date();
+    const p=n=>String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  function statusByMs(ms){
+    if(ms>=320) return 'critical';
+    if(ms>=190) return 'risk';
+    return 'healthy';
+  }
+
+  function laneData(name){
+    const bias=name==='HOT'?170:name==='SKM'?120:80;
+    const vals=stages.map(()=>Math.max(30,Math.round(bias+Math.random()*220)));
+    const max=Math.max(...vals);
+    const state=statusByMs(max);
+    return {name,vals,max,state,e2e:vals.reduce((a,b)=>a+b,0)};
+  }
+
+  function badge(state){
+    if(state==='healthy') return '<span class="badge b-ok">Healthy</span>';
+    if(state==='risk') return '<span class="badge b-w">At Risk</span>';
+    return '<span class="badge b-e">Critical</span>';
+  }
+
+  function cls(ms){
+    const s=statusByMs(ms);
+    return s==='healthy'?'ok':s==='risk'?'warn':'err';
+  }
+
+  function render(){
+    document.getElementById('clock').textContent=`Updated: ${now()}`;
+    const data=laneNames.map(laneData);
+
+    const healthy=data.filter(d=>d.state==='healthy').length;
+    const risk=data.filter(d=>d.state!=='healthy').length;
+    const p95=Math.round(data.map(d=>d.e2e).sort((a,b)=>a-b)[Math.floor(data.length*0.95)-1]||data[data.length-1].e2e);
+    const score=Math.max(0,Math.round(100-(risk*16)-((p95-500)/20)));
+
+    document.getElementById('healthScore').textContent=score;
+    document.getElementById('healthScore').className='val '+(score>=80?'ok':score>=60?'warn':'err');
+    document.getElementById('healthyCount').textContent=healthy;
+    document.getElementById('riskCount').textContent=risk;
+    document.getElementById('riskCount').className='val '+(risk===0?'ok':risk<=2?'warn':'err');
+    document.getElementById('p95').textContent=`${p95} ms`;
+    document.getElementById('p95').className='val '+(p95<700?'ok':p95<900?'warn':'err');
+
+    document.getElementById('lanes').innerHTML=data.map(d=>`
+      <article class="lane">
+        <div class="lh"><div class="name">${d.name}</div>${badge(d.state)}</div>
+        <div class="flow">
+          ${stages.map((s,i)=>`<div class="n"><div class="t">${s}</div><div class="v ${cls(d.vals[i])}">${d.vals[i]}ms</div></div>`).join('')}
+        </div>
+        <div class="mini">
+          ${d.vals.map(v=>`<div class="m"><span style="width:${Math.min(100,Math.round(v/4))}%;background:${v<190?'var(--ok)':v<320?'var(--warn)':'var(--err)'}"></span></div>`).join('')}
+        </div>
+      </article>
+    `).join('');
+
+    const topRisk=[...data].sort((a,b)=>b.max-a.max).slice(0,2);
+    const alerts=[];
+    if(topRisk[0].max>=320){alerts.push({t:'Critical latency spike',d:`${topRisk[0].name} max stage ${topRisk[0].max}ms`,c:'a-e'});}
+    alerts.push({t:'High queue pressure',d:`${topRisk[1].name} approaching threshold (${topRisk[1].max}ms)`,c:'a-w'});
+
+    document.getElementById('alerts').innerHTML=alerts.map(a=>`<div class="alert ${a.c}"><span>${now()} · ${a.t}</span><strong>${a.d}</strong></div>`).join('');
+
+    const todo=[];
+    if(topRisk[0].max>=320) todo.push(`Prioritize ${topRisk[0].name} bottleneck investigation (L2/L3/BG).`);
+    if(p95>=900) todo.push('Enable temporary throttling or back-pressure for noisy feed.');
+    todo.push('Verify health-check server queue depth and worker utilization.');
+    document.getElementById('todos').innerHTML=todo.slice(0,3).map(x=>`<div class="item">${x}</div>`).join('');
+  }
+
+  render();
+  setInterval(render,3000);
+</script>
+</body>
+</html>
