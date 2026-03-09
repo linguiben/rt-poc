@@ -8,238 +8,145 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    :root{
-      --bg:#04060d;
-      --bg2:#090f1b;
-      --panel:#101a2acc;
-      --line:#293b57;
-      --txt:#eaf3ff;
-      --muted:#8ba6c6;
-      --cyan:#53d6ff;
-      --green:#31e8a8;
-      --amber:#ffca62;
-      --red:#ff6f83;
-      --violet:#9c89ff;
-    }
+    :root{--bg:#04060d;--bg2:#090f1b;--panel:#101a2acc;--line:#293b57;--txt:#eaf3ff;--muted:#8ba6c6;--green:#31e8a8;--amber:#ffca62;--red:#ff6f83}
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:'Sora',sans-serif;
-      color:var(--txt);
-      background:
-        radial-gradient(900px 420px at -10% -20%, #14324a 0%, transparent 58%),
-        radial-gradient(700px 380px at 110% -20%, #2a1f4d 0%, transparent 62%),
-        linear-gradient(180deg,var(--bg),var(--bg2));
-      min-height:100vh;
-      padding:18px;
-    }
-    .app{max-width:1440px;margin:0 auto}
-    .head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-    .head h1{margin:0;font-size:clamp(24px,3vw,38px);font-weight:800}
-    .sub{margin-top:6px;font-size:13px;color:var(--muted)}
-    .clock{font:600 12px 'JetBrains Mono',monospace;border:1px solid #355073;padding:7px 10px;border-radius:999px;color:#b8d8f8;background:#0f1726}
+    body{margin:0;font-family:'Sora',sans-serif;color:var(--txt);background:radial-gradient(900px 420px at -10% -20%, #14324a 0%, transparent 58%),radial-gradient(700px 380px at 110% -20%, #2a1f4d 0%, transparent 62%),linear-gradient(180deg,var(--bg),var(--bg2));min-height:100vh;padding:18px}
+    .app{max-width:1440px;margin:0 auto}.head{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+    .head h1{margin:0;font-size:clamp(24px,3vw,38px);font-weight:800}.sub{margin-top:6px;font-size:13px;color:var(--muted)}
+    .head-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .clock,.lang button{font:600 12px 'JetBrains Mono',monospace;border:1px solid #355073;padding:7px 10px;border-radius:999px;color:#b8d8f8;background:#0f1726}
+    .lang{display:flex;gap:6px}.lang button{cursor:pointer}.lang button.active{border-color:#63c7ff;color:#e8f6ff;box-shadow:0 0 0 1px #63c7ff66 inset}
 
     .kpis{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:10px;margin-bottom:12px}
     .kpi{background:linear-gradient(160deg,#131e30cc,#0d1624cc);border:1px solid var(--line);border-radius:12px;padding:12px}
-    .kpi .k{font-size:11px;color:var(--muted)}
-    .kpi .v{margin-top:7px;font-size:25px;font-weight:800;line-height:1}
-    .kpi .d{margin-top:8px;font-size:11px;color:#9fbedd}
+    .kpi .k{font-size:11px;color:var(--muted)} .kpi .v{margin-top:7px;font-size:25px;font-weight:800;line-height:1} .kpi .d{margin-top:8px;font-size:11px;color:#9fbedd}
 
-    .layout{display:grid;grid-template-columns:1.65fr 1fr;gap:12px}
-    .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;backdrop-filter:blur(3px)}
-    .hd{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;border-bottom:1px solid var(--line)}
-    .hd h3{margin:0;font-size:14px}
+    .layout{display:grid;grid-template-columns:1.65fr 1fr;gap:12px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;backdrop-filter:blur(3px)}
+    .hd{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;border-bottom:1px solid var(--line)} .hd h3{margin:0;font-size:14px}
     .tag{font:600 11px 'JetBrains Mono',monospace;color:#9ad8ff;border:1px solid #3f6088;border-radius:999px;padding:4px 8px}
 
-    .flow{padding:13px}
-    .chain{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;align-items:center}
+    .flow{padding:13px}.chain{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;align-items:center}
     .node{border:1px solid #36506f;border-radius:10px;background:linear-gradient(180deg,#11243aaa,#0d1726aa);padding:8px;min-height:78px;position:relative;overflow:hidden}
     .node::after{content:'';position:absolute;inset:auto -35% -85% -35%;height:140%;background:radial-gradient(circle,rgba(83,214,255,.35),transparent 65%)}
-    .node h4{margin:0;font-size:11px;color:#cde6ff}
-    .node p{margin:6px 0 0;font:600 11px 'JetBrains Mono',monospace;color:#99bddf}
-    .arrow{height:2px;background:linear-gradient(90deg,transparent,#77ceff,transparent);position:relative;border-radius:999px}
-    .arrow::before{content:'';position:absolute;right:-2px;top:-3px;border:4px solid transparent;border-left-color:#7fd0ff}
+    .node h4{margin:0;font-size:11px;color:#cde6ff}.node p{margin:6px 0 0;font:600 11px 'JetBrains Mono',monospace;color:#99bddf}
+    .arrow{height:2px;background:linear-gradient(90deg,transparent,#77ceff,transparent);position:relative;border-radius:999px}.arrow::before{content:'';position:absolute;right:-2px;top:-3px;border:4px solid transparent;border-left-color:#7fd0ff}
 
-    .table-wrap{max-height:370px;overflow:auto}
-    table{width:100%;border-collapse:collapse}
-    th,td{padding:9px 11px;text-align:left;font-size:12px}
-    th{position:sticky;top:0;background:#17253a;color:#a9c9e6;font-weight:600}
-    tr{border-top:1px solid #2b3f5c}
-    tbody tr:hover{background:#16263d8f}
+    .table-wrap{max-height:370px;overflow:auto} table{width:100%;border-collapse:collapse} th,td{padding:9px 11px;text-align:left;font-size:12px}
+    th{position:sticky;top:0;background:#17253a;color:#a9c9e6;font-weight:600} tr{border-top:1px solid #2b3f5c} tbody tr:hover{background:#16263d8f}
     td:nth-child(3),td:nth-child(4),td:nth-child(5),td:nth-child(6){font-family:'JetBrains Mono',monospace}
 
-    .st{display:inline-flex;align-items:center;gap:7px;font-weight:700}
-    .dot{width:8px;height:8px;border-radius:50%}
-    .ok{color:var(--green)} .ok .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
-    .warn{color:var(--amber)} .warn .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)}
-    .err{color:var(--red)} .err .dot{background:var(--red);box-shadow:0 0 10px var(--red)}
+    .st{display:inline-flex;align-items:center;gap:7px;font-weight:700}.dot{width:8px;height:8px;border-radius:50%}
+    .ok{color:var(--green)} .ok .dot{background:var(--green);box-shadow:0 0 10px var(--green)} .warn{color:var(--amber)} .warn .dot{background:var(--amber);box-shadow:0 0 10px var(--amber)} .err{color:var(--red)} .err .dot{background:var(--red);box-shadow:0 0 10px var(--red)}
 
-    .side{padding:11px}
-    .blk{background:#101b2ed9;border:1px solid #314866;border-radius:11px;padding:10px;margin-bottom:10px}
-    .blk h4{margin:0 0 8px;font-size:12px;color:#bbd8f6}
-    canvas{display:block;width:100%;height:92px}
-    .log{max-height:240px;overflow:auto}
-    .line{font:11px/1.45 'JetBrains Mono',monospace;color:#bdd6ec;padding:6px;border-radius:8px}
-    .line:nth-child(odd){background:#16263b8f}
+    .side{padding:11px}.blk{background:#101b2ed9;border:1px solid #314866;border-radius:11px;padding:10px;margin-bottom:10px}.blk h4{margin:0 0 8px;font-size:12px;color:#bbd8f6}
+    canvas{display:block;width:100%;height:92px}.log{max-height:240px;overflow:auto}.line{font:11px/1.45 'JetBrains Mono',monospace;color:#bdd6ec;padding:6px;border-radius:8px}.line:nth-child(odd){background:#16263b8f}
 
-    @media (max-width:1120px){
-      .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .layout{grid-template-columns:1fr}
-      .chain{grid-template-columns:1fr}
-      .arrow{height:16px;width:2px;justify-self:center;background:linear-gradient(180deg,transparent,#77ceff,transparent)}
-      .arrow::before{top:auto;bottom:-2px;right:-3px;border:4px solid transparent;border-top-color:#7fd0ff;border-left-color:transparent}
-    }
+    @media (max-width:1120px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:1fr}.chain{grid-template-columns:1fr}.arrow{height:16px;width:2px;justify-self:center;background:linear-gradient(180deg,transparent,#77ceff,transparent)}.arrow::before{top:auto;bottom:-2px;right:-3px;border:4px solid transparent;border-top-color:#7fd0ff;border-left-color:transparent}}
   </style>
 </head>
 <body>
 <main class="app">
   <header class="head">
     <div>
-      <h1>市場指數系統 Dashboard</h1>
-      <div class="sub">覆蓋供應商 → L1 → L2 → L3 → BG → External Client 全鏈路流量及 latency 監控</div>
+      <h1 id="title"></h1>
+      <div class="sub" id="subtitle"></div>
     </div>
-    <div class="clock" id="clock">--</div>
+    <div class="head-r">
+      <div class="lang"><button id="btnZH">ZH</button><button id="btnEN">EN</button></div>
+      <div class="clock" id="clock">--</div>
+    </div>
   </header>
 
   <section class="kpis">
-    <article class="kpi"><div class="k">供應商流入 (msg/s)</div><div class="v" id="inflow">0</div><div class="d">多市場即時報價更新</div></article>
-    <article class="kpi"><div class="k">L1 接收速度</div><div class="v" id="l1speed">0/s</div><div class="d">行情 ingestion 處理</div></article>
-    <article class="kpi"><div class="k">L1→L2 平均時間</div><div class="v" id="l1l2">0ms</div><div class="d">傳輸 + 排隊</div></article>
-    <article class="kpi"><div class="k">L2 計算速度</div><div class="v" id="l2calc">0 idx/s</div><div class="d">指數計算引擎</div></article>
-    <article class="kpi"><div class="k">L2→L3 / L3處理</div><div class="v" id="l2l3">0 / 0ms</div><div class="d">聚合與轉發</div></article>
-    <article class="kpi"><div class="k">L3→BG / BG處理</div><div class="v" id="l3bg">0 / 0ms</div><div class="d">分發及外部推送</div></article>
+    <article class="kpi"><div class="k" id="k1"></div><div class="v" id="inflow">0</div><div class="d" id="d1"></div></article>
+    <article class="kpi"><div class="k" id="k2"></div><div class="v" id="l1speed">0/s</div><div class="d" id="d2"></div></article>
+    <article class="kpi"><div class="k" id="k3"></div><div class="v" id="l1l2">0ms</div><div class="d" id="d3"></div></article>
+    <article class="kpi"><div class="k" id="k4"></div><div class="v" id="l2calc">0 idx/s</div><div class="d" id="d4"></div></article>
+    <article class="kpi"><div class="k" id="k5"></div><div class="v" id="l2l3">0 / 0ms</div><div class="d" id="d5"></div></article>
+    <article class="kpi"><div class="k" id="k6"></div><div class="v" id="l3bg">0 / 0ms</div><div class="d" id="d6"></div></article>
   </section>
 
   <section class="layout">
     <div class="panel">
-      <div class="hd"><h3>系統拓撲 & 流量</h3><span class="tag" id="tick">tick #0</span></div>
-      <div class="flow">
-        <div class="chain" id="chain"></div>
-      </div>
+      <div class="hd"><h3 id="topologyTitle"></h3><span class="tag" id="tick">tick #0</span></div>
+      <div class="flow"><div class="chain" id="chain"></div></div>
 
-      <div class="hd"><h3>模組明細</h3><span class="tag">traffic + latency</span></div>
+      <div class="hd"><h3 id="detailTitle"></h3><span class="tag">traffic + latency</span></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr><th>模組</th><th>角色</th><th>流量(msg/s)</th><th>平均Latency</th><th>平均處理時間</th><th>Link Latency</th><th>狀態</th></tr>
-          </thead>
+          <thead><tr><th id="th1"></th><th id="th2"></th><th id="th3"></th><th id="th4"></th><th id="th5"></th><th id="th6"></th><th id="th7"></th></tr></thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
     </div>
 
     <aside class="panel side">
-      <div class="blk">
-        <h4>End-to-End Latency（最近 50 次）</h4>
-        <canvas id="lineE2E" width="460" height="120"></canvas>
-      </div>
-      <div class="blk">
-        <h4>總吞吐（最近 50 次）</h4>
-        <canvas id="lineTPS" width="460" height="120"></canvas>
-      </div>
-      <div class="blk">
-        <h4>Event Stream</h4>
-        <div class="log" id="log"></div>
-      </div>
+      <div class="blk"><h4 id="e2eTitle"></h4><canvas id="lineE2E" width="460" height="120"></canvas></div>
+      <div class="blk"><h4 id="tpsTitle"></h4><canvas id="lineTPS" width="460" height="120"></canvas></div>
+      <div class="blk"><h4 id="eventTitle"></h4><div class="log" id="log"></div></div>
     </aside>
   </section>
 </main>
 
 <script>
-  const modules = [
-    {name:'Vendors', role:'各市場供應商', baseFlow:12000, baseLat:12, baseProc:8, link:0},
-    {name:'L1', role:'市場資料接收', baseFlow:11500, baseLat:24, baseProc:16, link:0},
-    {name:'L2', role:'指數計算', baseFlow:10900, baseLat:56, baseProc:43, link:42},
-    {name:'L3', role:'指數轉發', baseFlow:10400, baseLat:39, baseProc:22, link:31},
-    {name:'BG', role:'對外發送中介', baseFlow:10100, baseLat:47, baseProc:28, link:26},
-    {name:'Client', role:'外部客戶', baseFlow:9800, baseLat:19, baseProc:9, link:0}
-  ];
+  const I18N = {
+    zh:{
+      htmlLang:'zh-HK', title:'市場指數系統 Dashboard', subtitle:'覆蓋供應商 → L1 → L2 → L3 → BG → External Client 全鏈路流量及 latency 監控',
+      k1:'供應商流入 (msg/s)',d1:'多市場即時報價更新',k2:'L1 接收速度',d2:'行情 ingestion 處理',k3:'L1→L2 平均時間',d3:'傳輸 + 排隊',k4:'L2 計算速度',d4:'指數計算引擎',k5:'L2→L3 / L3處理',d5:'聚合與轉發',k6:'L3→BG / BG處理',d6:'分發及外部推送',
+      topologyTitle:'系統拓撲 & 流量',detailTitle:'模組明細',th1:'模組',th2:'角色',th3:'流量(msg/s)',th4:'平均Latency',th5:'平均處理時間',th6:'Link Latency',th7:'狀態',
+      e2eTitle:'End-to-End Latency（最近 50 次）',tpsTitle:'總吞吐（最近 50 次）',eventTitle:'Event Stream',
+      roles:{Vendors:'各市場供應商',L1:'市場資料接收',L2:'指數計算',L3:'指數轉發',BG:'對外發送中介',Client:'外部客戶'},
+      ok:'全鏈路正常，指數計算與分發穩定。',warn:'WARN 模組: {x}，延遲上升但未超硬閾值。',err:'ERR 模組: {x}，請檢查隊列積壓或上游供應商抖動。', local:'Local'
+    },
+    en:{
+      htmlLang:'en', title:'Market Index System Dashboard', subtitle:'End-to-end monitoring from Vendors → L1 → L2 → L3 → BG → External Client (traffic + latency)',
+      k1:'Vendor Inflow (msg/s)',d1:'Realtime multi-market price updates',k2:'L1 Ingestion Speed',d2:'Market data ingestion throughput',k3:'Avg L1→L2 Time',d3:'Transfer + queueing',k4:'L2 Compute Speed',d4:'Index calculation engine',k5:'L2→L3 / L3 Proc',d5:'Aggregation and forwarding',k6:'L3→BG / BG Proc',d6:'Distribution and external push',
+      topologyTitle:'System Topology & Flow',detailTitle:'Module Details',th1:'Module',th2:'Role',th3:'Traffic (msg/s)',th4:'Avg Latency',th5:'Avg Processing',th6:'Link Latency',th7:'Status',
+      e2eTitle:'End-to-End Latency (last 50 points)',tpsTitle:'Total Throughput (last 50 points)',eventTitle:'Event Stream',
+      roles:{Vendors:'Market Vendors',L1:'Market Data Intake',L2:'Index Calculation',L3:'Index Relay',BG:'Outbound Gateway',Client:'External Clients'},
+      ok:'Pipeline healthy. Index compute and distribution are stable.',warn:'WARN modules: {x}. Latency is elevated but below hard threshold.',err:'ERR modules: {x}. Check queue backlog or upstream vendor jitter.', local:'Local'
+    }
+  };
 
-  const rows = document.getElementById('rows');
-  const chain = document.getElementById('chain');
-  const log = document.getElementById('log');
-  const hE2E = [], hTPS = [];
-  let tick = 0;
+  const modules=[{name:'Vendors',baseFlow:12000,baseLat:12,baseProc:8,link:0},{name:'L1',baseFlow:11500,baseLat:24,baseProc:16,link:0},{name:'L2',baseFlow:10900,baseLat:56,baseProc:43,link:42},{name:'L3',baseFlow:10400,baseLat:39,baseProc:22,link:31},{name:'BG',baseFlow:10100,baseLat:47,baseProc:28,link:26},{name:'Client',baseFlow:9800,baseLat:19,baseProc:9,link:0}];
+  const rows=document.getElementById('rows'),chain=document.getElementById('chain'),log=document.getElementById('log');
+  const hE2E=[],hTPS=[];let tick=0;
+  const qp=new URLSearchParams(location.search);
+  const browserLang=(navigator.language||'en').toLowerCase();
+  let lang= qp.get('lang')==='zh' || qp.get('lang')==='en' ? qp.get('lang') : (browserLang.startsWith('zh')?'zh':'en');
 
-  const now = ()=> new Intl.DateTimeFormat('zh-HK',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
-  const st = v => v==='OK'?'ok':v==='WARN'?'warn':'err';
-
-  function statusByLatency(lat){
-    if(lat > 130 || Math.random()<0.035) return 'ERR';
-    if(lat > 92 || Math.random()<0.15) return 'WARN';
-    return 'OK';
+  function tr(key){return I18N[lang][key]}
+  function applyI18n(){
+    const keys=['title','subtitle','k1','d1','k2','d2','k3','d3','k4','d4','k5','d5','k6','d6','topologyTitle','detailTitle','th1','th2','th3','th4','th5','th6','th7','e2eTitle','tpsTitle','eventTitle'];
+    keys.forEach(k=>document.getElementById(k).textContent=tr(k));
+    document.documentElement.lang=I18N[lang].htmlLang;
+    document.title=tr('title');
+    document.getElementById('btnZH').classList.toggle('active',lang==='zh');
+    document.getElementById('btnEN').classList.toggle('active',lang==='en');
   }
+  function setLang(next){lang=next;qp.set('lang',next);history.replaceState({},'',`${location.pathname}?${qp.toString()}`);applyI18n();}
+  document.getElementById('btnZH').onclick=()=>setLang('zh');
+  document.getElementById('btnEN').onclick=()=>setLang('en');
 
-  function chart(id, arr, color){
-    const c = document.getElementById(id), ctx = c.getContext('2d');
-    const w = c.width, h = c.height, p = 12;
-    ctx.clearRect(0,0,w,h);
-    const max = Math.max(...arr,1), min = Math.min(...arr,0);
-    const X = i => p + (w-p*2)*(i/(arr.length-1||1));
-    const Y = v => h-p - (h-p*2)*((v-min)/(max-min||1));
-    ctx.beginPath();
-    arr.forEach((v,i)=> i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));
-    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.shadowBlur = 10; ctx.shadowColor = color; ctx.stroke(); ctx.shadowBlur = 0;
-  }
-
-  function push(msg){
-    const d = document.createElement('div');
-    d.className = 'line';
-    d.textContent = `[${now()}] ${msg}`;
-    log.prepend(d);
-    while(log.children.length>20) log.removeChild(log.lastChild);
-  }
+  const now=()=>new Intl.DateTimeFormat(lang==='zh'?'zh-HK':'en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(new Date());
+  const st=v=>v==='OK'?'ok':v==='WARN'?'warn':'err';
+  function statusByLatency(lat){if(lat>130||Math.random()<0.035)return 'ERR';if(lat>92||Math.random()<0.15)return 'WARN';return 'OK'}
+  function chart(id,arr,color){const c=document.getElementById(id),ctx=c.getContext('2d');const w=c.width,h=c.height,p=12;ctx.clearRect(0,0,w,h);const max=Math.max(...arr,1),min=Math.min(...arr,0),X=i=>p+(w-p*2)*(i/(arr.length-1||1)),Y=v=>h-p-(h-p*2)*((v-min)/(max-min||1));ctx.beginPath();arr.forEach((v,i)=>i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v)));ctx.strokeStyle=color;ctx.lineWidth=2;ctx.shadowBlur=10;ctx.shadowColor=color;ctx.stroke();ctx.shadowBlur=0}
+  function push(msg){const d=document.createElement('div');d.className='line';d.textContent=`[${now()}] ${msg}`;log.prepend(d);while(log.children.length>20)log.removeChild(log.lastChild)}
 
   function render(){
-    tick++;
-    document.getElementById('clock').textContent = `Local ${new Date().toLocaleString('zh-HK',{hour12:false})}`;
-    document.getElementById('tick').textContent = `tick #${tick}`;
-
-    const data = modules.map((m,i)=>{
-      const wave = Math.sin((tick+i*2)/5);
-      const flow = Math.max(4000, Math.round(m.baseFlow + wave*850 + (Math.random()-0.5)*650));
-      const lat = Math.max(8, Math.round(m.baseLat + Math.abs(wave)*25 + (Math.random()-0.5)*20));
-      const proc = Math.max(4, Math.round(m.baseProc + Math.abs(wave)*12 + (Math.random()-0.5)*11));
-      const link = m.name==='L2' ? Math.round(36 + Math.random()*14) : m.name==='L3' ? Math.round(24 + Math.random()*12) : m.name==='BG' ? Math.round(20 + Math.random()*10) : m.link;
-      const status = statusByLatency(lat + proc + link);
-      return {...m, flow, lat, proc, link, status};
-    });
-
-    const vendors = data[0], l1 = data[1], l2 = data[2], l3 = data[3], bg = data[4];
-    const l1l2 = l2.link;
-    const l2l3 = l3.link;
-    const l3bg = bg.link;
-    const e2e = l1.lat + l1.proc + l1l2 + l2.lat + l2.proc + l2l3 + l3.lat + l3.proc + l3bg + bg.lat + bg.proc;
-    const total = data.reduce((s,d)=>s+d.flow,0);
-
-    document.getElementById('inflow').textContent = vendors.flow.toLocaleString();
-    document.getElementById('l1speed').textContent = l1.flow.toLocaleString();
-    document.getElementById('l1l2').textContent = `${l1l2}ms`;
-    document.getElementById('l2calc').textContent = `${Math.round(l2.flow/90)} idx/s`;
-    document.getElementById('l2l3').textContent = `${l2l3}ms / ${l3.proc}ms`;
-    document.getElementById('l3bg').textContent = `${l3bg}ms / ${bg.proc}ms`;
-
-    rows.innerHTML = data.map(d=>`<tr>
-      <td>${d.name}</td><td>${d.role}</td><td>${d.flow.toLocaleString()}</td><td>${d.lat}ms</td><td>${d.proc}ms</td><td>${d.link?d.link+'ms':'-'}</td>
-      <td><span class="st ${st(d.status)}"><span class="dot"></span>${d.status}</span></td>
-    </tr>`).join('');
-
-    chain.innerHTML = data.map((d,i)=>`<div class="node"><h4>${d.name}</h4><p>${d.flow.toLocaleString()} msg/s</p><p>${d.lat+d.proc+d.link}ms · ${d.status}</p></div>${i<data.length-1?'<div class="arrow"></div>':''}`).join('');
-
-    hE2E.push(e2e); if(hE2E.length>50) hE2E.shift();
-    hTPS.push(total); if(hTPS.length>50) hTPS.shift();
-    chart('lineE2E', hE2E, 'rgb(83,214,255)');
-    chart('lineTPS', hTPS, 'rgb(156,137,255)');
-
-    const err = data.filter(d=>d.status==='ERR').map(d=>d.name);
-    const warn = data.filter(d=>d.status==='WARN').map(d=>d.name);
-    if(err.length) push(`ERR 模組: ${err.join(', ')}，請檢查隊列積壓或上游供應商抖動。`);
-    else if(warn.length) push(`WARN 模組: ${warn.join(', ')}，延遲上升但未超硬閾值。`);
-    else push('全鏈路正常，指數計算與分發穩定。');
+    tick++;document.getElementById('clock').textContent=`${tr('local')} ${new Date().toLocaleString(lang==='zh'?'zh-HK':'en-US',{hour12:false})}`;document.getElementById('tick').textContent=`tick #${tick}`;
+    const data=modules.map((m,i)=>{const wave=Math.sin((tick+i*2)/5),flow=Math.max(4000,Math.round(m.baseFlow+wave*850+(Math.random()-0.5)*650)),lat=Math.max(8,Math.round(m.baseLat+Math.abs(wave)*25+(Math.random()-0.5)*20)),proc=Math.max(4,Math.round(m.baseProc+Math.abs(wave)*12+(Math.random()-0.5)*11)),link=m.name==='L2'?Math.round(36+Math.random()*14):m.name==='L3'?Math.round(24+Math.random()*12):m.name==='BG'?Math.round(20+Math.random()*10):m.link,status=statusByLatency(lat+proc+link);return {...m,flow,lat,proc,link,status}});
+    const l1=data[1],l2=data[2],l3=data[3],bg=data[4],l1l2=l2.link,l2l3=l3.link,l3bg=bg.link,e2e=l1.lat+l1.proc+l1l2+l2.lat+l2.proc+l2l3+l3.lat+l3.proc+l3bg+bg.lat+bg.proc,total=data.reduce((s,d)=>s+d.flow,0);
+    document.getElementById('inflow').textContent=data[0].flow.toLocaleString();document.getElementById('l1speed').textContent=data[1].flow.toLocaleString();document.getElementById('l1l2').textContent=`${l1l2}ms`;document.getElementById('l2calc').textContent=`${Math.round(l2.flow/90)} idx/s`;document.getElementById('l2l3').textContent=`${l2l3}ms / ${l3.proc}ms`;document.getElementById('l3bg').textContent=`${l3bg}ms / ${bg.proc}ms`;
+    rows.innerHTML=data.map(d=>`<tr><td>${d.name}</td><td>${I18N[lang].roles[d.name]}</td><td>${d.flow.toLocaleString()}</td><td>${d.lat}ms</td><td>${d.proc}ms</td><td>${d.link?d.link+'ms':'-'}</td><td><span class="st ${st(d.status)}"><span class="dot"></span>${d.status}</span></td></tr>`).join('');
+    chain.innerHTML=data.map((d,i)=>`<div class="node"><h4>${d.name}</h4><p>${d.flow.toLocaleString()} msg/s</p><p>${d.lat+d.proc+d.link}ms · ${d.status}</p></div>${i<data.length-1?'<div class="arrow"></div>':''}`).join('');
+    hE2E.push(e2e);if(hE2E.length>50)hE2E.shift();hTPS.push(total);if(hTPS.length>50)hTPS.shift();chart('lineE2E',hE2E,'rgb(83,214,255)');chart('lineTPS',hTPS,'rgb(156,137,255)');
+    const err=data.filter(d=>d.status==='ERR').map(d=>d.name),warn=data.filter(d=>d.status==='WARN').map(d=>d.name);
+    if(err.length) push(tr('err').replace('{x}',err.join(', '))); else if(warn.length) push(tr('warn').replace('{x}',warn.join(', '))); else push(tr('ok'));
   }
 
-  render();
-  setInterval(render, 2500);
+  applyI18n(); render(); setInterval(render,2500);
 </script>
 </body>
 </html>
