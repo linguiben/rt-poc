@@ -1785,7 +1785,18 @@
 
     /* 计算标签最终坐标。 */
     function labelPoint(link) {
-      return bezierPoint(controlPointsForLink(link), labelT(link));
+      const points = controlPointsForLink(link);
+      const t = labelT(link);
+      const point = bezierPoint(points, t);
+
+      if (link.kind !== "intra") return point;
+
+      const offset = 22;
+
+      return {
+        x: point.x + offset,
+        y: point.y
+      };
     }
 
     /* 渲染拓扑图主区域。
