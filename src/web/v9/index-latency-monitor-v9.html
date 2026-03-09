@@ -336,7 +336,7 @@
        这里的宽高要和 SVG viewBox、tower 高度、节点坐标体系一起看。
        如果只改单一数值，容易出现节点超出可视区域。 */
     .topology-board {
-      width: 1860px;
+      width: 1640px;
       height: 1180px;
       position: relative;
       border: 1px solid rgba(99,230,255,0.12);
@@ -362,7 +362,7 @@
     }
 
     .tower.left { left: 42px; }
-    .tower.center { left: 680px; }
+    .tower.center { left: 570px; }
     .tower.right { right: 42px; }
 
     .tower-tag {
@@ -961,29 +961,29 @@
                 否则会出现“文字标题和卡片层级对不上”的问题。
               -->
               <div class="tower-caption" style="left:292px; top:96px;">External Feeds</div>
-              <div class="tower-caption" style="left:930px; top:96px;">External Feeds</div>
-              <div class="tower-caption" style="left:1568px; top:96px;">External Feeds</div>
+              <div class="tower-caption" style="left:820px; top:96px;">External Feeds</div>
+              <div class="tower-caption" style="left:1348px; top:96px;">External Feeds</div>
               <div class="tower-caption" style="left:292px; top:288px;">Input Gate</div>
-              <div class="tower-caption" style="left:930px; top:288px;">Input Gate</div>
-              <div class="tower-caption" style="left:1568px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:820px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:1348px; top:288px;">Input Gate</div>
               <div class="tower-caption" style="left:292px; top:452px;">Process Layer</div>
-              <div class="tower-caption" style="left:930px; top:452px;">Process Layer</div>
-              <div class="tower-caption" style="left:1568px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:820px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:1348px; top:452px;">Process Layer</div>
               <div class="tower-caption" style="left:292px; top:612px;">Compute Layer</div>
-              <div class="tower-caption" style="left:930px; top:612px;">Compute Layer</div>
-              <div class="tower-caption" style="left:1568px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:820px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:1348px; top:612px;">Compute Layer</div>
               <div class="tower-caption" style="left:292px; top:789px;">BG Dispatch</div>
-              <div class="tower-caption" style="left:930px; top:789px;">BG Dispatch</div>
-              <div class="tower-caption" style="left:1568px; top:789px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:820px; top:789px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:1348px; top:789px;">BG Dispatch</div>
               <div class="tower-caption" style="left:292px; top:949px;">HCS Delivery</div>
-              <div class="tower-caption" style="left:930px; top:949px;">HCS Delivery</div>
-              <div class="tower-caption" style="left:1568px; top:949px;">HCS Delivery</div>
+              <div class="tower-caption" style="left:820px; top:949px;">HCS Delivery</div>
+              <div class="tower-caption" style="left:1348px; top:949px;">HCS Delivery</div>
               <!--
                 SVG 只负责绘制连线和连线标签。
                 节点卡片不放在 SVG 里，而是放在后面的 node-layer，
                 这样 HTML 卡片更容易写阴影、圆角和文字布局。
               -->
-              <svg class="topology-svg" viewBox="0 0 1860 1180" preserveAspectRatio="xMidYMid meet">
+              <svg class="topology-svg" viewBox="0 0 1640 1180" preserveAspectRatio="xMidYMid meet">
                 <g id="routeLayer"></g>
                 <g id="labelLayer"></g>
               </svg>
@@ -1050,8 +1050,8 @@
        3. tower-caption 的 left 如果还是写死值，需要人工同步 */
     const towers = {
       TKO1: { x: 292, stagesX: 292, label: "Backup", role: "secondary" },
-      TKO2: { x: 930, stagesX: 930, label: "Primary", role: "primary" },
-      SKM: { x: 1568, stagesX: 1568, label: "Tertiary", role: "tertiary" }
+      TKO2: { x: 820, stagesX: 820, label: "Primary", role: "primary" },
+      SKM: { x: 1348, stagesX: 1348, label: "Tertiary", role: "tertiary" }
     };
 
     /* 控制塔的遍历顺序。
