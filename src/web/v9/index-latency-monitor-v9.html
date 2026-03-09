@@ -21,7 +21,7 @@
       --green: #37efb0;
       --amber: #ffd768;
       --red: #ff6374;
-      --blue: #7da8ff;
+      --blue: #98bafd;
       --violet: #a28dff;
       --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
     }
@@ -141,6 +141,8 @@
       align-items: end;
     }
 
+    /* 页眉左上角的细标签行。
+       影响范围：主标题上方的 NXGEN Tri-DC Flow View 文案和其横向排布。 */
     .eyebrow {
       display: inline-flex;
       gap: 10px;
@@ -151,6 +153,8 @@
       font-size: 13px;
     }
 
+    /* 细标签前面的装饰线。
+       影响范围：仅影响 eyebrow 左侧那条渐变短线，不影响标题或卡片布局。 */
     .eyebrow::before {
       content: "";
       width: 34px;
@@ -158,6 +162,8 @@
       background: linear-gradient(90deg, transparent, var(--cyan));
     }
 
+    /* 页面主标题。
+       影响范围：header 左侧最大号标题文字的字号、字距和紧凑度。 */
     h1 {
       margin: 8px 0 0;
       font-size: clamp(34px, 4vw, 60px);
@@ -166,6 +172,8 @@
       letter-spacing: 1px;
     }
 
+    /* 主标题下方说明文字。
+       影响范围：header 左侧 subtitle 的可读性和与标题之间的间距。 */
     .subtitle {
       margin-top: 10px;
       font-size: 16px;
@@ -180,6 +188,8 @@
       gap: 10px;
     }
 
+    /* 顶部单张摘要卡外壳。
+       影响范围：Primary Tower / Cross-Tower Hot Path / Topology Health 三张卡的边框、底色和圆角。 */
     .headline-card {
       padding: 12px 14px;
       border: 1px solid var(--line);
@@ -189,6 +199,8 @@
       overflow: hidden;
     }
 
+    /* 摘要卡底部的光晕层。
+       影响范围：headline-card 内部的装饰发光，不影响数据文本和交互。 */
     .headline-card::after {
       content: "";
       position: absolute;
@@ -197,6 +209,8 @@
       background: radial-gradient(circle, rgba(99,230,255,0.14), transparent 60%);
     }
 
+    /* 卡片/统计块的小标题文字样式。
+       影响范围：headline-card、stat、kpi（若后续启用）的 name 文本。 */
     .headline-card .name,
     .stat .name,
     .kpi .name {
@@ -208,6 +222,8 @@
       font-size: 12px;
     }
 
+    /* 摘要卡中最醒目的主数值。
+       影响范围：heroPrimary、heroHot、heroHealth 这三组大号数字或站点名。 */
     .headline-card .val {
       position: relative;
       z-index: 1;
@@ -217,6 +233,8 @@
       font-weight: 700;
     }
 
+    /* 摘要卡底部辅助信息行。
+       影响范围：每张 headline-card 底部左右两端的 meta 文案布局。 */
     .headline-card .meta {
       position: relative;
       z-index: 1;
@@ -236,6 +254,8 @@
       gap: 10px;
     }
 
+    /* 单张统计卡外壳。
+       影响范围：六张 stat 卡的底色、边框、圆角和卡片内留白。 */
     .stat {
       border: 1px solid var(--line);
       border-radius: 14px;
@@ -243,6 +263,8 @@
       padding: 10px 12px;
     }
 
+    /* 统计卡的大号数值。
+       影响范围：External Sources 到 Refresh Cycle 六张 stat 卡的主读数。 */
     .stat .val {
       margin-top: 8px;
       font-size: 28px;
@@ -250,6 +272,8 @@
       line-height: 1;
     }
 
+    /* 统计卡底部进度条底板。
+       影响范围：所有 stat 卡中的 meter 轨道高度、圆角和背景亮度。 */
     .meter {
       margin-top: 10px;
       height: 6px;
@@ -258,6 +282,8 @@
       overflow: hidden;
     }
 
+    /* 统计卡进度条填充段。
+       影响范围：meter 内部彩色条的长度变化和发光效果。 */
     .meter span {
       display: block;
       height: 100%;
@@ -282,6 +308,8 @@
       background: linear-gradient(180deg, rgba(10, 31, 45, 0.96), rgba(5, 16, 24, 0.96));
     }
 
+    /* 面板头部通用布局。
+       影响范围：拓扑图、watchlist、heatmap、event feed 的标题行和右侧说明区域。 */
     .panel-head {
       padding: 12px 14px;
       display: flex;
@@ -295,20 +323,28 @@
       font-size: 13px;
     }
 
+    /* 面板头部中的粗体主标题。
+       影响范围：每个 panel-head 里 strong 的字号和强调程度。 */
     .panel-head strong {
       color: var(--text);
       font-size: 17px;
       letter-spacing: 0.8px;
     }
 
+    /* 面板主体的统一内边距。
+       影响范围：所有 panel-body 内部内容与边框之间的留白。 */
     .panel-body { padding: 14px; }
 
+    /* 拓扑图面板右上角图例容器。
+       影响范围：四个 legend 项的横向排列和换行行为。 */
     .legend {
       display: inline-flex;
       gap: 10px;
       flex-wrap: wrap;
     }
 
+    /* 单个图例胶囊。
+       影响范围：legend 中每个颜色说明标签的背景、边框和内边距。 */
     .legend span {
       display: inline-flex;
       align-items: center;
@@ -319,6 +355,8 @@
       border: 1px solid rgba(255,255,255,0.05);
     }
 
+    /* 图例前面的圆点色块。
+       影响范围：legend 中表示 intra / cross / feedback / critical 的小圆点。 */
     .legend i {
       width: 10px;
       height: 10px;
@@ -361,10 +399,14 @@
       background: linear-gradient(180deg, rgba(11, 37, 53, 0.26), rgba(4, 13, 20, 0.18));
     }
 
+    /* 三座塔左右定位基准。
+       影响范围：背景塔本身的左右留白，以及与节点/标题的整体横向对齐。 */
     .tower.left { left: 42px; }
     .tower.center { left: 570px; }
     .tower.right { right: 42px; }
 
+    /* 塔顶部站点标签。
+       影响范围：TKO1 Backup / TKO2 Primary / SKM Tertiary 三个圆角标签。 */
     .tower-tag {
       position: absolute;
       left: 18px;
@@ -379,6 +421,8 @@
       text-transform: uppercase;
     }
 
+    /* Primary 标记的强调色和闪烁。
+       影响范围：仅作用于 TKO2 标签里的 mark，不影响其它 tower-tag。 */
     .tower-tag .mark {
       color: var(--amber);
       margin-left: 8px;
@@ -393,6 +437,8 @@
       inset: 0;
     }
 
+    /* SVG 绘图层。
+       影响范围：所有连线、标签、pulse 动画的承载区域，不参与鼠标交互。 */
     .topology-svg {
       width: 100%;
       height: 100%;
@@ -407,11 +453,15 @@
       stroke-width: 2;
     }
 
+    /* feedback 底层轨迹。
+       影响范围：所有回流线底线的暖色和虚线节奏。 */
     .route-base.feedback {
       stroke: rgba(255, 215, 104, 0.22);
       stroke-dasharray: 4 10;
     }
 
+    /* 所有动态主路线的默认样式。
+       影响范围：所有 route-flow 线条的粗细、流动节奏和默认青色发光。 */
     .route-flow {
       fill: none;
       stroke-width: 4;
@@ -423,42 +473,58 @@
       filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
     }
 
+    /* 塔内前向链路的基础视觉。
+       影响范围：同塔 sources / l1-l2 / l3-bg / bg-hcs 等 intra 路由。 */
     .route-flow.intra {
       stroke: var(--cyan);
       stroke-dasharray: 14 10;
       stroke-width: 4;
     }
 
+    /* 跨塔前向链路的基础视觉。
+       影响范围：l2-l3、l3-bg、bg-hcs 中 kind=cross 的桥接线条。 */
     .route-flow.cross {
-      stroke: var(--blue);
+      stroke: var(--cyan);
       stroke-dasharray: 16 11;
       stroke-width: 4;
     }
 
+    /* feedback 回流链路的默认样式。
+       影响范围：BG -> L3、L3 -> L1 等反馈线的颜色、虚线节奏和发光。 */
     .route-flow.feedback {
-      stroke: var(--amber);
-      stroke-dasharray: 4 16;
+      stroke: var(--blue);
+      stroke-dasharray: 4 10;
       stroke-width: 3;
+      stroke-opacity: 0.6;
       --route-flow-animation: routeFlow 2.2s linear infinite;
       filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
     }
 
+    /* 伪反馈风格的底线。
+       影响范围：被 routeVariantClass() 标记为 feedback-like 的桥接线底层轨迹。 */
     .route-base.feedback-like {
       stroke-dasharray: 4 10;
+      stroke-width: 0.6;
       stroke-opacity: 0.8;
     }
 
+    /* 伪反馈风格的动态线。
+       影响范围：主要用于非直达的 l2-l3 桥接线，让观感更接近回流曲线。 */
     .route-flow.feedback-like {
-      stroke-dasharray: 4 16;
-      stroke-width: 3;
+      stroke-dasharray: 4 10;
+      stroke-width: 0.6;
       --route-flow-animation: routeFlow 2.4s linear infinite;
     }
 
+    /* 较弱存在感的虚线底层。
+       影响范围：source 侧次要输入线和部分 BG -> HCS 横向线的轨迹弱化。 */
     .route-base.soft-dashed {
       stroke-dasharray: 3 11;
       stroke-opacity: 0.72;
     }
 
+    /* 较弱存在感的虚线动态层。
+       影响范围：视觉上需要退后一步的线路，避免与热点桥接线抢注意力。 */
     .route-flow.soft-dashed {
       stroke-dasharray: 3 18;
       stroke-width: 2.6;
@@ -466,58 +532,80 @@
       opacity: 0.92;
     }
 
-    .route-flow.forward-dashed {
+    /* 前向虚线节奏覆盖。
+       影响范围：用于少数 dissem-dashed 路线，只调整 dash 节奏，不改颜色来源。 */
+    .route-flow.dissem-dashed {
       stroke-dasharray: 16 11;
     }
 
+    /* 告警级别颜色覆盖。
+       影响范围：所有动态 route-flow 在 warn / critical 状态下的最终主色。 */
     .route-flow.warn { stroke: var(--amber); }
     .route-flow.critical {
       stroke: var(--red);
       --route-alert-animation: routeAlertBlink 0.9s linear infinite;
     }
 
+    /* 正常状态下的跨塔主链统一使用蓝色。
+       影响范围：ok 状态的 l2-l3、l3-bg、bg-hcs 三组主通道。 */
     .route-flow.l2-l3.ok,
     .route-flow.l3-bg.ok,
     .route-flow.bg-hcs.ok {
-      stroke: var(--blue);
+      stroke: var(--cyan);
     }
 
+    /* L3 -> BG 底线加强。
+       影响范围：所有 l3-bg 路线的底层轨迹更厚、更明显，便于承接 pulse 动画。 */
     .route-base.l3-bg {
       stroke-width: 2.4;
       stroke-opacity: 0.2;
     }
 
+    /* L3 -> BG 动态线专用样式。
+       影响范围：这组主下行线的 dash 节奏、心跳动画和发光强度。 */
     .route-flow.l3-bg {
       stroke-dasharray: 24 18;
       --route-flow-animation: routeFlow 2.3s linear infinite, routeHeartbeat 1.8s ease-in-out infinite;
       filter: drop-shadow(0 0 12px rgba(99,230,255,0.22));
     }
 
+    /* 跨塔 L3 -> BG 额外强调。
+       影响范围：TKO2-L3 到两侧 BG 的桥接线，线宽和蓝色辉光更强。 */
     .route-flow.cross.l3-bg {
       stroke-width: 4.6;
       filter: drop-shadow(0 0 14px rgba(125,168,255,0.28));
     }
 
+    /* 塔内 L3 -> BG 轻微强调。
+       影响范围：TKO2-L3 -> TKO2-BG 这类 intra l3-bg 线条。 */
     .route-flow.intra.l3-bg {
       stroke-width: 4.4;
       filter: drop-shadow(0 0 13px rgba(99,230,255,0.26));
     }
 
+    /* pulse 动画图元的公共约束。
+       影响范围：沿 L3 -> BG 路径运动的 glow/core 两层圆点。 */
     .route-pulse-glow,
     .route-pulse-core {
       pointer-events: none;
     }
 
+    /* pulse 外层光团。
+       影响范围：L3 -> BG 路径上移动的发光外圈，决定扩散感。 */
     .route-pulse-glow {
       opacity: 0;
       filter: drop-shadow(0 0 18px rgba(99,230,255,0.68));
     }
 
+    /* pulse 内核亮点。
+       影响范围：L3 -> BG 路径上移动的亮芯，决定脉冲中心的可见度。 */
     .route-pulse-core {
       opacity: 0;
       filter: drop-shadow(0 0 9px rgba(255,255,255,0.7));
     }
 
+    /* pulse 颜色映射。
+       影响范围：根据 route 的 kind / severity / group，切换 pulse 的填充色。 */
     .route-pulse-glow.cross { fill: rgba(125,168,255,0.9); }
     .route-pulse-core.cross { fill: #d7e7ff; }
     .route-pulse-glow.intra { fill: rgba(99,230,255,0.94); }
@@ -533,6 +621,8 @@
     .route-pulse-glow.l3-bg.critical { fill: rgba(255,99,116,0.92); }
     .route-pulse-core.l3-bg.critical { fill: #ffe6ea; }
 
+    /* 路径耗时标签文字。
+       影响范围：所有 route-label 中的 xxms 文本及其描边可读性。 */
     .route-label text {
       font-family: "IBM Plex Mono", "Consolas", monospace;
       font-size: 11px;
@@ -581,6 +671,8 @@
       background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
     }
 
+    /* source 节点里的次级文字。
+       影响范围：RT / BB / OMDC / CIIS / BJ 卡片下方的 rate 文本。 */
     .node.source small {
       display: block;
       margin-top: 4px;
@@ -608,6 +700,8 @@
       background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
     }
 
+    /* stage 卡片标题行。
+       影响范围：L1/L2/L3/BG/HCS 卡片顶部名称与 badge 的左右布局。 */
     .node.stage .title {
       display: flex;
       justify-content: space-between;
@@ -619,6 +713,8 @@
       letter-spacing: 1px;
     }
 
+    /* stage 卡片副标题。
+       影响范围：站点角色说明或 BG 消息数下面那行说明文字。 */
     .node.stage .sub {
       margin-top: 3px;
       color: var(--muted);
@@ -627,6 +723,8 @@
       letter-spacing: 1px;
     }
 
+    /* AVG/P95 指标区容器。
+       影响范围：stage 卡片中部两行 metrics 的纵向间距和等宽字体表现。 */
     .node.stage .metrics {
       margin-top: 10px;
       display: grid;
@@ -635,6 +733,8 @@
       font-size: 12px;
     }
 
+    /* 单行指标左右对齐。
+       影响范围：metrics 中每一行 span 与 strong 的分布。 */
     .node.stage .line {
       display: flex;
       justify-content: space-between;
@@ -660,6 +760,8 @@
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
     }
 
+    /* 资源条填充层。
+       影响范围：CPU / MEM 资源条内实际填充宽度，宽度由 --value 控制。 */
     .node.stage .resource-bar::before {
       content: "";
       position: absolute;
@@ -669,6 +771,8 @@
       background: linear-gradient(90deg, rgba(99,230,255,0.78), rgba(55,239,176,0.72));
     }
 
+    /* MEM 资源条配色覆盖。
+       影响范围：stage 卡片底部第二条资源条，使其与 CPU 条形成色彩区分。 */
     .node.stage .resource-bar.mem::before {
       background: linear-gradient(90deg, rgba(125,168,255,0.76), rgba(162,141,255,0.7));
     }
@@ -690,6 +794,8 @@
       pointer-events: none;
     }
 
+    /* 节点状态徽标基础样式。
+       影响范围：所有 badge 的边框、圆角、字距，颜色由状态类单独接管。 */
     .badge {
       padding: 2px 6px;
       border-radius: 999px;
@@ -699,6 +805,8 @@
       letter-spacing: 1px;
     }
 
+    /* 通用状态色工具类。
+       影响范围：节点 badge、摘要大字、watchlist、heatmap、feed 等所有复用状态色的文本。 */
     .ok { color: var(--green); }
     .warn { color: var(--amber); }
     .critical { color: var(--red); }
@@ -711,6 +819,8 @@
       gap: 14px;
     }
 
+    /* 右下三类列表容器的统一纵向栅格。
+       影响范围：watch-list、heat-grid、feed-list 内部项目之间的间距。 */
     .watch-list,
     .heat-grid,
     .feed-list {
@@ -718,6 +828,8 @@
       gap: 10px;
     }
 
+    /* watchlist / feed 卡片外壳。
+       影响范围：Route Watchlist 与 Event Feed 列表项的背景、边框、圆角。 */
     .watch-item,
     .feed-item {
       border: 1px solid rgba(255,255,255,0.06);
@@ -726,6 +838,8 @@
       padding: 10px 12px;
     }
 
+    /* watchlist 顶部行。
+       影响范围：每条 watch-item 的路径名称与状态标签左右布局。 */
     .watch-top {
       display: flex;
       justify-content: space-between;
@@ -737,6 +851,8 @@
       font-size: 13px;
     }
 
+    /* watchlist 数值行。
+       影响范围：watch-item 中 current latency 与 base latency 的对齐方式。 */
     .watch-value {
       margin-top: 6px;
       display: flex;
@@ -746,15 +862,21 @@
       font-family: "IBM Plex Mono", "Consolas", monospace;
     }
 
+    /* watchlist 主时延数字。
+       影响范围：watch-item 中最醒目的毫秒数字号。 */
     .watch-value strong {
       font-size: 24px;
       line-height: 1;
     }
 
+    /* heatmap 主表格列结构。
+       影响范围：第一列标签 + 四列数据的整体宽度分配。 */
     .heat-grid {
       grid-template-columns: 170px repeat(4, minmax(0, 1fr));
     }
 
+    /* heatmap 表头 / 行头 / 数据格的共同外壳。
+       影响范围：Heatmap 中所有单元格的高度、边框、留白和居中方式。 */
     .heat-head,
     .heat-label,
     .heat-cell {
@@ -766,6 +888,8 @@
       align-content: center;
     }
 
+    /* heatmap 行列标题单元格。
+       影响范围：Heatmap 左侧 label 和顶部 head 的弱化文字样式。 */
     .heat-head,
     .heat-label {
       background: rgba(255,255,255,0.035);
@@ -775,6 +899,8 @@
       font-size: 13px;
     }
 
+    /* heatmap 数据单元格。
+       影响范围：每个热力格子的底色、定位上下文以及溢出裁切。 */
     .heat-cell {
       background: rgba(255,255,255,0.03);
       position: relative;
@@ -782,6 +908,8 @@
       font-family: "IBM Plex Mono", "Consolas", monospace;
     }
 
+    /* heatmap 底部色条。
+       影响范围：heat-cell 下边缘那条按 currentColor 着色的状态提示线。 */
     .heat-cell::after {
       content: "";
       position: absolute;
@@ -790,25 +918,35 @@
       background: currentColor;
     }
 
+    /* heatmap 主数值。
+       影响范围：每个 heat-cell 内的大号毫秒读数。 */
     .heat-cell strong {
       font-size: 20px;
       line-height: 1;
     }
 
+    /* heatmap 辅助说明。
+       影响范围：每个 heat-cell 内的 secondary text，例如站点对比说明。 */
     .heat-cell span {
       margin-top: 4px;
       font-size: 12px;
       color: #d4e7f2;
     }
 
+    /* 事件流卡片的左侧强调条和等宽字体。
+       影响范围：Event Feed 中每一条事件的卡片视觉重心。 */
     .feed-item {
       border-left: 4px solid var(--cyan);
       font-family: "IBM Plex Mono", "Consolas", monospace;
     }
 
+    /* 事件流的告警颜色覆盖。
+       影响范围：feed-item 在 warn / critical 状态下左边强调条的颜色。 */
     .feed-item.warn { border-left-color: var(--amber); }
     .feed-item.critical { border-left-color: var(--red); }
 
+    /* 事件时间戳。
+       影响范围：Event Feed 中 time 标签的颜色和与正文的间距。 */
     .feed-item time {
       color: var(--muted);
       margin-right: 8px;
@@ -835,9 +973,15 @@
 
     /* 手机宽度下全部单列，去掉外围圆角，减少边距。 */
     @media (max-width: 720px) {
+      /* 手机下收掉页面边距。
+         影响范围：最外层 app，避免窄屏再被双侧留白压缩内容。 */
       .app { padding: 0; }
+      /* 手机下取消最外层圆角。
+         影响范围：shell 整体外框，减少边缘裁切感。 */
       .shell { border-radius: 0; }
       .header,
+      /* 手机下压缩主要内容区内边距。
+         影响范围：header 与 main 两块主容器的边距。 */
       .main { padding: 12px; }
       .headline,
       .stats,
@@ -846,6 +990,8 @@
       }
     }
 
+    /* 动效降级模式。
+       影响范围：系统偏好减少动画时，关闭 route-flow 闪动和 L3->BG pulse 包。 */
     @media (prefers-reduced-motion: reduce) {
       .route-flow,
       .route-flow.l3-bg,
@@ -873,8 +1019,8 @@
         <div class="header-top">
           <div>
             <div class="eyebrow">NXGEN Tri-DC Flow View</div>
-            <h1>Index Flow Towers v8</h1>
-            <div class="subtitle">在 v5 基础上扩展第三数据中心 SKM Tertiary，三座数据塔并联展示；普通下行流和 feedback 回流采用不同曲率、线型和颜色</div>
+            <h1>Index Calculation System Monitor</h1>
+            <div class="subtitle">指数计算系统实时监控仪表盘</div>
           </div>
           <!-- 这三张卡由 JS 动态刷新。修改 id 会直接导致 renderSummary/renderWatchlist 失效。 -->
           <div class="headline">
@@ -1110,23 +1256,23 @@
       TKO1: {
         L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, kind: "flow" },
         L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, kind: "process" },
-        L3: { avg: 61, p95: 126, load: 70, cpu: 70, mem: 76, kind: "process" },
-        BG: { avg: 18, p95: 35, load: 24, cpu: 24, mem: 31, kind: "process", messages: 182340 },
+        L3: { avg: 61, p95: 148, load: 70, cpu: 70, mem: 76, kind: "process" },
+        BG: { avg: 18, p95: 335, load: 24, cpu: 24, mem: 31, kind: "process", messages: 182340 },
         HCS: { avg: 3, p95: 6, load: 10, cpu: 10, mem: 18, kind: "flow" }
-      },
-      SKM: {
-        L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, kind: "flow" },
-        L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, kind: "process" },
-        L3: { avg: 63, p95: 134, load: 72, cpu: 72, mem: 78, kind: "process" },
-        BG: { avg: 19, p95: 36, load: 25, cpu: 25, mem: 33, kind: "process", messages: 193120 },
-        HCS: { avg: 3, p95: 6, load: 11, cpu: 11, mem: 19, kind: "flow" }
       },
       TKO2: {
         L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, kind: "flow" },
         L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, kind: "process" },
-        L3: { avg: 74, p95: 146, load: 82, cpu: 82, mem: 87, kind: "process" },
+        L3: { avg: 74, p95: 80, load: 82, cpu: 82, mem: 87, kind: "process" },
         BG: { avg: 22, p95: 38, load: 31, cpu: 31, mem: 39, kind: "process", messages: 241680 },
         HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, kind: "flow" }
+      },
+      SKM: {
+        L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, kind: "flow" },
+        L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, kind: "process" },
+        L3: { avg: 63, p95: 34, load: 72, cpu: 72, mem: 78, kind: "process" },
+        BG: { avg: 19, p95: 36, load: 25, cpu: 25, mem: 33, kind: "process", messages: 193120 },
+        HCS: { avg: 3, p95: 6, load: 11, cpu: 11, mem: 19, kind: "flow" }
       }
     };
 
@@ -1173,7 +1319,7 @@
     addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 18);
     addLink("SKM-L2", "SKM-L3", 50, "l2-l3", "intra", 124);
     addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "cross", 68);
-    addLink("SKM-L2", "TKO2-L3", 50, "l2-l3", "cross", 174);
+    addLink("SKM-L2", "TKO2-L3", 50, "l2-l3", "cross", 54);
     addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "cross", 196);
     addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "cross", 30);
     addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 59);
@@ -1194,8 +1340,8 @@
     addLink("TKO1-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 102);
     addLink("SKM-L3", "SKM-L1", 30, "l3-l1-feedback", "feedback", 52);
     addLink("SKM-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 98);
-    addLink("TKO2-L3", "TKO1-L1", 30, "l3-l1-feedback", "feedback", 124);
-    addLink("TKO2-L3", "SKM-L1", 30, "l3-l1-feedback", "feedback", 116);
+    addLink("TKO2-L3", "TKO1-L1", 30, "l3-l1-feedback", "feedback", 34);
+    addLink("TKO2-L3", "SKM-L1", 30, "l3-l1-feedback", "feedback", 46);
     addLink("TKO2-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 61);
 
     addLink("TKO1-BG", "TKO1-HCS", 30, "bg-hcs", "intra", 24);
@@ -1239,6 +1385,21 @@
     /* 单链路阈值覆盖入口。只在需要偏离 group 规则时填。 */
     const linkThresholds = {};
 
+    /* primary 路径的脉冲高亮白名单。
+       语义上表示“当前被选中的主路径”，只有这些链路会出现沿线脉冲。
+       当前 primary 是 TKO2，因此脉冲链路是 TKO2-L1 -> TKO2-L2 -> TKO2-L3 -> TKO2-BG。 */
+    const primaryPulseLinks = new Set([
+      "TKO2-OMDC__TKO2-L1",
+      "TKO2-L1__TKO2-L2",
+      "TKO2-L2__TKO2-L3",
+      "TKO2-L3__TKO1-BG",
+      "TKO2-L3__TKO2-BG",
+      "TKO2-L3__SKM-BG",
+      "TKO1-BG__TKO1-HCS",
+      "TKO2-BG__TKO2-HCS",
+      "SKM-BG__SKM-HCS",
+    ]);
+
     /* 根据延迟数值映射成 ok / warn / critical 三档。
        这会影响：
        1. 节点 badge 颜色
@@ -1276,7 +1437,8 @@
        这类规则通常是“为了避免视觉拥挤”或“强调某些路径”。
        如果新增 / 修改具体 id，这里和 addLink() 中的 id 必须保持一致。 */
     function routeVariantClass(link) {
-      if (link.group === "l2-l3" && link.id !== "TKO2-L2__TKO2-L3") return "feedback-like";
+      // if (link.group === "l2-l3" && link.id !== "TKO2-L2__TKO2-L3") return "feedback-like";
+      if (link.kind === "feedback") return "feedback-like";
       if (link.group === "sources" && (link.from.startsWith("TKO1-") || link.from.startsWith("SKM-"))) return "soft-dashed";
       if (link.id === "TKO1-BG__TKO1-HCS") return "soft-dashed";
       if (link.id === "TKO1-BG__TKO2-HCS") return "soft-dashed";
@@ -1284,8 +1446,8 @@
       if (link.id === "SKM-BG__TKO2-HCS") return "soft-dashed";
       if (link.id === "TKO2-BG__TKO1-HCS") return "soft-dashed";
       if (link.id === "TKO2-BG__SKM-HCS") return "soft-dashed";
-      if (link.id === "TKO2-BG__TKO2-L3") return "forward-dashed";
-      if (link.id === "TKO2-L3__TKO2-L1") return "forward-dashed";
+      // if (link.id === "TKO2-BG__TKO2-L3") return "dissem-dashed";
+      // if (link.id === "TKO2-L3__TKO2-L1") return "dissem-dashed";
       return "";
     }
 
@@ -1294,9 +1456,10 @@
       return "route-path-" + link.id.replaceAll("_", "-");
     }
 
-    /* 只给 L3 -> BG 增加沿路径前进的脉冲包，强调主下行链路。 */
+    /* 给当前 primary 路径增加沿路径前进的脉冲包。
+       视觉上它表示“当前真正被选中的主通道”，不是所有同组链路都会发脉冲。 */
     function pulseMarkup(link, pathId, severity) {
-      if (link.group !== "l3-bg") return "";
+      if (!primaryPulseLinks.has(link.id)) return "";
 
       const travelDur = 2;
       const beatDur = 2;
