@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Application Performance Monitoring (1:1 Draft)</title>
   <style>
-    :root{--b:#223f86;--bg:#f4f6fa;--p:#fff;--line:#c9d3e4;--txt:#1b3566;--ok:#dff1b6;--warn:#f7e68f;--err:#f8c9cf}
+    :root{--b:#2e4a7b;--bg:#1b2638;--p:#2a3a5c;--line:#4a6284;--txt:#cce5ff;--ok:#2d6a4f;--warn:#a68a24;--err:#8f1f29}
     *{box-sizing:border-box}
     body{margin:0;background:var(--bg);font-family:Tahoma,Arial,sans-serif;color:var(--txt)}
     .app{max-width:1360px;margin:0 auto;padding:8px}
@@ -20,14 +20,14 @@
 
     .sec{margin:0 7px 9px;border:1px solid #b8c6db;border-radius:7px;background:#fff;overflow:hidden}
     .sec-h{background:#1e6fbf;color:#fff;font-size:12px;font-weight:700;padding:4px 8px;display:flex;justify-content:space-between}
-    .pipe{padding:7px 8px;display:grid;grid-template-columns:64px 48px 66px 52px 64px 52px 66px 52px 74px;align-items:center;gap:4px}
+    .pipe{padding:10px 12px;display:grid;grid-template-columns:repeat(11,minmax(72px,1fr));align-items:center;gap:6px}
 
-    .box{border:2px solid var(--b);min-height:38px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:10px;line-height:1.1;background:#fff}
+    .box{border:3px solid var(--b);min-height:54px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:10px;line-height:1.1;background:#fff}
     .box strong{font-size:11px}
     .box small{font-size:10px}
     .ok{background:var(--ok)}.warn{background:var(--warn)}.err{background:var(--err)}
 
-    .arr{position:relative;height:0;border-top:11px solid transparent;border-bottom:11px solid transparent;border-left:18px solid var(--b)}
+    .arr{position:relative;height:0;border-top:16px solid transparent;border-bottom:16px solid transparent;border-left:30px solid var(--b)}
     .arr:before{content:"";position:absolute;left:-22px;top:-4px;width:22px;height:8px;border-top:2px solid var(--b);border-bottom:2px solid var(--b);background:#fff}
     .ms{font-size:10px;text-align:center;color:#446293}
 
