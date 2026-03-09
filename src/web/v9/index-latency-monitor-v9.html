@@ -364,6 +364,43 @@
       display: inline-block;
     }
 
+    /* 拓扑面板右上角图例 + 操作按钮容器。 */
+    .topology-head-tools {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* 线条流动开关按钮。
+       影响范围：仅“Vertical Triple-Tower Topology”标题栏里的交互按钮。 */
+    .flow-toggle-btn {
+      border: 1px solid rgba(99,230,255,0.3);
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(99,230,255,0.12);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+    }
+
+    .flow-toggle-btn:hover {
+      border-color: rgba(99,230,255,0.55);
+      background: rgba(99,230,255,0.2);
+    }
+
+    .flow-toggle-btn[aria-pressed="true"] {
+      border-color: rgba(255,215,104,0.56);
+      background: rgba(255,215,104,0.16);
+      color: #fff3cf;
+    }
+
     /* 拓扑图横向超宽时允许滚动，纵向保持裁切。 */
     .topology-wrap {
       overflow-x: auto;
@@ -485,6 +522,11 @@
       filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
     }
 
+    /* 仅暂停“流动”动画轨道，保留告警闪烁和脉冲动画。 */
+    .topology-board.flow-paused .route-flow {
+      animation-play-state: paused, running, running;
+    }
+
     /* 塔内前向链路的基础视觉。
        影响范围：同塔 sources / l1-l2 / l3-bg / bg-hcs 等 intra 路由。 */
     .route-flow.intra {
@@ -579,6 +621,20 @@
     .route-flow.intra.l3-bg {
       stroke-width: 4.4;
       filter: drop-shadow(0 0 13px rgba(99,230,255,0.26));
+    }
+
+    /* 让 TKO2-L3 三条下行链路回落到普通 intra 默认视觉。
+       影响范围：TKO2-L3__TKO1-BG / TKO2-L3__SKM-BG / TKO2-L3__TKO2-BG。 */
+    .route-base.l3-bg.l3-bg-neutral {
+      stroke-width: 2;
+      stroke-opacity: 1;
+    }
+
+    .route-flow.l3-bg.l3-bg-neutral {
+      stroke-dasharray: 14 10;
+      stroke-width: 4;
+      --route-flow-animation: routeFlow 3s linear infinite;
+      filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
     }
 
     /* pulse 动画图元的公共约束。
@@ -1102,12 +1158,15 @@
           <!-- 核心区域：三塔拓扑图。 -->
           <div class="panel-head">
             <strong>Vertical Triple-Tower Topology</strong>
-            <div class="legend">
-              <span><i style="background:var(--cyan)"></i>Primary</span>
-              <span><i style="background:var(--cyan); opacity:0.85"></i>Intra-tower</span>
-              <span><i style="background:var(--cyan); opacity:0.55"></i>Backup</span>
-              <span><i style="background:var(--blue)"></i>Feedback</span>
-              <span><i style="background:var(--red)"></i>Critical</span>
+            <div class="topology-head-tools">
+              <div class="legend">
+                <span><i style="background:var(--cyan)"></i>Primary</span>
+                <span><i style="background:var(--cyan); opacity:0.85"></i>Intra-tower</span>
+                <span><i style="background:var(--cyan); opacity:0.55"></i>Backup</span>
+                <span><i style="background:var(--blue)"></i>Feedback</span>
+                <span><i style="background:var(--red)"></i>Critical</span>
+              </div>
+              <button type="button" class="flow-toggle-btn" id="toggleFlowBtn" aria-pressed="false">关闭线条流动</button>
             </div>
           </div>
           <div class="panel-body topology-wrap">
@@ -1383,6 +1442,8 @@
     const watchList = document.getElementById("watchList");
     const heatGrid = document.getElementById("heatGrid");
     const feedList = document.getElementById("feedList");
+    const topologyBoard = document.getElementById("topologyBoard");
+    const toggleFlowBtn = document.getElementById("toggleFlowBtn");
 
     /* 返回当前时间字符串，统一用于 UI 上的“updated xx:xx:xx”。 */
     function nowText() {
@@ -1390,6 +1451,21 @@
       const p = (v) => String(v).padStart(2, "0");
       return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
     }
+
+    let flowPaused = false;
+
+    function setFlowPaused(paused) {
+      flowPaused = paused;
+      topologyBoard.classList.toggle("flow-paused", flowPaused);
+      toggleFlowBtn.setAttribute("aria-pressed", flowPaused ? "true" : "false");
+      toggleFlowBtn.textContent = flowPaused ? "开启线条流动" : "关闭线条流动";
+    }
+
+    toggleFlowBtn.addEventListener("click", () => {
+      setFlowPaused(!flowPaused);
+    });
+
+    setFlowPaused(false);
 
     /* 默认阈值给节点和未配置链路兜底；group/link 可按需覆盖。 */
     const defaultThresholds = { threshold1: 100, threshold2: 180 };
@@ -1460,10 +1536,19 @@
       return link.kind;
     }
 
+    const l3BgNeutralLinks = new Set([
+      "TKO2-L3__TKO1-BG",
+      "TKO2-L3__SKM-BG",
+      "TKO2-L3__TKO2-BG"
+    ]);
+
     /* 给特定链路附加视觉变体类。
-       目前仅 sources 组的 TKO1 / SKM 输入线保留 soft-dashed，
+       目前支持：
+       1. TKO2-L3 三条下行链路使用 l3-bg-neutral，与 L2->L3 intra 默认视觉对齐
+       2. sources 组的 TKO1 / SKM 输入线保留 soft-dashed，
        用于维持“主站更突出、辅站更克制”的视觉层次。 */
     function routeVariantClass(link) {
+      if (l3BgNeutralLinks.has(link.id)) return "l3-bg-neutral";
       if (link.group === "sources" && (link.from.startsWith("TKO1-") || link.from.startsWith("SKM-"))) return "soft-dashed";
       return "";
     }
