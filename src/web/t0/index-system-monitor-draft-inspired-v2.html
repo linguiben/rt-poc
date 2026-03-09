@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RT System Monitor · Draft Inspired V2</title>
+  <style>
+    :root{
+      --bg:#f1f1f1; --panel:#ffffff; --ink:#20304d; --blue:#1738b8; --line:#8ca0c5;
+      --ok:#f7ffcc; --warn:#fff1bf; --err:#ffd7df; --muted:#e8edf5;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);font-family:Arial,"Microsoft JhengHei",sans-serif;color:var(--ink)}
+    .app{max-width:1180px;margin:12px auto;padding:0 10px 28px}
+
+    .browser{border:1px solid #cfd6e4;border-radius:8px;background:#f8fafc;overflow:hidden}
+    .toolbar{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#edf1f7;border-bottom:1px solid #d7dfeb}
+    .mac{display:flex;gap:6px}.dot{width:12px;height:12px;border-radius:50%;border:1px solid #adb9cf;background:#f7f9fc}
+    .addr{margin:8px 10px;border:1px solid #c9d3e5;background:#fff;border-radius:4px;padding:7px 10px;font-size:12px;color:#5d7096}
+
+    .alerts{padding:0 10px 10px;display:grid;gap:8px}
+    .alert{padding:10px 12px;border-radius:4px;font-size:14px;border:1px solid #e4d9b3;background:#f6eecf;color:#6b5b1d}
+    .alert.err{border-color:#ebc4ce;background:#f8dce2;color:#7f2f44}
+
+    .lane{background:var(--panel);border:1px solid #c4cddd;border-radius:12px;margin:10px;padding:0 12px 12px;box-shadow:0 1px 0 #d4dced inset}
+    .title{display:inline-block;background:#1694e8;color:#fff;font-weight:700;border-radius:0 0 10px 10px;padding:6px 12px;margin-bottom:8px}
+
+    .flow{display:grid;grid-template-columns:118px 90px 118px 84px 118px 84px 118px 90px 138px;align-items:center;gap:8px;padding:2px 6px}
+    .node{border:4px solid var(--blue);background:#fff;min-height:58px;display:flex;flex-direction:column;justify-content:center;align-items:center;font-size:24px;font-weight:700;color:#10296d;text-align:center}
+    .node small{font-size:22px;font-weight:600}
+    .node.ok{background:var(--ok)} .node.warn{background:var(--warn)} .node.err{background:var(--err)}
+
+    .arrow{position:relative;height:0;border-top:26px solid transparent;border-bottom:26px solid transparent;border-left:38px solid var(--blue)}
+    .arrow:before{content:"";position:absolute;left:-48px;top:-15px;width:42px;height:30px;background:#fff;border-top:4px solid var(--blue);border-bottom:4px solid var(--blue)}
+    .lat{font-size:28px;font-weight:700;text-align:center;color:#1f2f69}
+
+    .fb-stack{display:grid;gap:4px}
+    .fb{border:3px solid var(--blue);background:#fff;clip-path:polygon(14% 0,86% 0,100% 50%,86% 100%,14% 100%,0 50%);padding:5px 2px;text-align:center;font-size:14px;line-height:1.1;min-height:46px;display:flex;flex-direction:column;justify-content:center}
+    .fb small{font-size:11px;color:#334d84}
+    .fb.ok{background:var(--ok)} .fb.warn{background:var(--warn)} .fb.err{background:var(--err)} .fb.dim{opacity:.55;border-color:#7e8cab;color:#6b7895}
+
+    .legend{display:flex;gap:12px;flex-wrap:wrap;padding:8px 12px 14px;color:#5d7096;font-size:12px}
+    .tag{display:inline-flex;align-items:center;gap:6px}.sw{width:12px;height:12px;border:1px solid #b4bfd7}
+    @media (max-width:1140px){
+      .app{overflow:auto}
+      .browser{min-width:1120px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="browser">
+      <div class="toolbar">
+        <div>Realtime Application Performance</div>
+        <div class="mac"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+      </div>
+      <div class="addr">https://realtime-monitoring.hsi.com.hk/rt/dashboard</div>
+
+      <div class="alerts">
+        <div class="alert" id="al1">2025-04-14 11:25:32.000　TKO - RT - HK Market No. of Message Reach Threshold 1 XXXXXXX</div>
+        <div class="alert err" id="al2">2025-04-14 11:23:15.000　SKM - BB - SS Market No. of Message Reach Threshold 3 XXXXXXX</div>
+      </div>
+
+      <section class="lane" id="lane-tko"></section>
+      <section class="lane" id="lane-skm"></section>
+      <section class="lane" id="lane-hot"></section>
+
+      <div class="legend">
+        <span class="tag"><span class="sw" style="background:#fff"></span>Normal</span>
+        <span class="tag"><span class="sw" style="background:#fff1bf"></span>Warning</span>
+        <span class="tag"><span class="sw" style="background:#ffd7df"></span>Critical</span>
+        <span class="tag">Auto refresh: 2.5s (mock data)</span>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const CHANNELS=['TKO','SKM','HOT','BIS-C','CLOUD'];
+
+  const lanes=[
+    {id:'lane-tko',name:'TKO (Primary)',profile:'good'},
+    {id:'lane-skm',name:'SKM',profile:'warn'},
+    {id:'lane-hot',name:'HOT',profile:'critical'}
+  ];
+
+  function cls(v){ if(v>=320) return 'err'; if(v>=180) return 'warn'; return 'ok'; }
+  function ts(){const d=new Date();const z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}.000`;}
+
+  function rnd(profile){
+    const b=profile==='good'?90:profile==='warn'?170:260;
+    const spread=profile==='good'?35:profile==='warn'?110:220;
+    const n=()=>Math.max(20,Math.round(b+Math.random()*spread));
+    return {
+      l2:n(), l3:n(), bg:n(), hc:n(), l1l2:Math.max(20,Math.round(70+Math.random()*50)), l3bg:Math.max(20,Math.round(70+Math.random()*50)),
+      fb: CHANNELS.map(c=>({c,v:Math.random()<0.2?null:n()}))
+    };
+  }
+
+  function fbHtml(item,focus){
+    const v=item.v;
+    const isFocus=item.c===focus;
+    const state=v==null?'dim':cls(v);
+    const text=v==null?'-- ms':`${v} ms`;
+    return `<div class="fb ${state} ${isFocus&&v!=null?state:''}"><strong>${item.c}</strong><small>${text}</small></div>`;
+  }
+
+  function laneHtml(name,d){
+    return `
+      <div class="title">${name}</div>
+      <div class="flow">
+        <div class="node"><small>L1</small></div>
+        <div>
+          <div class="arrow"></div>
+          <div class="lat">${d.l1l2} ms</div>
+        </div>
+        <div class="node ${cls(d.l2)}"><small>L2</small><small>${d.l2} ms</small></div>
+        <div class="fb-stack">${d.fb.map(x=>fbHtml(x,name.includes('TKO')?'TKO':name.includes('SKM')?'SKM':'HOT')).join('')}</div>
+        <div class="node ${cls(d.l3)}"><small>L3</small><small>${d.l3} ms</small></div>
+        <div class="fb-stack">${d.fb.map(x=>fbHtml(x,name.includes('TKO')?'TKO':name.includes('SKM')?'TKO':'TKO')).join('')}</div>
+        <div class="node ${cls(d.bg)}"><small>BG</small><small>${d.bg} ms</small></div>
+        <div>
+          <div class="arrow"></div>
+          <div class="lat">${d.l3bg} ms</div>
+        </div>
+        <div class="node ${cls(d.hc)}"><small>Health</small><small>Check Server</small></div>
+      </div>`;
+  }
+
+  function refresh(){
+    lanes.forEach(l=>{ document.getElementById(l.id).innerHTML=laneHtml(l.name,rnd(l.profile)); });
+    document.getElementById('al1').textContent=`${ts()}　TKO - RT - HK Market No. of Message Reach Threshold ${1+Math.floor(Math.random()*2)} XXXXXXX`;
+    document.getElementById('al2').textContent=`${ts()}　SKM - BB - SS Market No. of Message Reach Threshold ${2+Math.floor(Math.random()*3)} XXXXXXX`;
+  }
+
+  refresh();
+  setInterval(refresh,2500);
+</script>
+</body>
+</html>
