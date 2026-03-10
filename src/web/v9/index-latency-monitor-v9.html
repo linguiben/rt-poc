@@ -730,11 +730,15 @@
       box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
     }
 
-    /* 最上方外部源节点，尺寸更小。 */
+    /* 最上方外部源节点。
+       现在固定为四张卡，因此略微放宽卡片尺寸，容纳内部 feed 分割。 */
     .node.source {
-      width: 84px;
-      height: 64px;
-      padding-top: 8px;
+      width: 96px;
+      height: 84px;
+      padding: 8px 8px 7px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
       text-align: center;
       font-weight: 700;
       text-transform: uppercase;
@@ -742,11 +746,46 @@
       background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
     }
 
+    /* source 卡片标题。
+       影响范围：RT / BB / OMDC / CIIS 四张卡顶部主标题。 */
+    .node.source .source-name {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    /* source 卡片中部分割网格。
+       RT / BB 走三列，CIIS 走两列，OMDC 留空不分割。 */
+    .node.source .source-splits {
+      display: grid;
+      gap: 4px;
+    }
+
+    .node.source .source-splits.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .node.source .source-splits.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .node.source .source-split {
+      min-height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      border: 1px solid rgba(99,230,255,0.16);
+      background: rgba(255,255,255,0.045);
+      font-size: 9px;
+      line-height: 1;
+      letter-spacing: 0.8px;
+      color: rgba(241,249,255,0.9);
+    }
+
     /* source 节点里的次级文字。
-       影响范围：RT / BB / OMDC / CIIS / BJ 卡片下方的 rate 文本。 */
+       影响范围：source 卡片底部的 rate 文本。 */
     .node.source small {
       display: block;
-      margin-top: 4px;
+      margin-top: auto;
       font-size: 10px;
       color: var(--muted);
       font-family: "IBM Plex Mono", "Consolas", monospace;
@@ -1333,10 +1372,15 @@
       hcs: 1007
     };
 
-    /* 同一座塔里，5 个 source 节点相对塔中心的横向偏移。 */
-    const sourceOffsets = [-140, -70, 0, 70, 140];
+    /* 同一座塔里，4 个 source 节点相对塔中心的横向偏移。 */
+    const sourceOffsets = [-150, -50, 50, 150];
     /* source 节点显示名称。数组顺序会直接映射到横向排布顺序。 */
-    const sourceNames = ["RT", "BB", "OMDC", "CIIS", "BJ"];
+    const sourceNames = ["RT", "BB", "OMDC", "CIIS"];
+    const sourcePartitions = {
+      RT: ["SS", "SZ", "HK"],
+      BB: ["SS", "SZ", "HK"],
+      CIIS: ["SS", "BJ"]
+    };
 
     /* 所有节点的运行时数据都放在这里。 */
     const nodes = [];
@@ -1521,7 +1565,6 @@
       "TKO2-RT__TKO2-L1",
       "TKO2-BB__TKO2-L1",
       "TKO2-CIIS__TKO2-L1",
-      "TKO2-BJ__TKO2-L1",
       "TKO2-L1__TKO2-L2",
       "TKO2-L2__TKO2-L3",
       "TKO2-L3__TKO1-BG",
@@ -1650,14 +1693,26 @@
       `;
     }
 
+    /* source 卡片中部的 feed 分割内容。 */
+    function sourcePartitionsHtml(node) {
+      const parts = sourcePartitions[node.name];
+      if (!parts || parts.length === 0) return "";
+      return `
+        <div class="source-splits cols-${parts.length}">
+          ${parts.map((part) => `<span class="source-split">${part}</span>`).join("")}
+        </div>
+      `;
+    }
+
     /* 生成节点 HTML。
        这是“数据对象 -> 卡片 DOM 字符串”的唯一入口。
        如果要改节点文案、字段、徽标、卡片 class，优先看这里。 */
     function nodeHtml(node) {
       if (node.type === "source") {
         return `
-          <div class="node source ${nodeStatus(node)}" style="left:${node.x - 42}px; top:${node.y - 32}px;">
-            <div>${node.name}</div>
+          <div class="node source ${nodeStatus(node)}" style="left:${node.x - 48}px; top:${node.y - 42}px;">
+            <div class="source-name">${node.name}</div>
+            ${sourcePartitionsHtml(node)}
             <small>${node.rate}/s</small>
           </div>
         `;
@@ -1700,8 +1755,8 @@
     function edgePoint(node, side, offset) {
       const ox = offset && offset.x ? offset.x : 0;
       const oy = offset && offset.y ? offset.y : 0;
-      const halfW = node.type === "source" ? 42 : 88;
-      const halfH = node.type === "source" ? 32 : 63;
+      const halfW = node.type === "source" ? 48 : 88;
+      const halfH = node.type === "source" ? 42 : 63;
 
       if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
       if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
