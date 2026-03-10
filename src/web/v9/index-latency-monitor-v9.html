@@ -1210,6 +1210,35 @@
                 这样 HTML 卡片更容易写阴影、圆角和文字布局。
               -->
               <svg class="topology-svg" viewBox="0 0 1640 1180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <defs>
+                  <marker id="route-arrow-cyan" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-cyan-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-blue-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--blue); stroke: var(--blue); stroke-width: 0.35; opacity: 0.5;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-red" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-red-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-red-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                </defs>
                 <g id="routeLayer"></g>
                 <g id="labelLayer"></g>
               </svg>
@@ -1558,6 +1587,26 @@
       return "route-path-" + link.id.replaceAll("_", "-");
     }
 
+    /* 按链路类型和告警级别选择箭头。
+       规则：
+       1. 塔内 intra 线路不显示箭头
+       2. 跨塔 primary 用实色箭头
+       3. backup / feedback 用更淡的箭头，维持与线条权重一致 */
+    function markerIdForLink(link, severity) {
+      if (link.kind === "intra") return "";
+
+      const dimmed = link.kind === "backup" || link.kind === "feedback";
+
+      if (link.kind === "feedback") {
+        if (severity === "critical") return "route-arrow-red-feedback";
+        if (severity === "warn") return "route-arrow-amber-feedback";
+        return "route-arrow-blue-feedback";
+      }
+      if (severity === "critical") return dimmed ? "route-arrow-red-dim" : "route-arrow-red";
+      if (severity === "warn") return dimmed ? "route-arrow-amber-dim" : "route-arrow-amber";
+      return dimmed ? "route-arrow-cyan-dim" : "route-arrow-cyan";
+    }
+
     /* 给当前 primary 路径增加沿路径前进的脉冲包。
        视觉上它表示“当前真正被选中的主通道”，不是所有同组链路都会发脉冲。 */
     function pulseMarkup(link, pathId, severity) {
@@ -1897,10 +1946,12 @@
         const severity = statusClassForLink(link);
         const variant = routeVariantClass(link);
         const pathId = pathIdForLink(link);
+        const markerId = markerIdForLink(link, severity);
+        const markerAttr = markerId ? ` marker-end="url(#${markerId})"` : "";
         return `
           <g>
             <path id="${pathId}" class="route-base ${link.group} ${link.kind} ${variant}" d="${path}"></path>
-            <path class="route-flow ${link.group} ${link.kind} ${severity} ${variant}" d="${path}"></path>
+            <path class="route-flow ${link.group} ${link.kind} ${severity} ${variant}" d="${path}"${markerAttr}></path>
             ${pulseMarkup(link, pathId, severity)}
           </g>
         `;
