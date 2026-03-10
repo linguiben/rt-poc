@@ -535,6 +535,55 @@
       stroke-width: 4;
     }
 
+    /* sources -> L1 外部主线跟 source 卡片内小 feed 保持同一视觉语言。 */
+    .route-base.sources {
+      stroke: rgba(99,230,255,0.1);
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .route-flow.sources {
+      stroke: rgba(99,230,255,0.68);
+      stroke-width: 1.45;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 4 7;
+      --route-flow-animation: routeFlow 1.9s linear infinite;
+      filter: drop-shadow(0 0 4px rgba(99,230,255,0.12));
+    }
+
+    .route-base.sources.primary-active {
+      stroke: rgba(99,230,255,0.28);
+      stroke-width: 1.5;
+    }
+
+    .route-flow.sources.primary-active {
+      stroke: rgba(143,240,255,0.99);
+      stroke-width: 3.15;
+      stroke-dasharray: 6 8;
+      opacity: 1;
+      filter: drop-shadow(0 0 12px rgba(99,230,255,0.46)) drop-shadow(0 0 22px rgba(99,230,255,0.26));
+    }
+
+    .route-flow.sources.warn {
+      stroke: var(--amber);
+      filter: drop-shadow(0 0 6px rgba(255,215,104,0.2));
+    }
+
+    .route-flow.sources.warn.primary-active {
+      filter: drop-shadow(0 0 10px rgba(255,215,104,0.38)) drop-shadow(0 0 18px rgba(255,215,104,0.18));
+    }
+
+    .route-flow.sources.critical {
+      stroke: var(--red);
+      filter: drop-shadow(0 0 6px rgba(255,99,116,0.22));
+    }
+
+    .route-flow.sources.critical.primary-active {
+      filter: drop-shadow(0 0 10px rgba(255,99,116,0.4)) drop-shadow(0 0 18px rgba(255,99,116,0.2));
+    }
+
     /* 主桥接前向链路的基础视觉。
        影响范围：l3-bg、bg-hcs 中 kind=primary 的主桥接线条。 */
     .route-flow.primary {
@@ -560,20 +609,21 @@
       stroke-width: 0.6;
     }
 
-    /* 较弱存在感的虚线底层。
-       影响范围：source 侧次要输入线和部分 BG -> HCS 横向线的轨迹弱化。 */
-    .route-base.soft-dashed {
-      stroke-dasharray: 3 11;
-      stroke-opacity: 0.72;
+    /* 视觉上被选为 primary 的线路统一强化：
+       保持原有色相，只增加线宽、亮度和存在感。 */
+    .route-base.primary-active {
+      stroke-width: 2.4;
+      stroke-opacity: 1;
     }
 
-    /* 较弱存在感的虚线动态层。
-       影响范围：视觉上需要退后一步的线路，避免与热点桥接线抢注意力。 */
-    .route-flow.soft-dashed {
-      stroke-dasharray: 3 18;
-      stroke-width: 2.6;
-      --route-flow-animation: routeFlow 2.6s linear infinite;
-      opacity: 0.92;
+    .route-flow.primary-active {
+      stroke-width: 5.2;
+      opacity: 1;
+      filter: drop-shadow(0 0 14px rgba(99,230,255,0.24));
+    }
+
+    .route-flow.primary-active.feedback {
+      filter: drop-shadow(0 0 14px rgba(152,186,253,0.26));
     }
 
     /* 告警级别颜色覆盖。
@@ -587,56 +637,6 @@
       --route-alert-animation: routeAlertBlink 0.9s linear infinite;
     }
 
-    /* 正常状态下主通道保持青色。
-       影响范围：ok 状态的 l3-bg、bg-hcs 两组主桥接通道。 */
-    .route-flow.l3-bg.ok,
-    .route-flow.bg-hcs.ok {
-      stroke: var(--cyan);
-    }
-
-    /* L3 -> BG 底线加强。
-       影响范围：所有 l3-bg 路线的底层轨迹更厚、更明显，便于承接 pulse 动画。 */
-    .route-base.l3-bg {
-      stroke-width: 2.4;
-      stroke-opacity: 0.2;
-    }
-
-    /* L3 -> BG 动态线专用样式。
-       影响范围：这组主下行线的 dash 节奏、心跳动画和发光强度。 */
-    .route-flow.l3-bg {
-      stroke-dasharray: 24 18;
-      --route-flow-animation: routeFlow 2.3s linear infinite, routeHeartbeat 1.8s ease-in-out infinite;
-      filter: drop-shadow(0 0 12px rgba(99,230,255,0.22));
-    }
-
-    /* 主桥接 L3 -> BG 额外强调。
-       影响范围：TKO2-L3 到两侧 BG 的主桥接线，线宽和蓝色辉光更强。 */
-    .route-flow.primary.l3-bg {
-      stroke-width: 4.6;
-      filter: drop-shadow(0 0 14px rgba(125,168,255,0.28));
-    }
-
-    /* 塔内 L3 -> BG 轻微强调。
-       影响范围：TKO2-L3 -> TKO2-BG 这类 intra l3-bg 线条。 */
-    .route-flow.intra.l3-bg {
-      stroke-width: 4.4;
-      filter: drop-shadow(0 0 13px rgba(99,230,255,0.26));
-    }
-
-    /* 让 TKO2-L3 三条下行链路回落到普通 intra 默认视觉。
-       影响范围：TKO2-L3__TKO1-BG / TKO2-L3__SKM-BG / TKO2-L3__TKO2-BG。 */
-    .route-base.l3-bg.l3-bg-neutral {
-      stroke-width: 2;
-      stroke-opacity: 1;
-    }
-
-    .route-flow.l3-bg.l3-bg-neutral {
-      stroke-dasharray: 14 10;
-      stroke-width: 4;
-      --route-flow-animation: routeFlow 3s linear infinite;
-      filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
-    }
-
     /* pulse 动画图元的公共约束。
        影响范围：沿 L3 -> BG 路径运动的 glow/core 两层圆点。 */
     .route-pulse-glow,
@@ -648,6 +648,7 @@
        影响范围：L3 -> BG 路径上移动的发光外圈，决定扩散感。 */
     .route-pulse-glow {
       opacity: 0;
+      fill: rgba(99,230,255,0.94);
       filter: drop-shadow(0 0 18px rgba(99,230,255,0.68));
     }
 
@@ -655,25 +656,18 @@
        影响范围：L3 -> BG 路径上移动的亮芯，决定脉冲中心的可见度。 */
     .route-pulse-core {
       opacity: 0;
+      fill: #effdff;
       filter: drop-shadow(0 0 9px rgba(255,255,255,0.7));
     }
 
     /* pulse 颜色映射。
-       影响范围：根据 route 的 kind / severity / group，切换 pulse 的填充色。 */
-    .route-pulse-glow.primary { fill: rgba(125,168,255,0.9); }
-    .route-pulse-core.primary { fill: #d7e7ff; }
-    .route-pulse-glow.intra { fill: rgba(99,230,255,0.94); }
-    .route-pulse-core.intra { fill: #effdff; }
+       默认沿用前向链路的青色，feedback 单独保留蓝色，告警继续覆盖。 */
+    .route-pulse-glow.feedback { fill: rgba(152,186,253,0.92); }
+    .route-pulse-core.feedback { fill: #ebf2ff; }
     .route-pulse-glow.warn { fill: rgba(255,215,104,0.92); }
     .route-pulse-core.warn { fill: #fff2c1; }
     .route-pulse-glow.critical { fill: rgba(255,99,116,0.92); }
     .route-pulse-core.critical { fill: #ffe6ea; }
-    .route-pulse-glow.l3-bg { fill: rgba(125,168,255,0.9); }
-    .route-pulse-core.l3-bg { fill: #d7e7ff; }
-    .route-pulse-glow.l3-bg.warn { fill: rgba(255,215,104,0.92); }
-    .route-pulse-core.l3-bg.warn { fill: #fff2c1; }
-    .route-pulse-glow.l3-bg.critical { fill: rgba(255,99,116,0.92); }
-    .route-pulse-core.l3-bg.critical { fill: #ffe6ea; }
 
     /* 路径耗时标签文字。
        影响范围：所有 route-label 中的 xxms 文本及其描边可读性。 */
@@ -762,34 +756,33 @@
 
     .node.source .source-wiring-base path {
       fill: none;
-      stroke: rgba(99,230,255,0.14);
-      stroke-width: 1.1;
+      stroke: rgba(99,230,255,0.1);
+      stroke-width: 1;
       stroke-linecap: round;
       stroke-linejoin: round;
     }
 
     .node.source .source-wiring-flow path {
       fill: none;
-      stroke: rgba(99,230,255,0.9);
-      stroke-width: 1.6;
+      stroke: rgba(99,230,255,0.68);
+      stroke-width: 1.45;
       stroke-linecap: round;
       stroke-linejoin: round;
       stroke-dasharray: 4 7;
       animation: routeFlow 1.9s linear infinite;
-      filter: drop-shadow(0 0 6px rgba(99,230,255,0.18));
+      filter: drop-shadow(0 0 4px rgba(99,230,255,0.12));
     }
 
-    .node.source .source-wiring-base path.primary {
-      stroke: rgba(99,230,255,0.22);
-      stroke-width: 1.35;
+    .node.source .source-wiring-base path.primary-active {
+      stroke: rgba(99,230,255,0.18);
+      stroke-width: 1.4;
     }
 
-    .node.source .source-wiring-flow path.primary {
+    .node.source .source-wiring-flow path.primary-active {
       stroke: rgba(99,230,255,0.98);
-      stroke-width: 2.8;
+      stroke-width: 3.15;
       stroke-dasharray: 6 8;
-      animation: routeFlow 1.35s linear infinite;
-      filter: drop-shadow(0 0 10px rgba(99,230,255,0.34));
+      filter: drop-shadow(0 0 9px rgba(99,230,255,0.28));
     }
 
     .node.source.warn .source-wiring-base path {
@@ -801,6 +794,10 @@
       filter: drop-shadow(0 0 6px rgba(255,215,104,0.2));
     }
 
+    .node.source.warn .source-wiring-flow path.primary-active {
+      filter: drop-shadow(0 0 8px rgba(255,215,104,0.28));
+    }
+
     .node.source.critical .source-wiring-base path {
       stroke: rgba(255,99,116,0.18);
     }
@@ -808,6 +805,10 @@
     .node.source.critical .source-wiring-flow path {
       stroke: var(--red);
       filter: drop-shadow(0 0 6px rgba(255,99,116,0.22));
+    }
+
+    .node.source.critical .source-wiring-flow path.primary-active {
+      filter: drop-shadow(0 0 8px rgba(255,99,116,0.3));
     }
 
     .topology-board.flow-paused .node.source .source-wiring-flow path {
@@ -824,14 +825,6 @@
 
     .source-feed-pulse-pack .route-pulse-core {
       filter: drop-shadow(0 0 7px rgba(255,255,255,0.78));
-    }
-
-    .source-feed-pulse-pack .route-pulse-glow.primary {
-      fill: rgba(99,230,255,0.94);
-    }
-
-    .source-feed-pulse-pack .route-pulse-core.primary {
-      fill: #effdff;
     }
 
     /* source 卡片标题。
@@ -1183,11 +1176,10 @@
     }
 
     /* 动效降级模式。
-       影响范围：系统偏好减少动画时，关闭 route-flow 闪动和 L3->BG pulse 包。 */
+       影响范围：系统偏好减少动画时，关闭主线路和 source feed 的流动脉冲。 */
     @media (prefers-reduced-motion: reduce) {
       .route-flow,
       .node.source .source-wiring-flow path,
-      .route-flow.l3-bg,
       .route-flow.critical {
         animation: none !important;
       }
@@ -1478,8 +1470,30 @@
       "TKO1-RT": { SS: "primary", SZ: "primary"},
       "TKO1-OMDC": { HK: "primary" },
       "TKO1-CIIS": { BJ: "primary" },
-      "SKM-RT": { SS: "primary", SZ: "primary", HK: "primary"},
+      "SKM-RT": { HK: "primary"},
+      "SKM-BB": { SS: "primary", SZ: "primary"},
       "SKM-CIIS": { BJ: "primary" },
+    };
+    /* 主拓扑链路的视觉模式。
+       这里的 primary 是纯视觉概念，不等同于 link.kind。 */
+    const routeVisualModes = {
+      "TKO1-OMDC__TKO1-L1": "primary",
+      "TKO1-RT__TKO1-L1": "primary",
+      "TKO1-CIIS__TKO1-L1": "primary",
+      "TKO2-OMDC__TKO2-L1": "primary",
+      "TKO2-RT__TKO2-L1": "primary",
+      "TKO2-CIIS__TKO2-L1": "primary",
+      "TKO2-L1__TKO2-L2": "primary",
+      "TKO2-L2__TKO2-L3": "primary",
+      "TKO2-L3__TKO1-BG": "primary",
+      "TKO2-L3__TKO2-BG": "primary",
+      "TKO2-L3__SKM-BG": "primary",
+      "TKO1-BG__TKO1-HCS": "primary",
+      "TKO2-BG__TKO2-HCS": "primary",
+      "SKM-RT__SKM-L1": "primary",
+      "SKM-BB__SKM-L1": "primary",
+      "SKM-CIIS__SKM-L1": "primary",
+      "SKM-BG__SKM-HCS": "primary"
     };
 
     /* 所有节点的运行时数据都放在这里。 */
@@ -1560,9 +1574,9 @@
     /* 先生成每座塔内部的 source -> L1 和 L1 -> L2。 */
     siteOrder.forEach((site) => {
       sourceNames.forEach((source) => {
-        addLink(site + "-" + source, site + "-L1", 30, "sources", "intra", 31);
+        addLink(site + "-" + source, site + "-L1", 30, "sources", "backup", 31);
       });
-      addLink(site + "-L1", site + "-L2", 30, "l1-l2", "intra", 36);
+      addLink(site + "-L1", site + "-L2", 30, "l1-l2", site == "TKO2" ? "intra" : "intra", 36);
     });
 
     /* 下面是跨层、跨塔和反馈链路。
@@ -1657,24 +1671,6 @@
     /* 单链路阈值覆盖入口。只在需要偏离 group 规则时填。 */
     const linkThresholds = {};
 
-    /* primary 路径的脉冲高亮白名单。
-       语义上表示“当前被选中的主路径”，只有这些链路会出现沿线脉冲。
-       当前 primary 是 TKO2，因此脉冲链路是 TKO2-L1 -> TKO2-L2 -> TKO2-L3 -> TKO2-BG。 */
-    const primaryPulseLinks = new Set([
-      "TKO2-OMDC__TKO2-L1",
-      "TKO2-RT__TKO2-L1",
-      // "TKO2-BB__TKO2-L1",
-      // "TKO2-CIIS__TKO2-L1",
-      "TKO2-L1__TKO2-L2",
-      "TKO2-L2__TKO2-L3",
-      "TKO2-L3__TKO1-BG",
-      "TKO2-L3__TKO2-BG",
-      "TKO2-L3__SKM-BG",
-      "TKO1-BG__TKO1-HCS",
-      "TKO2-BG__TKO2-HCS",
-      "SKM-BG__SKM-HCS",
-    ]);
-
     /* 根据延迟数值映射成 ok / warn / critical 三档。
        这会影响：
        1. 节点 badge 颜色
@@ -1708,21 +1704,18 @@
       return link.kind;
     }
 
-    const l3BgNeutralLinks = new Set([
-      "TKO2-L3__TKO1-BG",
-      "TKO2-L3__SKM-BG",
-      "TKO2-L3__TKO2-BG"
-    ]);
-
     /* 给特定链路附加视觉变体类。
-       目前支持：
-       1. TKO2-L3 三条下行链路使用 l3-bg-neutral，与 L2->L3 intra 默认视觉对齐
-       2. sources 组的 TKO1 / SKM 输入线保留 soft-dashed，
-       用于维持“主站更突出、辅站更克制”的视觉层次。 */
+       当前 EXTERNAL FEEDS -> L1 默认统一，不再按 site 额外弱化。 */
     function routeVariantClass(link) {
-      if (l3BgNeutralLinks.has(link.id)) return "l3-bg-neutral";
-      if (link.group === "sources" && (link.from.startsWith("TKO1-") || link.from.startsWith("SKM-"))) return "soft-dashed";
       return "";
+    }
+
+    function visualModeClass(mode) {
+      return mode === "primary" ? "primary-active" : "";
+    }
+
+    function routeVisualMode(link) {
+      return routeVisualModes[link.id] || "";
     }
 
     /* 把业务链路 id 转成安全的 SVG path id。 */
@@ -1732,10 +1725,11 @@
 
     /* 按链路类型和告警级别选择箭头。
        规则：
-       1. 塔内 intra 线路不显示箭头
+       1. sources / 塔内 intra 线路不显示箭头
        2. 跨塔 primary 用实色箭头
        3. backup / feedback 用更淡的箭头，维持与线条权重一致 */
     function markerIdForLink(link, severity) {
+      if (link.group === "sources") return "";
       if (link.kind === "intra") return "";
 
       const dimmed = link.kind === "backup" || link.kind === "feedback";
@@ -1750,31 +1744,71 @@
       return dimmed ? "route-arrow-cyan-dim" : "route-arrow-cyan";
     }
 
-    /* 给当前 primary 路径增加沿路径前进的脉冲包。
-       视觉上它表示“当前真正被选中的主通道”，不是所有同组链路都会发脉冲。 */
-    function pulseMarkup(link, pathId, severity) {
-      if (!primaryPulseLinks.has(link.id)) return "";
-
-      const travelDur = 2;
-      const beatDur = 2;
+    /* 通用路径脉冲模板。
+       route 和 source feed 都复用这套 animateMotion，只在尺寸/节奏上做差异。 */
+    function pathPulseMarkup(pathId, options) {
+      const {
+        packClass = "",
+        toneClass = "",
+        severity = "ok",
+        travelDur = 2,
+        beatDur = 2,
+        glowRadius = 9,
+        coreRadius = 3.4,
+        glowRadiusValues = "4;13;8;11;4",
+        coreRadiusValues = "2.4;4.8;3.2;4.2;2.4",
+        glowOpacityValues = "0;0.95;0.45;0.92;0",
+        coreOpacityValues = "0;1;0.62;1;0"
+      } = options || {};
+      const packClassAttr = packClass ? ` ${packClass}` : "";
+      const toneClassAttr = toneClass ? ` ${toneClass}` : "";
+      const severityClassAttr = severity && severity !== "ok" ? ` ${severity}` : "";
       return `
-        <g class="route-pulse-pack">
-          <circle class="route-pulse-glow ${link.group} ${link.kind} ${severity}" r="9">
-            <animate attributeName="r" values="4;13;8;11;4" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animate attributeName="opacity" values="0;0.95;0.45;0.92;0" dur="${beatDur}s" repeatCount="indefinite"></animate>
+        <g class="route-pulse-pack${packClassAttr}">
+          <circle class="route-pulse-glow${toneClassAttr}${severityClassAttr}" r="${glowRadius}">
+            <animate attributeName="r" values="${glowRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="${glowOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
             <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
               <mpath href="#${pathId}"></mpath>
             </animateMotion>
           </circle>
-          <circle class="route-pulse-core ${link.group} ${link.kind} ${severity}" r="3.4">
-            <animate attributeName="r" values="2.4;4.8;3.2;4.2;2.4" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animate attributeName="opacity" values="0;1;0.62;1;0" dur="${beatDur}s" repeatCount="indefinite"></animate>
+          <circle class="route-pulse-core${toneClassAttr}${severityClassAttr}" r="${coreRadius}">
+            <animate attributeName="r" values="${coreRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="${coreOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
             <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
               <mpath href="#${pathId}"></mpath>
             </animateMotion>
           </circle>
         </g>
       `;
+    }
+
+    function sourceLikePulseOptions(severity) {
+      return {
+        packClass: "source-feed-pulse-pack",
+        severity,
+        travelDur: 1.35,
+        beatDur: 1.35,
+        glowRadius: 5.2,
+        coreRadius: 2.2,
+        glowRadiusValues: "2.8;7.8;4.6;6.2;2.8",
+        coreRadiusValues: "1.4;3.1;2;2.7;1.4",
+        glowOpacityValues: "0;0.95;0.45;0.9;0"
+      };
+    }
+
+    function primaryPulseOptionsForLink(link, severity) {
+      const options = {
+        severity,
+        toneClass: link.kind === "feedback" ? "feedback" : ""
+      };
+
+      if (link.group !== "sources") return options;
+
+      return {
+        ...sourceLikePulseOptions(severity),
+        ...options
+      };
     }
 
     function sourceFeedPathId(node, part) {
@@ -1784,29 +1818,6 @@
     function sourceFeedMode(node, part) {
       const modes = sourceFeedModes[`${node.site}-${node.name}`] || {};
       return modes[part] || "";
-    }
-
-    function sourceFeedPulseMarkup(pathId) {
-      const travelDur = 1.35;
-      const beatDur = 1.35;
-      return `
-        <g class="route-pulse-pack source-feed-pulse-pack">
-          <circle class="route-pulse-glow primary" r="5.2">
-            <animate attributeName="r" values="2.8;7.8;4.6;6.2;2.8" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animate attributeName="opacity" values="0;0.95;0.45;0.9;0" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
-              <mpath href="#${pathId}"></mpath>
-            </animateMotion>
-          </circle>
-          <circle class="route-pulse-core primary" r="2.2">
-            <animate attributeName="r" values="1.4;3.1;2;2.7;1.4" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animate attributeName="opacity" values="0;1;0.62;1;0" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
-              <mpath href="#${pathId}"></mpath>
-            </animateMotion>
-          </circle>
-        </g>
-      `;
     }
 
     /* source 节点用 rate 粗略映射状态，stage 节点用 p95 映射状态。 */
@@ -1841,6 +1852,7 @@
     function sourceWiringHtml(node) {
       const parts = sourcePartitions[node.name];
       if (!parts || parts.length === 0) return "";
+      const severity = nodeStatus(node);
 
       const cardWidth = 96;
       const paddingX = 8;
@@ -1860,16 +1872,18 @@
 
       const basePaths = parts.map((part, idx) => {
         const mode = sourceFeedMode(node, part);
-        const className = mode ? ` class="${mode}"` : "";
-        return `<path${className} d="${branchPath(partCenters[idx])}"></path>`;
+        const className = visualModeClass(mode);
+        const classAttr = className ? ` class="${className}"` : "";
+        return `<path${classAttr} d="${branchPath(partCenters[idx])}"></path>`;
       }).join("");
       const flowPaths = parts.map((part, idx) => {
         const mode = sourceFeedMode(node, part);
-        const className = mode ? ` class="${mode}"` : "";
+        const className = visualModeClass(mode);
+        const classAttr = className ? ` class="${className}"` : "";
         const pathId = sourceFeedPathId(node, part);
         return `
-          <path id="${pathId}"${className} d="${branchPath(partCenters[idx])}"></path>
-          ${mode === "primary" ? sourceFeedPulseMarkup(pathId) : ""}
+          <path id="${pathId}"${classAttr} d="${branchPath(partCenters[idx])}"></path>
+          ${mode === "primary" ? pathPulseMarkup(pathId, sourceLikePulseOptions(severity)) : ""}
         `;
       }).join("");
 
@@ -2182,14 +2196,17 @@
         const path = pathForLink(link);
         const severity = statusClassForLink(link);
         const variant = routeVariantClass(link);
+        const visualMode = routeVisualMode(link);
+        const primaryEnabled = visualMode === "primary";
+        const visualClass = primaryEnabled ? visualModeClass(visualMode) : "";
         const pathId = pathIdForLink(link);
         const markerId = markerIdForLink(link, severity);
         const markerAttr = markerId ? ` marker-end="url(#${markerId})"` : "";
         return `
           <g>
-            <path id="${pathId}" class="route-base ${link.group} ${link.kind} ${variant}" d="${path}"></path>
-            <path class="route-flow ${link.group} ${link.kind} ${severity} ${variant}" d="${path}"${markerAttr}></path>
-            ${pulseMarkup(link, pathId, severity)}
+            <path id="${pathId}" class="route-base ${link.group} ${link.kind} ${variant} ${visualClass}" d="${path}"></path>
+            <path class="route-flow ${link.group} ${link.kind} ${severity} ${variant} ${visualClass}" d="${path}"${markerAttr}></path>
+            ${primaryEnabled ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""}
           </g>
         `;
       }).join("");
