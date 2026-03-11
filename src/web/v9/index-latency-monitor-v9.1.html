@@ -727,10 +727,11 @@
     /* 最上方外部源节点。
        v9.1 这里改成“旋转 90°”的外层壳子，内部内容层再做逆时针旋转。 */
     .node.source {
-      width: 84px;
-      height: 96px;
+      width: 92px;
+      height: 108px;
       padding: 0;
       overflow: hidden;
+      border-radius: 20px;
       background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
     }
 
@@ -738,13 +739,10 @@
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 96px;
-      height: 84px;
-      padding: 8px 8px 7px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      text-align: center;
+      width: 108px;
+      height: 92px;
+      padding: 0;
+      display: block;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -752,21 +750,26 @@
       transform-origin: center;
     }
 
-    /* source 卡片内部的小 feed 和线路再顺时针翻转 180 度，
+    /* source 卡片内部的 feed cluster 顺时针翻转 180 度，
        让最终可见的汇聚点落在右侧外部出口。 */
     .node.source .source-wiring {
       position: absolute;
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      transform: rotate(180deg);
-      transform-origin: center;
     }
 
     .node.source .source-name,
+    .node.source .source-feed-cluster,
     .node.source .source-splits {
-      position: relative;
+      position: absolute;
       z-index: 1;
+    }
+
+    .node.source .source-feed-cluster {
+      inset: 0;
+      transform: rotate(180deg);
+      transform-origin: center;
     }
 
     .node.source .source-wiring-base path {
@@ -845,19 +848,26 @@
     /* source 卡片标题。
        影响范围：RT / BB / OMDC / CIIS 四张卡顶部主标题。 */
     .node.source .source-name {
-      font-size: 13px;
+      top: 8px;
+      left: 50%;
+      width: calc(100% - 18px);
+      transform: translateX(-50%);
+      font-size: 14px;
       line-height: 1;
+      letter-spacing: 1.2px;
+      text-align: center;
+      white-space: nowrap;
+      z-index: 2;
     }
 
     /* source 卡片中部分割网格。
        RT / BB 走三列，CIIS 走两列，OMDC 走单卡，并给右侧出口预留通道。 */
     .node.source .source-splits {
+      left: 12px;
+      top: 48px;
+      width: calc(100% - 24px);
       display: grid;
       gap: 4px;
-      width: calc(100% - 12px);
-      margin-inline: auto;
-      transform: rotate(180deg);
-      transform-origin: center;
     }
 
     .node.source .source-splits.cols-1 {
@@ -1421,10 +1431,10 @@
     const stageY = 332;
     const sourceNames = ["RT", "BB", "OMDC", "CIIS"];
     const sourcePositions = {
-      RT: { x: 186, y: 170, rate: 940 },
-      BB: { x: 186, y: 290, rate: 918 },
-      OMDC: { x: 186, y: 410, rate: 902 },
-      CIIS: { x: 186, y: 530, rate: 884 }
+      RT: { x: 182, y: 174, rate: 940 },
+      BB: { x: 182, y: 294, rate: 918 },
+      OMDC: { x: 182, y: 414, rate: 902 },
+      CIIS: { x: 182, y: 534, rate: 884 }
     };
     const sourcePartitions = {
       RT: ["SS", "SZ", "HK"],
@@ -1676,22 +1686,19 @@
       const parts = sourcePartitions[node.name];
       if (!parts || parts.length === 0) return "";
       const severity = nodeStatus(node);
-      const cardWidth = 96;
-      const cardHeight = 84;
+      const cardWidth = 108;
+      const cardHeight = 92;
       const exitX = cardWidth / 2;
       const exitY = 0;
       const fmt = (value) => value.toFixed(2);
-      const paddingX = 8;
-      const reservedExitLane = 12;
+      const splitLeft = 12;
+      const splitTopY = 48;
+      const splitAreaWidth = cardWidth - splitLeft * 2;
       const splitGap = 4;
-      const splitTopY = 31;
-      const splitHeight = 24;
-      const splitEntryY = splitTopY;
-      const splitAreaWidth = cardWidth - paddingX * 2 - reservedExitLane;
       const splitWidth = (splitAreaWidth - splitGap * (parts.length - 1)) / parts.length;
       const partExitPoints = parts.map((_, idx) => ({
-        x: paddingX + splitWidth / 2 + idx * (splitWidth + splitGap),
-        y: splitEntryY
+        x: splitLeft + splitWidth / 2 + idx * (splitWidth + splitGap),
+        y: splitTopY
       }));
 
       function branchPath(point) {
@@ -1718,7 +1725,7 @@
       }).join("");
 
       return `
-        <svg class="source-wiring" viewBox="0 0 96 84" preserveAspectRatio="none" aria-hidden="true">
+        <svg class="source-wiring" viewBox="0 0 108 92" preserveAspectRatio="none" aria-hidden="true">
           <g class="source-wiring-base">${basePaths}</g>
           <g class="source-wiring-flow">${flowPaths}</g>
         </svg>
@@ -1729,11 +1736,13 @@
       if (node.type === "source") {
         const tone = nodeStatus(node);
         return `
-          <div class="node source ${tone}" style="left:${node.x - 42}px; top:${node.y - 48}px;">
+          <div class="node source ${tone}" style="left:${node.x - 46}px; top:${node.y - 54}px;">
+            <div class="source-name">${node.name}</div>
             <div class="source-body">
-              ${sourceWiringHtml(node)}
-              <div class="source-name">${node.name}</div>
-              ${sourcePartitionsHtml(node)}
+              <div class="source-feed-cluster">
+                ${sourceWiringHtml(node)}
+                ${sourcePartitionsHtml(node)}
+              </div>
             </div>
           </div>
         `;
@@ -1770,8 +1779,8 @@
     function edgePoint(node, side, offset) {
       const ox = offset && offset.x ? offset.x : 0;
       const oy = offset && offset.y ? offset.y : 0;
-      const halfW = node.type === "source" ? 42 : 88;
-      const halfH = node.type === "source" ? 48 : 63;
+      const halfW = node.type === "source" ? 46 : 88;
+      const halfH = node.type === "source" ? 54 : 63;
       if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
       if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
       if (side === "left") return { x: node.x - halfW + ox, y: node.y + oy };
