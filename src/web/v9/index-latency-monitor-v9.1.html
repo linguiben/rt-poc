@@ -725,8 +725,19 @@
     }
 
     /* 最上方外部源节点。
-       现在固定为四张卡，因此略微放宽卡片尺寸，容纳内部 feed 分割。 */
+       v9.1 这里改成“旋转 90°”的外层壳子，内部内容层再做逆时针旋转。 */
     .node.source {
+      width: 84px;
+      height: 96px;
+      padding: 0;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
+    }
+
+    .node.source .source-body {
+      position: absolute;
+      left: 50%;
+      top: 50%;
       width: 96px;
       height: 84px;
       padding: 8px 8px 7px;
@@ -737,15 +748,19 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
-      background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
+      transform: translate(-50%, -50%) rotate(-90deg);
+      transform-origin: center;
     }
 
-    /* source 卡片内部的小 feed 先汇聚到右侧出口，再接入外部 source -> L1 主线起点。 */
+    /* source 卡片内部的小 feed 和线路再顺时针翻转 180 度，
+       让最终可见的汇聚点落在右侧外部出口。 */
     .node.source .source-wiring {
       position: absolute;
       inset: 0;
       z-index: 0;
       pointer-events: none;
+      transform: rotate(180deg);
+      transform-origin: center;
     }
 
     .node.source .source-name,
@@ -839,8 +854,10 @@
     .node.source .source-splits {
       display: grid;
       gap: 4px;
-      width: calc(100% - 18px);
-      margin-right: auto;
+      width: calc(100% - 12px);
+      margin-inline: auto;
+      transform: rotate(180deg);
+      transform-origin: center;
     }
 
     .node.source .source-splits.cols-1 {
@@ -866,6 +883,13 @@
       line-height: 1;
       letter-spacing: 0.8px;
       color: rgba(241,249,255,0.9);
+    }
+
+    .node.source .source-split-label {
+      display: inline-block;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      white-space: nowrap;
     }
 
     /* 业务处理节点（L1/L2/L3/BG/HCS）的统一卡片尺寸。 */
@@ -1397,10 +1421,10 @@
     const stageY = 332;
     const sourceNames = ["RT", "BB", "OMDC", "CIIS"];
     const sourcePositions = {
-      RT: { x: 180, y: 170, rate: 940 },
-      BB: { x: 180, y: 290, rate: 918 },
-      OMDC: { x: 180, y: 410, rate: 902 },
-      CIIS: { x: 180, y: 530, rate: 884 }
+      RT: { x: 186, y: 170, rate: 940 },
+      BB: { x: 186, y: 290, rate: 918 },
+      OMDC: { x: 186, y: 410, rate: 902 },
+      CIIS: { x: 186, y: 530, rate: 884 }
     };
     const sourcePartitions = {
       RT: ["SS", "SZ", "HK"],
@@ -1643,7 +1667,7 @@
       if (!parts || parts.length === 0) return "";
       return `
         <div class="source-splits cols-${parts.length}">
-          ${parts.map((part) => `<span class="source-split">${part}</span>`).join("")}
+          ${parts.map((part) => `<span class="source-split"><span class="source-split-label">${part}</span></span>`).join("")}
         </div>
       `;
     }
@@ -1654,25 +1678,26 @@
       const severity = nodeStatus(node);
       const cardWidth = 96;
       const cardHeight = 84;
-      const exitX = cardWidth;
-      const exitY = cardHeight / 2;
+      const exitX = cardWidth / 2;
+      const exitY = 0;
       const fmt = (value) => value.toFixed(2);
       const paddingX = 8;
-      const reservedExitLane = 18;
+      const reservedExitLane = 12;
       const splitGap = 4;
       const splitTopY = 31;
       const splitHeight = 24;
-      const splitCenterY = splitTopY + splitHeight / 2;
+      const splitEntryY = splitTopY;
       const splitAreaWidth = cardWidth - paddingX * 2 - reservedExitLane;
       const splitWidth = (splitAreaWidth - splitGap * (parts.length - 1)) / parts.length;
       const partExitPoints = parts.map((_, idx) => ({
-        x: paddingX + splitWidth + idx * (splitWidth + splitGap),
-        y: splitCenterY
+        x: paddingX + splitWidth / 2 + idx * (splitWidth + splitGap),
+        y: splitEntryY
       }));
 
       function branchPath(point) {
-        const bendX = point.x + Math.max(8, (exitX - point.x) * 0.32);
-        return `M ${fmt(point.x)} ${fmt(point.y)} C ${fmt(bendX)} ${fmt(point.y)}, ${fmt(exitX - 10)} ${fmt(exitY)}, ${fmt(exitX)} ${fmt(exitY)}`;
+        const bendY = point.y - Math.max(10, point.y * 0.42);
+        const approachX = exitX + (point.x - exitX) * 0.22;
+        return `M ${fmt(point.x)} ${fmt(point.y)} C ${fmt(point.x)} ${fmt(bendY)}, ${fmt(approachX)} ${fmt(exitY + 10)}, ${fmt(exitX)} ${fmt(exitY)}`;
       }
 
       const basePaths = parts.map((part, idx) => {
@@ -1704,10 +1729,12 @@
       if (node.type === "source") {
         const tone = nodeStatus(node);
         return `
-          <div class="node source ${tone}" style="left:${node.x - 48}px; top:${node.y - 42}px;">
-            ${sourceWiringHtml(node)}
-            <div class="source-name">${node.name}</div>
-            ${sourcePartitionsHtml(node)}
+          <div class="node source ${tone}" style="left:${node.x - 42}px; top:${node.y - 48}px;">
+            <div class="source-body">
+              ${sourceWiringHtml(node)}
+              <div class="source-name">${node.name}</div>
+              ${sourcePartitionsHtml(node)}
+            </div>
           </div>
         `;
       }
@@ -1743,8 +1770,8 @@
     function edgePoint(node, side, offset) {
       const ox = offset && offset.x ? offset.x : 0;
       const oy = offset && offset.y ? offset.y : 0;
-      const halfW = node.type === "source" ? 48 : 88;
-      const halfH = node.type === "source" ? 42 : 63;
+      const halfW = node.type === "source" ? 42 : 88;
+      const halfH = node.type === "source" ? 48 : 63;
       if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
       if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
       if (side === "left") return { x: node.x - halfW + ox, y: node.y + oy };
