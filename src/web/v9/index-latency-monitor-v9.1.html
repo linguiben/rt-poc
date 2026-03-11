@@ -740,7 +740,7 @@
       background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
     }
 
-    /* source 卡片内部的小 feed 先汇聚，再接入外部 source -> L1 主线起点。 */
+    /* source 卡片内部的小 feed 先汇聚到右侧出口，再接入外部 source -> L1 主线起点。 */
     .node.source .source-wiring {
       position: absolute;
       inset: 0;
@@ -835,10 +835,12 @@
     }
 
     /* source 卡片中部分割网格。
-       RT / BB 走三列，CIIS 走两列，OMDC 走单卡。 */
+       RT / BB 走三列，CIIS 走两列，OMDC 走单卡，并给右侧出口预留通道。 */
     .node.source .source-splits {
       display: grid;
       gap: 4px;
+      width: calc(100% - 18px);
+      margin-right: auto;
     }
 
     .node.source .source-splits.cols-1 {
@@ -1330,7 +1332,7 @@
               <div class="tower single">
                 <div class="tower-tag">TKO2 <span class="mark">Primary</span></div>
               </div>
-              <div class="tower-caption sources-cluster" style="left:215px;">External Feeds</div>
+              <div class="tower-caption sources-cluster" style="left:180px;">External Feeds</div>
               <div class="tower-caption" style="left:470px;">Input Gate</div>
               <div class="tower-caption" style="left:700px;">Process Layer</div>
               <div class="tower-caption" style="left:930px;">Compute Layer</div>
@@ -1395,10 +1397,10 @@
     const stageY = 332;
     const sourceNames = ["RT", "BB", "OMDC", "CIIS"];
     const sourcePositions = {
-      RT: { x: 150, y: 248, rate: 940 },
-      BB: { x: 150, y: 396, rate: 918 },
-      OMDC: { x: 280, y: 248, rate: 902 },
-      CIIS: { x: 280, y: 396, rate: 884 }
+      RT: { x: 180, y: 170, rate: 940 },
+      BB: { x: 180, y: 290, rate: 918 },
+      OMDC: { x: 180, y: 410, rate: 902 },
+      CIIS: { x: 180, y: 530, rate: 884 }
     };
     const sourcePartitions = {
       RT: ["SS", "SZ", "HK"],
@@ -1651,25 +1653,32 @@
       if (!parts || parts.length === 0) return "";
       const severity = nodeStatus(node);
       const cardWidth = 96;
-      const paddingX = 8;
-      const splitGap = 4;
-      const splitBottomY = 52;
-      const exitY = 84;
-      const centerX = cardWidth / 2;
-      const innerWidth = cardWidth - paddingX * 2;
-      const splitWidth = (innerWidth - splitGap * (parts.length - 1)) / parts.length;
-      const partCenters = parts.map((_, idx) => paddingX + splitWidth / 2 + idx * (splitWidth + splitGap));
+      const cardHeight = 84;
+      const exitX = cardWidth;
+      const exitY = cardHeight / 2;
       const fmt = (value) => value.toFixed(2);
+      const paddingX = 8;
+      const reservedExitLane = 18;
+      const splitGap = 4;
+      const splitTopY = 31;
+      const splitHeight = 24;
+      const splitCenterY = splitTopY + splitHeight / 2;
+      const splitAreaWidth = cardWidth - paddingX * 2 - reservedExitLane;
+      const splitWidth = (splitAreaWidth - splitGap * (parts.length - 1)) / parts.length;
+      const partExitPoints = parts.map((_, idx) => ({
+        x: paddingX + splitWidth + idx * (splitWidth + splitGap),
+        y: splitCenterY
+      }));
 
-      function branchPath(x) {
-        const approachX = centerX + (x - centerX) * 0.18;
-        return `M ${fmt(x)} ${splitBottomY} C ${fmt(x)} ${fmt(splitBottomY + 10)}, ${fmt(approachX)} ${fmt(exitY - 12)}, ${fmt(centerX)} ${fmt(exitY)}`;
+      function branchPath(point) {
+        const bendX = point.x + Math.max(8, (exitX - point.x) * 0.32);
+        return `M ${fmt(point.x)} ${fmt(point.y)} C ${fmt(bendX)} ${fmt(point.y)}, ${fmt(exitX - 10)} ${fmt(exitY)}, ${fmt(exitX)} ${fmt(exitY)}`;
       }
 
       const basePaths = parts.map((part, idx) => {
         const className = visualModeClass(sourceFeedMode(node, part));
         const classAttr = className ? ` class="${className}"` : "";
-        return `<path${classAttr} d="${branchPath(partCenters[idx])}"></path>`;
+        return `<path${classAttr} d="${branchPath(partExitPoints[idx])}"></path>`;
       }).join("");
 
       const flowPaths = parts.map((part, idx) => {
@@ -1678,7 +1687,7 @@
         const classAttr = className ? ` class="${className}"` : "";
         const pathId = sourceFeedPathId(node, part);
         return `
-          <path id="${pathId}"${classAttr} d="${branchPath(partCenters[idx])}"></path>
+          <path id="${pathId}"${classAttr} d="${branchPath(partExitPoints[idx])}"></path>
           ${mode === "primary" ? pathPulseMarkup(pathId, sourceLikePulseOptions(severity)) : ""}
         `;
       }).join("");
