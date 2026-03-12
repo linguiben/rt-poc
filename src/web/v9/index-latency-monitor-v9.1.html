@@ -1334,7 +1334,7 @@
             <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--amber), #ffefaa);"></span></div>
           </div>
           <div class="stat">
-            <div class="name">BoastGaways (BG)</div>
+            <div class="name">BroadcastGateways (BG)</div>
             <div class="val" id="statBg">3/3</div>
             <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--amber), var(--red));"></span></div>
           </div>
@@ -1355,7 +1355,8 @@
                 <span><i style="background:var(--cyan)"></i>TKO1</span>
                 <span><i style="background:var(--cyan); opacity:0.85"></i>TKO2</span>
                 <span><i style="background:var(--blue)"></i>SKM</span>
-                <span><i style="background:var(--red)"></i>CLOUD</span>
+                <span><i style="background:var(--cyan)"></i>CLOUD</span>
+                <span><i style="background:var(--cyan)"></i>ALL</span>
               </div>
               <button type="button" class="flow-toggle-btn" id="toggleFlowBtn" aria-pressed="false">关闭线条流动</button>
             </div>
@@ -1369,7 +1370,7 @@
               <div class="tower-caption" style="left:470px;">Capture (L1)</div>
               <div class="tower-caption" style="left:700px;">Calculation (L2)</div>
               <div class="tower-caption" style="left:930px;">Reconciliation (L3)</div>
-              <div class="tower-caption" style="left:1160px;">BoastGaway (BG)</div>
+              <div class="tower-caption" style="left:1160px;">BroadcastGateway (BG)</div>
               <div class="tower-caption" style="left:1390px;">HealthCheck (HCS)</div>
               <svg class="topology-svg" viewBox="0 0 1572 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
                 <defs>
@@ -1466,7 +1467,7 @@
       capturesL1: { healthy: 9, total: 9 },
       calculationsL2: { healthy: 12, total: 12 },
       reconciliationL3: { healthy: 3, total: 3 },
-      boastGawaysBg: { healthy: 3, total: 3 },
+      broadcastGatewaysBg: { healthy: 3, total: 3 },
       healthCheckServicesHcs: { healthy: 3, total: 3 }
     };
     const stageSeed = {
@@ -1574,7 +1575,7 @@
       return statusClass(link.current, thresholdsForGroup(link.group));
     }
 
-    function routeVariantClass() {
+    function routeVariantClass(link) {
       return "";
     }
 
@@ -1614,7 +1615,11 @@
         glowRadiusValues = "4;13;8;11;4",
         coreRadiusValues = "2.4;4.8;3.2;4.2;2.4",
         glowOpacityValues = "0;0.95;0.45;0.92;0",
-        coreOpacityValues = "0;1;0.62;1;0"
+        coreOpacityValues = "0;1;0.62;1;0",
+        motionCalcMode = "linear",
+        motionKeyPoints = "0;1",
+        motionKeyTimes = "0;1",
+        motionBegin = "0s"
       } = options || {};
       const packClassAttr = packClass ? ` ${packClass}` : "";
       const toneClassAttr = toneClass ? ` ${toneClass}` : "";
@@ -1624,14 +1629,14 @@
           <circle class="route-pulse-glow${toneClassAttr}${severityClassAttr}" r="${glowRadius}">
             <animate attributeName="r" values="${glowRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
             <animate attributeName="opacity" values="${glowOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
+            <animateMotion begin="${motionBegin}" dur="${travelDur}s" repeatCount="indefinite" rotate="auto" calcMode="${motionCalcMode}" keyPoints="${motionKeyPoints}" keyTimes="${motionKeyTimes}">
               <mpath href="#${pathId}"></mpath>
             </animateMotion>
           </circle>
           <circle class="route-pulse-core${toneClassAttr}${severityClassAttr}" r="${coreRadius}">
             <animate attributeName="r" values="${coreRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
             <animate attributeName="opacity" values="${coreOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
-            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
+            <animateMotion begin="${motionBegin}" dur="${travelDur}s" repeatCount="indefinite" rotate="auto" calcMode="${motionCalcMode}" keyPoints="${motionKeyPoints}" keyTimes="${motionKeyTimes}">
               <mpath href="#${pathId}"></mpath>
             </animateMotion>
           </circle>
@@ -1842,7 +1847,11 @@
 
       const start = edgePoint(from, "right");
       const end = edgePoint(to, "left");
-      const reach = Math.max(90, Math.abs(end.x - start.x) * 0.42);
+      const gap = Math.abs(end.x - start.x);
+      /* 旧版固定最小 reach=90。
+         当横向实际间距比这个更短时，控制点会越过终点并折返，
+         在同一条水平线上形成“先前进再回流”的贝塞尔参数路径。 */
+      const reach = Math.min(Math.max(28, gap * 0.42), Math.max(12, gap * 0.45));
       return {
         p0: start,
         p1: { x: start.x + reach, y: start.y },
@@ -1991,7 +2000,7 @@
       document.getElementById("statCaptures").textContent = summaryPairText(summaryCardDefaults.capturesL1);
       document.getElementById("statCalculations").textContent = summaryPairText(summaryCardDefaults.calculationsL2);
       document.getElementById("statReconciliation").textContent = summaryPairText(summaryCardDefaults.reconciliationL3);
-      document.getElementById("statBg").textContent = summaryPairText(summaryCardDefaults.boastGawaysBg);
+      document.getElementById("statBg").textContent = summaryPairText(summaryCardDefaults.broadcastGatewaysBg);
       document.getElementById("statHcs").textContent = summaryPairText(summaryCardDefaults.healthCheckServicesHcs);
     }
 
