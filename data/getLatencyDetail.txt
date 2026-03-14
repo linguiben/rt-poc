@@ -1,0 +1,29 @@
+
+API: GET https: //hkl25030947.hk.hsbc:9003/api/getLatencyDetail?site=NX9&type=L3&source=NX9&prevTime=0  
+
+return data: [
+    {
+        "time": 1772584510000,
+        "value": {
+            "avg": 53.0,
+            "per90": 53.0,
+            "per95": 53.0
+        }
+    },
+    {
+        "time": 1772584540000,
+        "value": {
+            "avg": 9.0,
+            "per90": 21.0,
+            "per95": 21.0
+        }
+    },
+    {
+        "time": 1772584550000,
+        "value": {
+            "avg": 32.0,
+            "per90": 5625.0,
+            "per95": 5625.0
+        }
+    }
+]

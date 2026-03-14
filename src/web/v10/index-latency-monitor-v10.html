@@ -1636,6 +1636,7 @@
       "SKM-CIIS": { BJ: "primary" },
     };
     /* 主拓扑链路的视觉模式。
+       primary 的线路会出现脉冲光波效果。
        这里的 primary 是纯视觉概念，不等同于 link.kind。 */
     const routeVisualModes = {
       "TKO1-OMDC__TKO1-L1": "primary",
@@ -1650,9 +1651,14 @@
       "TKO2-CIIS__TKO2-L1": "primary",
       "TKO2-L1__TKO2-L2": "primary",
       "TKO2-L2__TKO2-L3": "primary",
-      "TKO2-L3__TKO1-BG": "primary",
-      "TKO2-L3__TKO2-BG": "primary",
-      "TKO2-L3__SKM-BG": "primary",
+
+      // 发生role swap 之后
+      "TKO1-L3__TKO1-BG": "primary",
+      "TKO1-L3__TKO2-BG": "primary",
+      "TKO1-L3__SKM-BG": "primary",
+      // "TKO2-L3__TKO1-BG": "primary",
+      // "TKO2-L3__TKO2-BG": "primary",
+      // "TKO2-L3__SKM-BG": "primary",
       "TKO1-BG__TKO1-HCS": "primary",
       "TKO2-BG__TKO2-HCS": "primary",
       "SKM-RT__SKM-L1": "primary",
@@ -1786,7 +1792,8 @@
        维护时最重要的是理解：
        1. group 决定 controlPointsForLink() 里的路径计算分支
        2. id 可能被 routeVariantClass() / labelT() / evolveLinks() 特判
-       3. 如果新增一类 group，通常还要同步补对应的汇总和说明逻辑 */
+       3. 如果新增一类 group，通常还要同步补对应的汇总和说明逻辑 
+       4. 光波脉冲效果见 routeVisualModes */
     // addLink(from: , to: , base: , group: , kind: , current: )
     addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 18);
     addLink("SKM-L2", "SKM-L3", 50, "l2-l3", "intra", 124);
@@ -1796,9 +1803,13 @@
     addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "backup", 30);
     addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 59);
 
-    addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "primary", 92);
-    addLink("TKO2-L3", "SKM-BG", 30, "l3-bg", "primary", 86);
-    addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 34);
+    // 发生了auto role swap 后的效果
+    addLink("TKO1-L3", "TKO1-BG", 30, "l3-bg", "intra", 92);
+    addLink("TKO1-L3", "TKO2-BG", 30, "l3-bg", "primary", 92);
+    addLink("TKO1-L3", "SKM-BG", 30, "l3-bg", "primary", 92);
+    // addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "primary", 92);
+    // addLink("TKO2-L3", "SKM-BG", 30, "l3-bg", "primary", 86);
+    // addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 34);
 
     addLink("TKO1-BG", "TKO1-L3", 30, "bg-l3-feedback", "feedback", 56);
     addLink("TKO1-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 96);
@@ -2778,20 +2789,9 @@
         if (link) singleSiteLinks.push(link);
       });
 
-      const l3BgSource =
-        site === "TKO2"
-          ? linkById[`${site}-L3__${site}-BG`]
-          : linkById[`TKO2-L3__${site}-BG`];
-
-      if (l3BgSource) {
-        singleSiteLinks.splice(sourceNames.length + 2, 0, {
-          ...l3BgSource,
-          id: `${site}-L3__${site}-BG`,
-          from: `${site}-L3`,
-          to: `${site}-BG`,
-          group: "l3-bg",
-          kind: "intra"
-        });
+      const intraL3BgLink = linkById[`${site}-L3__${site}-BG`];
+      if (intraL3BgLink) {
+        singleSiteLinks.splice(sourceNames.length + 2, 0, intraL3BgLink);
       }
 
       return {

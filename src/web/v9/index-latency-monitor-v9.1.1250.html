@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Index Calculation System Monitor v9.1</title>
+  <style>
+    /* 主题变量集中定义。
+       后续如果要统一改色、改边框透明度、改发光效果，优先改这里。
+       影响范围：整页所有 panel、node、连线、文本颜色。 */
+    :root {
+      --bg-0: #041018;
+      --bg-1: #092331;
+      --bg-2: #103649;
+      --panel: rgba(8, 25, 36, 0.94);
+      --panel-soft: rgba(10, 31, 45, 0.9);
+      --line: rgba(113, 192, 235, 0.2);
+      --text: #f1f9ff;
+      --muted: #8db3c8;
+      --cyan: #63e6ff;
+      --green: #37efb0;
+      --amber: #ffd768;
+      --red: #ff6374;
+      --blue: #98bafd;
+      --violet: #a28dff;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    /* 全局盒模型统一，避免 padding / border 把尺寸撑大导致布局难算。 */
+    * { box-sizing: border-box; }
+
+    /* 页面最外层背景。
+       这里决定的是整页视觉氛围，不影响功能逻辑。 */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Barlow Condensed", "DIN Alternate", "Arial Narrow", sans-serif;
+      background:
+        radial-gradient(circle at 14% 0%, rgba(55,239,176,0.11), transparent 24%),
+        radial-gradient(circle at 90% 0%, rgba(125,168,255,0.15), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-0));
+      overflow-x: hidden;
+    }
+
+    /* 叠一层固定网格纹理，用来增强“监控大盘”观感。 */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, #000 60%, transparent 100%);
+      opacity: 0.34;
+    }
+
+    /* 节点卡片呼吸光效。关掉不会影响数据逻辑，只影响视觉动效。 */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(99,230,255,0); }
+      50% { box-shadow: 0 0 18px rgba(99,230,255,0.16); }
+    }
+
+    /* 连线路径流动动画。调这里会影响所有 SVG 路径的流动速度。 */
+    @keyframes routeFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -58; }
+    }
+
+    /* L3 -> BG 专用的心跳脉冲。保持原有流向感，再叠一层短促增强。 */
+    @keyframes routeHeartbeat {
+      0%, 46%, 100% {
+        stroke-opacity: 0.72;
+        stroke-width: 4.5;
+      }
+      10% {
+        stroke-opacity: 1;
+        stroke-width: 6.4;
+      }
+      18% {
+        stroke-opacity: 0.9;
+        stroke-width: 5.6;
+      }
+      28% {
+        stroke-opacity: 0.78;
+        stroke-width: 4.8;
+      }
+    }
+
+    /* critical 路径闪烁提醒。只闪主动态线，不闪底线。 */
+    @keyframes routeAlertBlink {
+      0%, 42%, 100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 14px rgba(255,99,116,0.42));
+      }
+      52%, 78% {
+        opacity: 0.22;
+        filter: drop-shadow(0 0 6px rgba(255,99,116,0.12));
+      }
+    }
+
+    /* 主站标签闪烁效果。只作用在塔顶部 Primary 标记。 */
+    @keyframes signalBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    /* 页面最大宽度容器，控制整体居中和外边距。 */
+    .app {
+      max-width: 1940px;
+      margin: 0 auto;
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 最外层大卡片，包住 header + main。 */
+    .shell {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(8, 26, 39, 0.98), rgba(4, 14, 20, 0.97));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    /* 顶部总览区：标题、摘要卡、统计卡。 */
+    .header {
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(12, 43, 60, 0.9), rgba(6, 20, 29, 0.55));
+    }
+
+    /* 顶部分两列：左边标题说明，右边三张 headline-card。 */
+    .header-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    /* 页眉左上角的细标签行。
+       影响范围：主标题上方的 NXGEN Tri-DC Flow View 文案和其横向排布。 */
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 13px;
+    }
+
+    /* 细标签前面的装饰线。
+       影响范围：仅影响 eyebrow 左侧那条渐变短线，不影响标题或卡片布局。 */
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+    }
+
+    /* 页面主标题。
+       影响范围：header 左侧最大号标题文字的字号、字距和紧凑度。 */
+    h1 {
+      margin: 8px 0 0;
+      font-size: clamp(34px, 4vw, 60px);
+      line-height: 0.95;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* 主标题下方说明文字。
+       影响范围：header 左侧 subtitle 的可读性和与标题之间的间距。 */
+    .subtitle {
+      margin-top: 10px;
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 0.7px;
+    }
+
+    /* 顶部摘要卡的栅格布局。 */
+    .headline {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    /* 顶部单张摘要卡外壳。
+       影响范围：header 右侧摘要卡的边框、底色和圆角。 */
+    .headline-card {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.98), rgba(6, 18, 27, 0.92));
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 摘要卡底部的光晕层。
+       影响范围：headline-card 内部的装饰发光，不影响数据文本和交互。 */
+    .headline-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -24% -72% -24%;
+      height: 130%;
+      background: radial-gradient(circle, rgba(99,230,255,0.14), transparent 60%);
+    }
+
+    /* 卡片/统计块的小标题文字样式。
+       影响范围：headline-card、stat、kpi（若后续启用）的 name 文本。 */
+    .headline-card .name,
+    .stat .name,
+    .kpi .name {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-size: 12px;
+    }
+
+    /* 摘要卡中最醒目的主数值。
+       影响范围：heroPrimary、heroAlerts 等 header 摘要卡里的大号数字或站点名。 */
+    .headline-card .val {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      font-size: 36px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    /* 摘要卡底部辅助信息行。
+       影响范围：每张 headline-card 底部左右两端的 meta 文案布局。 */
+    .headline-card .meta {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #d4e8f3;
+      font-size: 13px;
+    }
+
+    /* 第二排统计卡。数量变化时，优先调整这里的列数。 */
+    .stats {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    /* 单张统计卡外壳。
+       影响范围：六张 stat 卡的底色、边框、圆角和卡片内留白。 */
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.94), rgba(5, 15, 22, 0.94));
+      padding: 10px 12px;
+    }
+
+    /* 统计卡的大号数值。
+       影响范围：External Sources 到 Refresh Cycle 六张 stat 卡的主读数。 */
+    .stat .val {
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    /* 统计卡底部进度条底板。
+       影响范围：所有 stat 卡中的 meter 轨道高度、圆角和背景亮度。 */
+    .meter {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    /* 统计卡进度条填充段。
+       影响范围：meter 内部彩色条的长度变化和发光效果。 */
+    .meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 14px rgba(99,230,255,0.32);
+      transition: width 0.35s ease;
+    }
+
+    /* 主内容区：上方拓扑图，下方三个辅助面板。 */
+    .main {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    /* 通用面板样式，拓扑图、watchlist、heatmap、feed 共用。 */
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.96), rgba(5, 16, 24, 0.96));
+    }
+
+    /* 面板头部通用布局。
+       影响范围：拓扑图、watchlist、heatmap、event feed 的标题行和右侧说明区域。 */
+    .panel-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-size: 13px;
+    }
+
+    /* 面板头部中的粗体主标题。
+       影响范围：每个 panel-head 里 strong 的字号和强调程度。 */
+    .panel-head strong {
+      color: var(--text);
+      font-size: 17px;
+      letter-spacing: 0.8px;
+    }
+
+    /* 面板主体的统一内边距。
+       影响范围：所有 panel-body 内部内容与边框之间的留白。 */
+    .panel-body { padding: 14px; }
+
+    /* 拓扑图面板右上角图例容器。
+       影响范围：四个 legend 项的横向排列和换行行为。 */
+    .legend {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* 单个图例胶囊。
+       影响范围：legend 中每个颜色说明标签的背景、边框和内边距。 */
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* 图例前面的圆点色块。
+       影响范围：legend 中表示 primary / intra / backup / feedback / critical 的小圆点。 */
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* 拓扑面板右上角图例 + 操作按钮容器。 */
+    .topology-head-tools {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* 线条流动开关按钮。
+       影响范围：仅“Vertical Triple-Tower Topology”标题栏里的交互按钮。 */
+    .flow-toggle-btn {
+      border: 1px solid rgba(99,230,255,0.3);
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(99,230,255,0.12);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+    }
+
+    .flow-toggle-btn:hover {
+      border-color: rgba(99,230,255,0.55);
+      background: rgba(99,230,255,0.2);
+    }
+
+    .flow-toggle-btn[aria-pressed="true"] {
+      border-color: rgba(255,215,104,0.56);
+      background: rgba(255,215,104,0.16);
+      color: #fff3cf;
+    }
+
+    /* 拓扑图横向超宽时允许滚动，纵向保持裁切。 */
+    .topology-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    /* 拓扑图画布。
+       这里的宽高要和 SVG viewBox、tower 高度、节点坐标体系一起看。
+       如果只改单一数值，容易出现节点超出可视区域。 */
+    .topology-board {
+      width: 1640px;
+      height: 1180px;
+      position: relative;
+      border: none;
+      border-radius: 0;
+      background:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+        radial-gradient(circle at 50% 40%, rgba(99,230,255,0.06), transparent 42%),
+        linear-gradient(180deg, rgba(4, 15, 23, 0.96), rgba(7, 20, 29, 0.98));
+      background-size: 44px 44px, 44px 44px, auto, auto;
+      overflow: hidden;
+    }
+
+    /* 每个数据中心塔的背景容器，只负责视觉分区，不参与数据计算。 */
+    .tower {
+      position: absolute;
+      top: 40px;
+      width: 500px;
+      height: 1100px;
+      border-radius: 18px;
+      border: 1px solid rgba(99,230,255,0.12);
+      background: linear-gradient(180deg, rgba(11, 37, 53, 0.26), rgba(4, 13, 20, 0.18));
+    }
+
+    /* 三座塔左右定位基准。
+       影响范围：背景塔本身的左右留白，以及与节点/标题的整体横向对齐。 */
+    .tower.left { left: 42px; }
+    .tower.center { left: 570px; }
+    .tower.right { right: 42px; }
+
+    /* 塔顶部站点标签。
+       影响范围：TKO1 Backup / TKO2 Primary / SKM Tertiary 三个圆角标签。 */
+    .tower-tag {
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(6, 21, 33, 0.92);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Primary 标记的强调色和闪烁。
+       影响范围：仅作用于 TKO2 标签里的 mark，不影响其它 tower-tag。 */
+    .tower-tag .mark {
+      color: var(--amber);
+      margin-left: 8px;
+      animation: signalBlink 1.9s ease-in-out infinite;
+    }
+
+    /* SVG 层负责画线；node-layer 负责放 HTML 卡片。
+       两层绝对定位叠加，便于“线和卡片分别渲染”。 */
+    .topology-svg,
+    .node-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* SVG 绘图层。
+       影响范围：所有连线、标签、pulse 动画的承载区域，不参与鼠标交互。 */
+    .topology-svg {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* route-base 是底线，route-flow 是上面的高亮流动线。
+       这种双层画法便于同时保留轨迹和动态效果。 */
+    .route-base {
+      fill: none;
+      stroke: rgba(99,230,255,0.12);
+      stroke-width: 2;
+    }
+
+    /* feedback 底层轨迹。
+       影响范围：所有回流线底线的暖色和虚线节奏。 */
+    .route-base.feedback {
+      stroke: rgba(255, 215, 104, 0.22);
+      stroke-dasharray: 4 10;
+      stroke-width: 0.5;
+    }
+
+    /* feedback 回流链路的默认样式。
+       影响范围：BG -> L3、L3 -> L1 等反馈线的颜色、虚线节奏和发光。 */
+    .route-flow.feedback {
+      stroke: var(--blue);
+      stroke-dasharray: 4 10;
+      stroke-width: 1.0;
+      stroke-opacity: 0.5;
+      --route-flow-animation: routeFlow 2.2s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
+    }
+
+    /* 所有动态主路线的默认样式。
+       影响范围：所有 route-flow 线条的粗细、流动节奏和默认青色发光。 */
+    .route-flow {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 10 14;
+      --route-flow-animation: routeFlow 3s linear infinite;
+      --route-alert-animation: none;
+      animation: var(--route-flow-animation), var(--route-alert-animation);
+      filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
+    }
+
+    /* 仅暂停“流动”动画轨道，保留告警闪烁和脉冲动画。 */
+    .topology-board.flow-paused .route-flow {
+      animation-play-state: paused, running, running;
+    }
+
+    /* 塔内前向链路的基础视觉。
+       影响范围：同塔 sources / l1-l2 / l3-bg / bg-hcs 等 intra 路由。 */
+    .route-flow.intra {
+      stroke: var(--cyan);
+      stroke-dasharray: 14 10;
+      stroke-width: 4;
+    }
+
+    /* sources -> L1 外部主线跟 source 卡片内小 feed 保持同一视觉语言。 */
+    .route-base.sources {
+      stroke: rgba(99,230,255,0.1);
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .route-flow.sources {
+      stroke: rgba(99,230,255,0.68);
+      stroke-width: 1.45;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 4 7;
+      --route-flow-animation: routeFlow 1.9s linear infinite;
+      filter: drop-shadow(0 0 4px rgba(99,230,255,0.12));
+    }
+
+    .route-base.sources.primary-active {
+      stroke: rgba(99,230,255,0.28);
+      stroke-width: 1.5;
+    }
+
+    .route-flow.sources.primary-active {
+      stroke: rgba(143,240,255,0.99);
+      stroke-width: 3.15;
+      stroke-dasharray: 6 8;
+      opacity: 1;
+      filter: drop-shadow(0 0 12px rgba(99,230,255,0.46)) drop-shadow(0 0 22px rgba(99,230,255,0.26));
+    }
+
+    .route-flow.sources.warn {
+      stroke: var(--amber);
+      filter: drop-shadow(0 0 6px rgba(255,215,104,0.2));
+    }
+
+    .route-flow.sources.warn.primary-active {
+      filter: drop-shadow(0 0 10px rgba(255,215,104,0.38)) drop-shadow(0 0 18px rgba(255,215,104,0.18));
+    }
+
+    .route-flow.sources.critical {
+      stroke: var(--red);
+      filter: drop-shadow(0 0 6px rgba(255,99,116,0.22));
+    }
+
+    .route-flow.sources.critical.primary-active {
+      filter: drop-shadow(0 0 10px rgba(255,99,116,0.4)) drop-shadow(0 0 18px rgba(255,99,116,0.2));
+    }
+
+    /* 主桥接前向链路的基础视觉。
+       影响范围：l3-bg、bg-hcs 中 kind=primary 的主桥接线条。 */
+    .route-flow.primary {
+      stroke: var(--cyan);
+      stroke-dasharray: 16 11;
+      stroke-width: 4;
+    }
+
+    /* 备份跨塔前向链路。
+       影响范围：l2-l3 中 kind=backup 的跨塔备援路线，视觉权重低于 intra。 */
+    .route-flow.backup {
+      stroke: var(--cyan);
+      stroke-dasharray: 6 14;
+      stroke-width: 1.8;
+      stroke-opacity: 0.6;
+      --route-flow-animation: routeFlow 2.6s linear infinite;
+      filter: drop-shadow(0 0 8px rgba(99,230,255,0.10));
+    }
+
+    .route-base.backup {
+      stroke: rgba(99,230,255,0.09);
+      stroke-dasharray: 4 12;
+      stroke-width: 0.6;
+    }
+
+    /* 视觉上被选为 primary 的线路统一强化：
+       保持原有色相，只增加线宽、亮度和存在感。 */
+    .route-base.primary-active {
+      stroke-width: 2.4;
+      stroke-opacity: 1;
+    }
+
+    .route-flow.primary-active {
+      stroke-width: 5.2;
+      opacity: 1;
+      filter: drop-shadow(0 0 14px rgba(99,230,255,0.24));
+    }
+
+    .route-flow.primary-active.feedback {
+      filter: drop-shadow(0 0 14px rgba(152,186,253,0.26));
+    }
+
+    /* 告警级别颜色覆盖。
+       影响范围：所有动态 route-flow 在 warn / critical 状态下的最终主色。 */
+    .route-flow.warn { 
+      stroke: var(--amber); 
+      --route-alert-animation: routeAlertBlink 0.9s linear infinite;
+    }
+    .route-flow.critical {
+      stroke: var(--red);
+      --route-alert-animation: routeAlertBlink 0.9s linear infinite;
+    }
+
+    /* pulse 动画图元的公共约束。
+       影响范围：沿 L3 -> BG 路径运动的 glow/core 两层圆点。 */
+    .route-pulse-glow,
+    .route-pulse-core {
+      pointer-events: none;
+    }
+
+    /* pulse 外层光团。
+       影响范围：L3 -> BG 路径上移动的发光外圈，决定扩散感。 */
+    .route-pulse-glow {
+      opacity: 0;
+      fill: rgba(99,230,255,0.94);
+      filter: drop-shadow(0 0 18px rgba(99,230,255,0.68));
+    }
+
+    /* pulse 内核亮点。
+       影响范围：L3 -> BG 路径上移动的亮芯，决定脉冲中心的可见度。 */
+    .route-pulse-core {
+      opacity: 0;
+      fill: #effdff;
+      filter: drop-shadow(0 0 9px rgba(255,255,255,0.7));
+    }
+
+    /* pulse 颜色映射。
+       默认沿用前向链路的青色，feedback 单独保留蓝色，告警继续覆盖。 */
+    .route-pulse-glow.feedback { fill: rgba(152,186,253,0.92); }
+    .route-pulse-core.feedback { fill: #ebf2ff; }
+    .route-pulse-glow.warn { fill: rgba(255,215,104,0.92); }
+    .route-pulse-core.warn { fill: #fff2c1; }
+    .route-pulse-glow.critical { fill: rgba(255,99,116,0.92); }
+    .route-pulse-core.critical { fill: #ffe6ea; }
+
+    /* 路径耗时标签文字。
+       影响范围：所有 route-label 中的 xxms 文本及其描边可读性。 */
+    .route-label text {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      fill: #e6f7ff;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(4, 16, 24, 0.92);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+
+    @keyframes routeLabelAlertBlink {
+      0%, 42%, 100% { opacity: 1; }
+      52%, 78% { opacity: 0.32; }
+    }
+
+    .route-label.warn text {
+      fill: var(--amber);
+      filter: drop-shadow(0 0 8px rgba(255,215,104,0.48));
+      animation: routeLabelAlertBlink 1.35s ease-in-out infinite;
+    }
+
+    .route-label.critical text {
+      fill: var(--red);
+      filter: drop-shadow(0 0 9px rgba(255,99,116,0.58));
+      animation: routeLabelAlertBlink 0.95s ease-in-out infinite;
+    }
+
+    /* 每一层的文字标题，比如 External Feeds / BG Dispatch。
+       这里只是说明标签，不会驱动节点位置。 */
+    .tower-caption {
+      position: absolute;
+      width: 160px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 12px;
+    }
+
+    /* 所有节点卡片的基础样式，source / stage 都继承自这里。 */
+    .node {
+      position: absolute;
+      border-radius: 16px;
+      border: 1px solid rgba(99,230,255,0.18);
+      background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
+      animation: pulseGlow 3.4s ease-in-out infinite;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    /* 最上方外部源节点。
+       v9.1 这里改成“旋转 90°”的外层壳子，内部内容层再做逆时针旋转。 */
+    .node.source {
+      width: 92px;
+      height: 108px;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
+    }
+
+    .node.source .source-body {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 108px;
+      height: 92px;
+      padding: 0;
+      display: block;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      transform-origin: center;
+    }
+
+    /* source 卡片内部的 feed cluster 顺时针翻转 180 度，
+       让最终可见的汇聚点落在右侧外部出口。 */
+    .node.source .source-wiring {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .node.source .source-name,
+    .node.source .source-feed-cluster,
+    .node.source .source-splits {
+      position: absolute;
+      z-index: 1;
+    }
+
+    .node.source .source-feed-cluster {
+      inset: 0;
+      transform: rotate(180deg);
+      transform-origin: center;
+    }
+
+    .node.source .source-wiring-base path {
+      fill: none;
+      stroke: rgba(99,230,255,0.1);
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .node.source .source-wiring-flow path {
+      fill: none;
+      stroke: rgba(99,230,255,0.68);
+      stroke-width: 1.45;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 4 7;
+      animation: routeFlow 1.9s linear infinite;
+      filter: drop-shadow(0 0 4px rgba(99,230,255,0.12));
+    }
+
+    .node.source .source-wiring-base path.primary-active {
+      stroke: rgba(99,230,255,0.18);
+      stroke-width: 1.4;
+    }
+
+    .node.source .source-wiring-flow path.primary-active {
+      stroke: rgba(99,230,255,0.98);
+      stroke-width: 3.15;
+      stroke-dasharray: 6 8;
+      filter: drop-shadow(0 0 9px rgba(99,230,255,0.28));
+    }
+
+    .node.source.warn .source-wiring-base path {
+      stroke: rgba(255,215,104,0.18);
+    }
+
+    .node.source.warn .source-wiring-flow path {
+      stroke: var(--amber);
+      filter: drop-shadow(0 0 6px rgba(255,215,104,0.2));
+    }
+
+    .node.source.warn .source-wiring-flow path.primary-active {
+      filter: drop-shadow(0 0 8px rgba(255,215,104,0.28));
+    }
+
+    .node.source.critical .source-wiring-base path {
+      stroke: rgba(255,99,116,0.18);
+    }
+
+    .node.source.critical .source-wiring-flow path {
+      stroke: var(--red);
+      filter: drop-shadow(0 0 6px rgba(255,99,116,0.22));
+    }
+
+    .node.source.critical .source-wiring-flow path.primary-active {
+      filter: drop-shadow(0 0 8px rgba(255,99,116,0.3));
+    }
+
+    .topology-board.flow-paused .node.source .source-wiring-flow path {
+      animation-play-state: paused;
+    }
+
+    .source-feed-pulse-pack {
+      pointer-events: none;
+    }
+
+    .source-feed-pulse-pack .route-pulse-glow {
+      filter: drop-shadow(0 0 12px rgba(99,230,255,0.72));
+    }
+
+    .source-feed-pulse-pack .route-pulse-core {
+      filter: drop-shadow(0 0 7px rgba(255,255,255,0.78));
+    }
+
+    /* source 卡片标题。
+       影响范围：RT / BB / OMDC / CIIS 四张卡顶部主标题。 */
+    .node.source .source-name {
+      top: 8px;
+      left: 50%;
+      width: calc(100% - 18px);
+      transform: translateX(-50%);
+      font-size: 14px;
+      line-height: 1;
+      letter-spacing: 1.2px;
+      text-align: center;
+      white-space: nowrap;
+      z-index: 2;
+    }
+
+    /* source 卡片中部分割网格。
+       RT / BB 走三列，CIIS 走两列，OMDC 走单卡，并给右侧出口预留通道。 */
+    .node.source .source-splits {
+      left: 12px;
+      top: 48px;
+      width: calc(100% - 24px);
+      display: grid;
+      gap: 4px;
+    }
+
+    .node.source .source-splits.cols-1 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .node.source .source-splits.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .node.source .source-splits.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .node.source .source-split {
+      min-height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      border: 1px solid rgba(99,230,255,0.16);
+      background: rgba(255,255,255,0.045);
+      font-size: 9px;
+      line-height: 1;
+      letter-spacing: 0.8px;
+      color: rgba(241,249,255,0.9);
+    }
+
+    .node.source .source-split-label {
+      display: inline-block;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      white-space: nowrap;
+    }
+
+    /* 业务处理节点（L1/L2/L3/BG/HCS）的统一卡片尺寸。 */
+    .node.stage {
+      width: 176px;
+      min-height: 126px;
+      padding: 10px 12px 12px;
+    }
+
+    /* L2 / L3 / BG 默认走 process 视觉风格。 */
+    .node.stage.process {
+      border-color: rgba(162, 141, 255, 0.22);
+      background: linear-gradient(180deg, rgba(47, 33, 85, 0.96), rgba(17, 13, 35, 0.96));
+    }
+
+    /* BG 仍然保留 process 节点的身份，但背景色刻意与 HCS 对齐。
+       影响范围：只有 BG 卡片底色，不影响连线、数据、坐标。 */
+    .node.stage.process.bg-hcs-tone {
+      background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
+    }
+
+    /* stage 卡片标题行。
+       影响范围：L1/L2/L3/BG/HCS 卡片顶部名称与 badge 的左右布局。 */
+    .node.stage .title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* stage 卡片副标题。
+       影响范围：站点角色说明或 BG 消息数下面那行说明文字。 */
+    .node.stage .sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* AVG/P95 指标区容器。
+       影响范围：stage 卡片中部两行 metrics 的纵向间距和等宽字体表现。 */
+    .node.stage .metrics {
+      margin-top: 10px;
+      display: grid;
+      gap: 5px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    /* 单行指标左右对齐。
+       影响范围：metrics 中每一行 span 与 strong 的分布。 */
+    .node.stage .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    /* stage 卡片底部的资源条容器：CPU / MEM 同一行并排展示。 */
+    .node.stage .resource-row {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    /* 单个资源条本体。背景是低亮度底板，::before 负责实际进度填充。 */
+    .node.stage .resource-bar {
+      position: relative;
+      height: 16px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+    }
+
+    /* 资源条填充层。
+       影响范围：CPU / MEM 资源条内实际填充宽度，宽度由 --value 控制。 */
+    .node.stage .resource-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--value, 0%);
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(99,230,255,0.78), rgba(55,239,176,0.72));
+    }
+
+    /* MEM 资源条配色覆盖。
+       影响范围：stage 卡片底部第二条资源条，使其与 CPU 条形成色彩区分。 */
+    .node.stage .resource-bar.mem::before {
+      background: linear-gradient(90deg, rgba(125,168,255,0.76), rgba(162,141,255,0.7));
+    }
+
+    /* 半透明文字覆盖在进度条上方，既能读数值，也能保留条形填充。 */
+    .node.stage .resource-bar span {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 10px;
+      line-height: 1;
+      text-transform: uppercase;
+      color: rgba(241,249,255,0.76);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+      letter-spacing: 0.2px;
+      pointer-events: none;
+    }
+
+    /* 节点状态徽标基础样式。
+       影响范围：所有 badge 的边框、圆角、字距，颜色由状态类单独接管。 */
+    .badge {
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* 通用状态色工具类。
+       影响范围：节点 badge、摘要大字、watchlist、heatmap、feed 等所有复用状态色的文本。 */
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .critical { color: var(--red); }
+    .cyan { color: var(--cyan); }
+
+    /* 下方三个辅助模块的三列布局。 */
+    .lower {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(320px, 0.8fr);
+      gap: 14px;
+    }
+
+    /* 右下三类列表容器的统一纵向栅格。
+       影响范围：watch-list、heat-grid、feed-list 内部项目之间的间距。 */
+    .watch-list,
+    .heat-grid,
+    .feed-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    /* watchlist / feed 卡片外壳。
+       影响范围：Route Watchlist 与 Event Feed 列表项的背景、边框、圆角。 */
+    .watch-item,
+    .feed-item {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.025);
+      padding: 10px 12px;
+    }
+
+    /* watchlist 顶部行。
+       影响范围：每条 watch-item 的路径名称与状态标签左右布局。 */
+    .watch-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    /* watchlist 数值行。
+       影响范围：watch-item 中 current latency 与 base latency 的对齐方式。 */
+    .watch-value {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: end;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    /* watchlist 主时延数字。
+       影响范围：watch-item 中最醒目的毫秒数字号。 */
+    .watch-value strong {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    /* heatmap 主表格列结构。
+       影响范围：第一列标签 + 四列数据的整体宽度分配。 */
+    .heat-grid {
+      grid-template-columns: 170px repeat(4, minmax(0, 1fr));
+    }
+
+    /* heatmap 表头 / 行头 / 数据格的共同外壳。
+       影响范围：Heatmap 中所有单元格的高度、边框、留白和居中方式。 */
+    .heat-head,
+    .heat-label,
+    .heat-cell {
+      min-height: 64px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      align-content: center;
+    }
+
+    /* heatmap 行列标题单元格。
+       影响范围：Heatmap 左侧 label 和顶部 head 的弱化文字样式。 */
+    .heat-head,
+    .heat-label {
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    /* heatmap 数据单元格。
+       影响范围：每个热力格子的底色、定位上下文以及溢出裁切。 */
+    .heat-cell {
+      background: rgba(255,255,255,0.03);
+      position: relative;
+      overflow: hidden;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    /* heatmap 底部色条。
+       影响范围：heat-cell 下边缘那条按 currentColor 着色的状态提示线。 */
+    .heat-cell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: currentColor;
+    }
+
+    /* heatmap 主数值。
+       影响范围：每个 heat-cell 内的大号毫秒读数。 */
+    .heat-cell strong {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    /* heatmap 辅助说明。
+       影响范围：每个 heat-cell 内的 secondary text，例如站点对比说明。 */
+    .heat-cell span {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #d4e7f2;
+    }
+
+    /* 事件流卡片的左侧强调条和等宽字体。
+       影响范围：Event Feed 中每一条事件的卡片视觉重心。 */
+    .feed-item {
+      border-left: 4px solid var(--cyan);
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    /* 事件流的告警颜色覆盖。
+       影响范围：feed-item 在 warn / critical 状态下左边强调条的颜色。 */
+    .feed-item.warn { border-left-color: var(--amber); }
+    .feed-item.critical { border-left-color: var(--red); }
+
+    /* 事件时间戳。
+       影响范围：Event Feed 中 time 标签的颜色和与正文的间距。 */
+    .feed-item time {
+      color: var(--muted);
+      margin-right: 8px;
+    }
+
+    /* 平板和较窄桌面下，顶部和底部辅助面板改成单列。 */
+    @media (max-width: 1460px) {
+      .header-top,
+      .lower {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 中等宽度下，摘要卡和统计卡缩成两列，heatmap 也降维。 */
+    @media (max-width: 1100px) {
+      .headline,
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .heat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* 手机宽度下全部单列，去掉外围圆角，减少边距。 */
+    @media (max-width: 720px) {
+      /* 手机下收掉页面边距。
+         影响范围：最外层 app，避免窄屏再被双侧留白压缩内容。 */
+      .app { padding: 0; }
+      /* 手机下取消最外层圆角。
+         影响范围：shell 整体外框，减少边缘裁切感。 */
+      .shell { border-radius: 0; }
+      .header,
+      /* 手机下压缩主要内容区内边距。
+         影响范围：header 与 main 两块主容器的边距。 */
+      .main { padding: 12px; }
+      .headline,
+      .stats,
+      .heat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 动效降级模式。
+       影响范围：系统偏好减少动画时，关闭主线路和 source feed 的流动脉冲。 */
+    @media (prefers-reduced-motion: reduce) {
+      .route-flow,
+      .node.source .source-wiring-flow path,
+      .route-flow.critical {
+        animation: none !important;
+      }
+
+      .route-label.warn text,
+      .route-label.critical text {
+        animation: none !important;
+      }
+
+      .route-pulse-pack {
+        display: none;
+      }
+
+      .source-feed-pulse-pack {
+        display: none;
+      }
+    }
+
+    /* v9.1: 单塔横向拓扑覆盖。 */
+    .topology-board {
+      width: 1572px;
+      height: 640px;
+    }
+
+    .tower {
+      top: 18px;
+      width: 1460px;
+      height: 520px;
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 28% 50%, rgba(99,230,255,0.08), transparent 28%),
+        linear-gradient(180deg, rgba(11, 37, 53, 0.32), rgba(4, 13, 20, 0.22));
+    }
+
+    .tower.single { left: 40px; }
+
+    .tower.single .tower-tag {
+      left: 32px;
+    }
+
+    .tower-caption {
+      width: 180px;
+      top: 60px;
+    }
+
+    .tower-caption.sources-cluster {
+      width: 250px;
+    }
+
+    .lower {
+      grid-template-columns: 1fr;
+    }
+
+    .topology-wrap {
+      scrollbar-width: none;
+    }
+
+    .topology-wrap::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    页面结构分三层：
+    1. app/shell: 外层容器和壳子
+    2. header: 顶部总览指标
+    3. main: 拓扑图 + 三个辅助分析面板
+  -->
+  <div class="app">
+    <div class="shell">
+      <header class="header">
+        <!-- 顶部说明区。右侧 headline 是最重要的摘要卡。 -->
+        <div class="header-top">
+          <div>
+            <div class="eyebrow">NXGEN Tri-DC Flow View</div>
+            <h1>Index Calculation System Monitor</h1>
+            <div class="subtitle">指数计算系统实时监控仪表盘</div>
+          </div>
+          <!-- 这两张卡由 JS 动态刷新。修改 id 会直接导致 renderSummary 失效。 -->
+          <div class="headline">
+            <div class="headline-card">
+              <div class="name">Primary Site</div>
+              <div class="val cyan" id="heroPrimary">TKO2</div>
+              <div class="meta"><span>Dispatch Tower</span><span id="heroClock">09:24:40</span></div>
+            </div>
+            <div class="headline-card">
+              <div class="name">Warn / Critical</div>
+              <div class="val warn" id="heroAlerts">4 / 1</div>
+              <div class="meta"><span>Route Alerts</span><span id="heroAlertState">Critical Active</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 统计卡区域：多数数字和进度条由 renderSummary() 写入。 -->
+        <div class="stats">
+          <div class="stat">
+            <div class="name">External Sources</div>
+            <div class="val" id="statSources">27/27</div>
+            <div class="meter"><span style="width:100%"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Captures (L1)</div>
+            <div class="val" id="statCaptures">9/9</div>
+            <div class="meter"><span style="width:100%"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Calculations (L2)</div>
+            <div class="val" id="statCalculations">12/12</div>
+            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--blue), var(--cyan));"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Reconciliation (L3)</div>
+            <div class="val" id="statReconciliation">3/3</div>
+            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--amber), #ffefaa);"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">BroadcastGateways (BG)</div>
+            <div class="val" id="statBg">3/3</div>
+            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--amber), var(--red));"></span></div>
+          </div>
+          <div class="stat">
+            <div class="name">Health Check Services (HCS)</div>
+            <div class="val" id="statHcs">3/3</div>
+            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--violet), var(--cyan));"></span></div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="panel">
+          <div class="panel-head">
+            <strong>Single-Site Topology</strong>
+            <div class="topology-head-tools">
+              <div class="legend">
+                <span><i style="background:var(--cyan)"></i>TKO1</span>
+                <span><i style="background:var(--cyan); opacity:0.85"></i>TKO2</span>
+                <span><i style="background:var(--blue)"></i>SKM</span>
+                <span><i style="background:var(--cyan)"></i>CLOUD</span>
+                <span><i style="background:var(--cyan)"></i>ALL</span>
+              </div>
+              <button type="button" class="flow-toggle-btn" id="toggleFlowBtn" aria-pressed="false">关闭线条流动</button>
+            </div>
+          </div>
+          <div class="panel-body topology-wrap">
+            <div class="topology-board" id="topologyBoard">
+              <div class="tower single">
+                <div class="tower-tag">TKO2 <span class="mark">Primary</span></div>
+              </div>
+              <div class="tower-caption sources-cluster" style="left:116px;">External Feeds</div>
+              <div class="tower-caption" style="left:470px;">Capture (L1)</div>
+              <div class="tower-caption" style="left:700px;">Calculation (L2)</div>
+              <div class="tower-caption" style="left:930px;">Reconciliation (L3)</div>
+              <div class="tower-caption" style="left:1160px;">BroadcastGateway (BG)</div>
+              <div class="tower-caption" style="left:1390px;">HealthCheck (HCS)</div>
+              <svg class="topology-svg" viewBox="0 0 1572 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <defs>
+                  <marker id="route-arrow-cyan" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-cyan-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-blue-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--blue); stroke: var(--blue); stroke-width: 0.35; opacity: 0.5;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-red" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-red-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-red-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                </defs>
+                <g id="routeLayer"></g>
+                <g id="labelLayer"></g>
+              </svg>
+              <div class="node-layer" id="nodeLayer"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="lower">
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Event Feed</strong>
+              <span id="eventMeta">topology anomalies</span>
+            </div>
+            <div class="panel-body">
+              <div class="feed-list" id="feedList"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const activeSite = "TKO2";
+    const stageX = { L1: 470, L2: 700, L3: 930, BG: 1160, HCS: 1390 };
+    const stageY = 278;
+    const sourceNames = ["RT", "BB", "OMDC", "CIIS"];
+    const sourcePositions = {
+      RT: { x: 118, y: 120, rate: 940 },
+      BB: { x: 118, y: 240, rate: 918 },
+      OMDC: { x: 118, y: 360, rate: 902 },
+      CIIS: { x: 118, y: 480, rate: 884 }
+    };
+    const sourcePartitions = {
+      RT: ["SS", "SZ", "HK"],
+      BB: ["SS", "SZ", "HK"],
+      OMDC: ["HK"],
+      CIIS: ["SS", "BJ"]
+    };
+    const sourceFeedModes = {
+      "TKO2-RT": { SS: "primary", SZ: "primary" },
+      "TKO2-OMDC": { HK: "primary" },
+      "TKO2-CIIS": { BJ: "primary" }
+    };
+    const routeVisualModes = {
+      "TKO2-RT__TKO2-L1": "primary",
+      "TKO2-OMDC__TKO2-L1": "primary",
+      "TKO2-CIIS__TKO2-L1": "primary",
+      "TKO2-L1__TKO2-L2": "primary",
+      "TKO2-L2__TKO2-L3": "primary",
+      "TKO2-L3__TKO2-BG": "primary",
+      "TKO2-BG__TKO2-HCS": "primary"
+    };
+    const labelCurveRatiosByLink = {
+      "TKO2-RT__TKO2-L1": 1 / 3,
+      "TKO2-BB__TKO2-L1": 1 / 3,
+      "TKO2-OMDC__TKO2-L1": 1 / 3,
+      "TKO2-CIIS__TKO2-L1": 1 / 3
+    };
+    const summaryCardDefaults = {
+      externalSources: { healthy: 27, total: 27 },
+      capturesL1: { healthy: 9, total: 9 },
+      calculationsL2: { healthy: 12, total: 12 },
+      reconciliationL3: { healthy: 3, total: 3 },
+      broadcastGatewaysBg: { healthy: 3, total: 3 },
+      healthCheckServicesHcs: { healthy: 3, total: 3 }
+    };
+    const stageSeed = {
+      L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, kind: "flow" },
+      L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, kind: "process" },
+      L3: { avg: 74, p95: 112, load: 82, cpu: 82, mem: 87, kind: "process" },
+      BG: { avg: 22, p95: 42, load: 31, cpu: 31, mem: 39, kind: "process", messages: 241680 },
+      HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, kind: "flow" }
+    };
+
+    const nodes = [];
+    sourceNames.forEach((name) => {
+      const position = sourcePositions[name];
+      nodes.push({
+        id: `${activeSite}-${name}`,
+        site: activeSite,
+        name,
+        type: "source",
+        x: position.x,
+        y: position.y,
+        rate: position.rate
+      });
+    });
+
+    ["L1", "L2", "L3", "BG", "HCS"].forEach((name) => {
+      nodes.push({
+        id: `${activeSite}-${name}`,
+        site: activeSite,
+        name,
+        type: "stage",
+        x: stageX[name],
+        y: stageY,
+        ...stageSeed[name]
+      });
+    });
+
+    const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
+    const links = [];
+
+    function addLink(from, to, base, group, kind, current) {
+      links.push({ id: `${from}__${to}`, from, to, base, group, kind, current });
+    }
+
+    addLink("TKO2-RT", "TKO2-L1", 30, "sources", "intra", 28);
+    addLink("TKO2-BB", "TKO2-L1", 30, "sources", "intra", 34);
+    addLink("TKO2-OMDC", "TKO2-L1", 30, "sources", "intra", 27);
+    addLink("TKO2-CIIS", "TKO2-L1", 30, "sources", "intra", 31);
+    addLink("TKO2-L1", "TKO2-L2", 30, "l1-l2", "intra", 36);
+    addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 74);
+    addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 38);
+    addLink("TKO2-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 96);
+    addLink("TKO2-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 118);
+    addLink("TKO2-BG", "TKO2-HCS", 30, "bg-hcs", "intra", 26);
+
+    const routeLayer = document.getElementById("routeLayer");
+    const labelLayer = document.getElementById("labelLayer");
+    const nodeLayer = document.getElementById("nodeLayer");
+    const feedList = document.getElementById("feedList");
+    const topologyBoard = document.getElementById("topologyBoard");
+    const toggleFlowBtn = document.getElementById("toggleFlowBtn");
+
+    function nowText() {
+      const d = new Date();
+      const p = (v) => String(v).padStart(2, "0");
+      return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }
+
+    let flowPaused = false;
+
+    function setFlowPaused(paused) {
+      flowPaused = paused;
+      topologyBoard.classList.toggle("flow-paused", flowPaused);
+      toggleFlowBtn.setAttribute("aria-pressed", flowPaused ? "true" : "false");
+      toggleFlowBtn.textContent = flowPaused ? "开启线条流动" : "关闭线条流动";
+    }
+
+    toggleFlowBtn.addEventListener("click", () => {
+      setFlowPaused(!flowPaused);
+    });
+
+    setFlowPaused(false);
+
+    const defaultThresholds = { threshold1: 100, threshold2: 180 };
+    const groupThresholds = {
+      sources: { threshold1: 100, threshold2: 180 },
+      "l1-l2": { threshold1: 100, threshold2: 180 },
+      "l2-l3": { threshold1: 100, threshold2: 180 },
+      "l3-bg": { threshold1: 100, threshold2: 180 },
+      "bg-l3-feedback": { threshold1: 100, threshold2: 180 },
+      "l3-l1-feedback": { threshold1: 100, threshold2: 180 },
+      "bg-hcs": { threshold1: 100, threshold2: 180 }
+    };
+
+    function statusClass(value, thresholds = defaultThresholds) {
+      if (value >= thresholds.threshold2) return "critical";
+      if (value >= thresholds.threshold1) return "warn";
+      return "ok";
+    }
+
+    function thresholdsForGroup(group) {
+      return groupThresholds[group] || defaultThresholds;
+    }
+
+    function statusClassForLink(link) {
+      return statusClass(link.current, thresholdsForGroup(link.group));
+    }
+
+    function routeVariantClass() {
+      return "";
+    }
+
+    function visualModeClass(mode) {
+      return mode === "primary" ? "primary-active" : "";
+    }
+
+    function routeVisualMode(link) {
+      return routeVisualModes[link.id] || "";
+    }
+
+    function pathIdForLink(link) {
+      return "route-path-" + link.id.replaceAll("_", "-");
+    }
+
+    function markerIdForLink(link, severity) {
+      if (link.group === "sources" || link.kind === "intra") return "";
+      if (link.kind === "feedback") {
+        if (severity === "critical") return "route-arrow-red-feedback";
+        if (severity === "warn") return "route-arrow-amber-feedback";
+        return "route-arrow-blue-feedback";
+      }
+      if (severity === "critical") return "route-arrow-red";
+      if (severity === "warn") return "route-arrow-amber";
+      return "route-arrow-cyan";
+    }
+
+    function pathPulseMarkup(pathId, options) {
+      const {
+        packClass = "",
+        toneClass = "",
+        severity = "ok",
+        travelDur = 2,
+        beatDur = 2,
+        glowRadius = 9,
+        coreRadius = 3.4,
+        glowRadiusValues = "4;13;8;11;4",
+        coreRadiusValues = "2.4;4.8;3.2;4.2;2.4",
+        glowOpacityValues = "0;0.95;0.45;0.92;0",
+        coreOpacityValues = "0;1;0.62;1;0"
+      } = options || {};
+      const packClassAttr = packClass ? ` ${packClass}` : "";
+      const toneClassAttr = toneClass ? ` ${toneClass}` : "";
+      const severityClassAttr = severity && severity !== "ok" ? ` ${severity}` : "";
+      return `
+        <g class="route-pulse-pack${packClassAttr}">
+          <circle class="route-pulse-glow${toneClassAttr}${severityClassAttr}" r="${glowRadius}">
+            <animate attributeName="r" values="${glowRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="${glowOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#${pathId}"></mpath>
+            </animateMotion>
+          </circle>
+          <circle class="route-pulse-core${toneClassAttr}${severityClassAttr}" r="${coreRadius}">
+            <animate attributeName="r" values="${coreRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="${coreOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animateMotion dur="${travelDur}s" repeatCount="indefinite" rotate="auto">
+              <mpath href="#${pathId}"></mpath>
+            </animateMotion>
+          </circle>
+        </g>
+      `;
+    }
+
+    function sourceLikePulseOptions(severity) {
+      return {
+        packClass: "source-feed-pulse-pack",
+        severity,
+        travelDur: 1.35,
+        beatDur: 1.35,
+        glowRadius: 5.2,
+        coreRadius: 2.2,
+        glowRadiusValues: "2.8;7.8;4.6;6.2;2.8",
+        coreRadiusValues: "1.4;3.1;2;2.7;1.4",
+        glowOpacityValues: "0;0.95;0.45;0.9;0"
+      };
+    }
+
+    function primaryPulseOptionsForLink(link, severity) {
+      const options = {
+        severity,
+        toneClass: link.kind === "feedback" ? "feedback" : ""
+      };
+
+      if (link.group !== "sources") return options;
+      return { ...sourceLikePulseOptions(severity), ...options };
+    }
+
+    function sourceFeedPathId(node, part) {
+      return `source-wire-${node.site}-${node.name}-${part}`.toLowerCase();
+    }
+
+    function sourceFeedMode(node, part) {
+      const modes = sourceFeedModes[`${node.site}-${node.name}`] || {};
+      return modes[part] || "";
+    }
+
+    function nodeStatus(node) {
+      return statusClass(node.p95 || Math.round(node.rate / 12), defaultThresholds);
+    }
+
+    function resourceBarHtml(label, value, className) {
+      const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+      return `
+        <div class="resource-bar ${className}" style="--value:${safeValue}%;">
+          <span>${label}:${safeValue}%</span>
+        </div>
+      `;
+    }
+
+    function sourcePartitionsHtml(node) {
+      const parts = sourcePartitions[node.name];
+      if (!parts || parts.length === 0) return "";
+      return `
+        <div class="source-splits cols-${parts.length}">
+          ${parts.map((part) => `<span class="source-split"><span class="source-split-label">${part}</span></span>`).join("")}
+        </div>
+      `;
+    }
+
+    function sourceWiringHtml(node) {
+      const parts = sourcePartitions[node.name];
+      if (!parts || parts.length === 0) return "";
+      const severity = nodeStatus(node);
+      const cardWidth = 108;
+      const cardHeight = 92;
+      const exitX = cardWidth / 2;
+      const exitY = 0;
+      const fmt = (value) => value.toFixed(2);
+      const splitLeft = 12;
+      const splitTopY = 48;
+      const splitAreaWidth = cardWidth - splitLeft * 2;
+      const splitGap = 4;
+      const splitWidth = (splitAreaWidth - splitGap * (parts.length - 1)) / parts.length;
+      const partExitPoints = parts.map((_, idx) => ({
+        x: splitLeft + splitWidth / 2 + idx * (splitWidth + splitGap),
+        y: splitTopY
+      }));
+
+      function branchPath(point) {
+        const bendY = point.y - Math.max(10, point.y * 0.42);
+        const approachX = exitX + (point.x - exitX) * 0.22;
+        return `M ${fmt(point.x)} ${fmt(point.y)} C ${fmt(point.x)} ${fmt(bendY)}, ${fmt(approachX)} ${fmt(exitY + 10)}, ${fmt(exitX)} ${fmt(exitY)}`;
+      }
+
+      const basePaths = parts.map((part, idx) => {
+        const className = visualModeClass(sourceFeedMode(node, part));
+        const classAttr = className ? ` class="${className}"` : "";
+        return `<path${classAttr} d="${branchPath(partExitPoints[idx])}"></path>`;
+      }).join("");
+
+      const flowPaths = parts.map((part, idx) => {
+        const mode = sourceFeedMode(node, part);
+        const className = visualModeClass(mode);
+        const classAttr = className ? ` class="${className}"` : "";
+        const pathId = sourceFeedPathId(node, part);
+        return `
+          <path id="${pathId}"${classAttr} d="${branchPath(partExitPoints[idx])}"></path>
+          ${mode === "primary" ? pathPulseMarkup(pathId, sourceLikePulseOptions(severity)) : ""}
+        `;
+      }).join("");
+
+      return `
+        <svg class="source-wiring" viewBox="0 0 108 92" preserveAspectRatio="none" aria-hidden="true">
+          <g class="source-wiring-base">${basePaths}</g>
+          <g class="source-wiring-flow">${flowPaths}</g>
+        </svg>
+      `;
+    }
+
+    function nodeHtml(node) {
+      if (node.type === "source") {
+        const tone = nodeStatus(node);
+        return `
+          <div class="node source ${tone}" style="left:${node.x - 46}px; top:${node.y - 54}px;">
+            <div class="source-name">${node.name}</div>
+            <div class="source-body">
+              <div class="source-feed-cluster">
+                ${sourceWiringHtml(node)}
+                ${sourcePartitionsHtml(node)}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const tone = nodeStatus(node);
+      const isProcessLike = node.kind === "process" || node.name === "L1";
+      const process = isProcessLike ? " process" : "";
+      const bgHcsTone = node.name === "BG" ? " bg-hcs-tone" : "";
+      const subline = node.name === "BG"
+        ? "No. of Msg " + (node.messages || 0).toLocaleString()
+        : node.site + " " + (isProcessLike ? "Compute" : "Gateway");
+      const cpu = node.cpu ?? node.load ?? 0;
+      const mem = node.mem ?? Math.min(100, cpu + 8);
+      return `
+        <article class="node stage${process}${bgHcsTone}" style="left:${node.x - 88}px; top:${node.y - 63}px;">
+          <div class="title">
+            <span>${node.name}</span>
+            <span class="badge ${tone}">${tone}</span>
+          </div>
+          <div class="sub">${subline}</div>
+          <div class="metrics">
+            <div class="line"><span>AVG</span><strong>${node.avg}ms</strong></div>
+            <div class="line"><span>P95</span><strong class="${tone}">${node.p95}ms</strong></div>
+          </div>
+          <div class="resource-row">
+            ${resourceBarHtml("cpu", cpu, "cpu")}
+            ${resourceBarHtml("mem", mem, "mem")}
+          </div>
+        </article>
+      `;
+    }
+
+    function edgePoint(node, side, offset) {
+      const ox = offset && offset.x ? offset.x : 0;
+      const oy = offset && offset.y ? offset.y : 0;
+      const halfW = node.type === "source" ? 46 : 88;
+      const halfH = node.type === "source" ? 54 : 63;
+      if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
+      if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
+      if (side === "left") return { x: node.x - halfW + ox, y: node.y + oy };
+      return { x: node.x + halfW + ox, y: node.y + oy };
+    }
+
+    function controlPointsForLink(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+
+      if (link.group === "sources") {
+        const start = edgePoint(from, "right");
+        const end = edgePoint(to, "left", { y: (from.y - to.y) * 0.08 });
+        const reach = Math.max(80, (end.x - start.x) * 0.48);
+        return {
+          p0: start,
+          p1: { x: start.x + reach, y: start.y },
+          p2: { x: end.x - reach * 0.65, y: end.y },
+          p3: end
+        };
+      }
+
+      if (link.group === "bg-l3-feedback") {
+        const start = edgePoint(from, "top", { x: -10 });
+        const end = edgePoint(to, "top", { x: 10 });
+        const lift = 132;
+        return {
+          p0: start,
+          p1: { x: start.x - 32, y: start.y - lift },
+          p2: { x: end.x + 32, y: end.y - lift },
+          p3: end
+        };
+      }
+
+      if (link.group === "l3-l1-feedback") {
+        const start = edgePoint(from, "bottom", { x: -8 });
+        const end = edgePoint(to, "bottom", { x: 8 });
+        const drop = 156;
+        return {
+          p0: start,
+          p1: { x: start.x - 20, y: start.y + drop },
+          p2: { x: end.x + 20, y: end.y + drop },
+          p3: end
+        };
+      }
+
+      const start = edgePoint(from, "right");
+      const end = edgePoint(to, "left");
+      const reach = Math.max(90, Math.abs(end.x - start.x) * 0.42);
+      return {
+        p0: start,
+        p1: { x: start.x + reach, y: start.y },
+        p2: { x: end.x - reach, y: end.y },
+        p3: end
+      };
+    }
+
+    function pathForLink(link) {
+      const { p0, p1, p2, p3 } = controlPointsForLink(link);
+      return `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`;
+    }
+
+    function bezierPoint(points, t) {
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const t2 = t * t;
+      return {
+        x: mt2 * mt * points.p0.x + 3 * mt2 * t * points.p1.x + 3 * mt * t2 * points.p2.x + t2 * t * points.p3.x,
+        y: mt2 * mt * points.p0.y + 3 * mt2 * t * points.p1.y + 3 * mt * t2 * points.p2.y + t2 * t * points.p3.y
+      };
+    }
+
+    function pointAtCurveRatio(points, ratio, segments = 48) {
+      if (ratio <= 0) return points.p0;
+      if (ratio >= 1) return points.p3;
+
+      const samples = [{ length: 0, point: points.p0 }];
+      let totalLength = 0;
+      let previousPoint = points.p0;
+
+      for (let index = 1; index <= segments; index += 1) {
+        const point = bezierPoint(points, index / segments);
+        totalLength += Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
+        samples.push({ length: totalLength, point });
+        previousPoint = point;
+      }
+
+      const targetLength = totalLength * ratio;
+      for (let index = 1; index < samples.length; index += 1) {
+        const current = samples[index];
+        if (current.length < targetLength) continue;
+
+        const previous = samples[index - 1];
+        const span = current.length - previous.length || 1;
+        const mix = (targetLength - previous.length) / span;
+        return {
+          x: previous.point.x + (current.point.x - previous.point.x) * mix,
+          y: previous.point.y + (current.point.y - previous.point.y) * mix
+        };
+      }
+
+      return samples[samples.length - 1].point;
+    }
+
+    function labelT(link) {
+      if (link.group === "sources") return 0.68;
+      if (link.group === "bg-l3-feedback") return 0.46;
+      if (link.group === "l3-l1-feedback") return 0.54;
+      return 0.5;
+    }
+
+    function labelPoint(link) {
+      const points = controlPointsForLink(link);
+      const ratio = labelCurveRatiosByLink[link.id];
+      const point = ratio === undefined ? bezierPoint(points, labelT(link)) : pointAtCurveRatio(points, ratio);
+      if (link.group === "sources") return { x: point.x, y: point.y - 12 };
+      if (link.group === "l3-l1-feedback") return { x: point.x, y: point.y + 20 };
+      if (link.kind === "feedback") return { x: point.x, y: point.y - 14 };
+      return { x: point.x, y: point.y - 18 };
+    }
+
+    function renderTopology() {
+      nodeLayer.innerHTML = nodes.map(nodeHtml).join("");
+
+      routeLayer.innerHTML = links.map((link) => {
+        const path = pathForLink(link);
+        const severity = statusClassForLink(link);
+        const variant = routeVariantClass(link);
+        const visualMode = routeVisualMode(link);
+        const visualClass = visualModeClass(visualMode);
+        const pathId = pathIdForLink(link);
+        const markerId = markerIdForLink(link, severity);
+        const markerAttr = markerId ? ` marker-end="url(#${markerId})"` : "";
+        return `
+          <g>
+            <path id="${pathId}" class="route-base ${link.group} ${link.kind} ${variant} ${visualClass}" d="${path}"></path>
+            <path class="route-flow ${link.group} ${link.kind} ${severity} ${variant} ${visualClass}" d="${path}"${markerAttr}></path>
+            ${visualMode === "primary" ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""}
+          </g>
+        `;
+      }).join("");
+
+      labelLayer.innerHTML = links.map((link) => {
+        const point = labelPoint(link);
+        const severity = statusClassForLink(link);
+        return `
+          <g class="route-label ${severity}" transform="translate(${point.x}, ${point.y})">
+            <text x="0" y="4">${link.current}ms</text>
+          </g>
+        `;
+      }).join("");
+    }
+
+    function hottestLinks(limit = 5) {
+      return [...links].sort((a, b) => b.current - a.current).slice(0, limit);
+    }
+
+    function summaryPairText(summary) {
+      return `${summary.healthy}/${summary.total}`;
+    }
+
+    function renderFeed() {
+      const time = nowText();
+      const items = hottestLinks().map((link) => {
+        const tone = statusClassForLink(link);
+        let text = `${link.from} -> ${link.to} `;
+        if (link.group === "l3-l1-feedback") text += "feedback loop returning to L1 above local baseline.";
+        else if (link.group === "bg-l3-feedback") text += "BG feedback loop remains the main local watchpoint.";
+        else if (link.group === "sources") text += "source intake route stable.";
+        else text += "tower-local route stable.";
+        return { tone, text: `${text} current ${link.current}ms, base ${link.base}ms.` };
+      });
+
+      feedList.innerHTML = items.map((item) => `
+        <div class="feed-item ${item.tone}">
+          <time>${time}</time>${item.text}
+        </div>
+      `).join("");
+
+      document.getElementById("eventMeta").textContent = "updated " + time;
+    }
+
+    function renderSummary() {
+      const warns = links.filter((link) => statusClassForLink(link) === "warn").length;
+      const criticals = links.filter((link) => statusClassForLink(link) === "critical").length;
+      const alertTone = criticals > 0 ? "critical" : warns > 0 ? "warn" : "cyan";
+      const heroAlerts = document.getElementById("heroAlerts");
+
+      document.getElementById("heroPrimary").textContent = activeSite;
+      document.getElementById("heroClock").textContent = nowText();
+      heroAlerts.textContent = `${warns} / ${criticals}`;
+      heroAlerts.className = `val ${alertTone}`;
+      document.getElementById("heroAlertState").textContent = criticals > 0 ? "Critical Active" : warns > 0 ? "Watch" : "Stable";
+      document.getElementById("statSources").textContent = summaryPairText(summaryCardDefaults.externalSources);
+      document.getElementById("statCaptures").textContent = summaryPairText(summaryCardDefaults.capturesL1);
+      document.getElementById("statCalculations").textContent = summaryPairText(summaryCardDefaults.calculationsL2);
+      document.getElementById("statReconciliation").textContent = summaryPairText(summaryCardDefaults.reconciliationL3);
+      document.getElementById("statBg").textContent = summaryPairText(summaryCardDefaults.broadcastGatewaysBg);
+      document.getElementById("statHcs").textContent = summaryPairText(summaryCardDefaults.healthCheckServicesHcs);
+    }
+
+    function jitter(base, range, floor) {
+      return Math.max(floor, Math.round(base + (Math.random() - 0.5) * range));
+    }
+
+    function evolveNodes() {
+      nodes.forEach((node) => {
+        if (node.type === "source") {
+          node.rate = jitter(node.rate, 40, 700);
+          return;
+        }
+        const scale = node.name === "L3" ? 12 : 7;
+        node.avg = jitter(node.avg, scale, 2);
+        node.p95 = jitter(node.p95, scale * 1.5, node.avg + 3);
+        node.cpu = Math.max(8, Math.min(96, jitter(node.cpu ?? node.load ?? 20, scale * 1.7, 8)));
+        node.mem = Math.max(10, Math.min(98, jitter(node.mem ?? (node.cpu + 8), scale * 1.4, 10)));
+        node.load = node.cpu;
+        if (node.name === "BG") {
+          node.messages = jitter(node.messages || 180000, 12000, 100000);
+        }
+      });
+    }
+
+    function evolveLinks() {
+      const anchors = {
+        "TKO2-RT__TKO2-L1": 28,
+        "TKO2-BB__TKO2-L1": 34,
+        "TKO2-OMDC__TKO2-L1": 27,
+        "TKO2-CIIS__TKO2-L1": 31,
+        "TKO2-L1__TKO2-L2": 36,
+        "TKO2-L2__TKO2-L3": 74,
+        "TKO2-L3__TKO2-BG": 38,
+        "TKO2-BG__TKO2-L3": 96,
+        "TKO2-L3__TKO2-L1": 118,
+        "TKO2-BG__TKO2-HCS": 26
+      };
+
+      links.forEach((link) => {
+        const anchor = anchors[link.id] || link.base + 2;
+        const swing = link.kind === "feedback" ? 18 : link.group === "sources" ? 8 : 12;
+        link.current = jitter(anchor, swing, link.base);
+      });
+    }
+
+    function render() {
+      renderTopology();
+      renderFeed();
+      renderSummary();
+    }
+
+    function evolve() {
+      evolveNodes();
+      evolveLinks();
+      render();
+    }
+
+    render();
+    // setInterval(evolve, 2400);
+  </script>
+</body>
+</html>
