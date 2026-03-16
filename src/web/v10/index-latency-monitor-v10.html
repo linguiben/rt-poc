@@ -1146,6 +1146,49 @@
       pointer-events: none;
     }
 
+    /* 单站模式单独放大 stage 卡片，提升大屏下的视觉占比和可读性。 */
+    .topology-board.layout-single .node.stage {
+      width: 196px;
+      min-height: 142px;
+      padding: 12px 14px 14px;
+      border-radius: 18px;
+    }
+
+    .topology-board.layout-single .node.stage .title {
+      gap: 10px;
+      font-size: 20px;
+    }
+
+    .topology-board.layout-single .node.stage .sub {
+      margin-top: 4px;
+      font-size: 13px;
+      letter-spacing: 1.1px;
+    }
+
+    .topology-board.layout-single .node.stage .metrics {
+      margin-top: 12px;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-row {
+      margin-top: 12px;
+      gap: 10px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-bar {
+      height: 18px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-bar span {
+      font-size: 11px;
+    }
+
+    .topology-board.layout-single .node.stage .badge {
+      padding: 3px 7px;
+      font-size: 11px;
+    }
+
     /* 节点状态徽标基础样式。
        影响范围：所有 badge 的边框、圆角、字距，颜色由状态类单独接管。 */
     .badge {
@@ -1847,6 +1890,10 @@
     const allSitesShellMarkup = topologyBoard.innerHTML;
     /* 需要和 .topology-board.layout-single 的 height 保持一致，保证 SVG 与 HTML 节点 1:1 对齐。 */
     const singleSiteBoardHeight = 560;
+    const singleSiteStageCardWidth = 196;
+    const singleSiteStageCardHeight = 142;
+    const singleSiteStageHalfW = singleSiteStageCardWidth / 2;
+    const singleSiteStageHalfH = singleSiteStageCardHeight / 2;
     const singleSiteStageX = { L1: 470, L2: 700, L3: 930, BG: 1160, HCS: 1390 };
     const singleSiteStageY = 278;
     const singleSiteSourcePositions = {
@@ -2420,7 +2467,7 @@
       const cpu = node.cpu ?? node.load ?? 0;
       const mem = node.mem ?? Math.min(100, cpu + 8);
       return `
-        <article class="node stage${process}${bgHcsTone}" style="left:${node.x - 88}px; top:${node.y - 63}px;">
+        <article class="node stage${process}${bgHcsTone}" style="left:${node.x - singleSiteStageHalfW}px; top:${node.y - singleSiteStageHalfH}px;">
           <div class="title">
             <span>${node.name}</span>
             <span class="badge ${tone}">${tone}</span>
@@ -2862,8 +2909,8 @@
     function singleSiteEdgePoint(node, side, offset) {
       const ox = offset && offset.x ? offset.x : 0;
       const oy = offset && offset.y ? offset.y : 0;
-      const halfW = node.type === "source" ? 52 : 88;
-      const halfH = node.type === "source" ? 54 : 63;
+      const halfW = node.type === "source" ? 52 : singleSiteStageHalfW;
+      const halfH = node.type === "source" ? 54 : singleSiteStageHalfH;
 
       if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
       if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
