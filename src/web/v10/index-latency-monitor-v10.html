@@ -471,7 +471,7 @@
        注意：single-site 的 SVG viewBox 高度也必须同步修改，否则线层会和节点层错位。 */
     .topology-board.layout-single {
       width: 1572px;
-      height: 560px;
+      height: 602px;
     }
 
     .topology-board.layout-cloud {
@@ -499,7 +499,7 @@
     .topology-board.layout-single .tower {
       top: 18px;
       width: 1460px;
-      height: 520px;
+      height: 564px;
       border-radius: 22px;
       background:
         radial-gradient(circle at 28% 50%, rgba(99,230,255,0.08), transparent 28%),
@@ -805,7 +805,7 @@
 
     .topology-board.layout-single .tower-caption {
       width: 180px;
-      top: 60px;
+      top: 72px;
     }
 
     .topology-board.layout-single .tower-caption.sources-cluster {
@@ -1363,6 +1363,183 @@
       color: rgba(241,249,255,0.82);
     }
 
+    /* 大屏展示模式：
+       只在足够宽的屏幕上统一抬高页头、统计卡、拓扑 caption 和按钮的字号/留白，
+       让它们和已经放大的 single-site stage 卡片处在同一视觉层级。 */
+    @media (min-width: 1680px) {
+      .app {
+        padding: 18px;
+      }
+
+      .header {
+        padding: 22px 24px 18px;
+      }
+
+      .header-top {
+        gap: 18px;
+      }
+
+      .eyebrow {
+        gap: 12px;
+        font-size: 14px;
+        letter-spacing: 2.2px;
+      }
+
+      .eyebrow::before {
+        width: 40px;
+      }
+
+      h1 {
+        margin-top: 10px;
+        font-size: clamp(40px, 4.1vw, 66px);
+        letter-spacing: 1.2px;
+      }
+
+      .headline {
+        gap: 12px;
+      }
+
+      .headline-card {
+        padding: 14px 16px;
+        border-radius: 18px;
+      }
+
+      .headline-card .name,
+      .stat .name,
+      .kpi .name {
+        font-size: 13px;
+        letter-spacing: 1.6px;
+      }
+
+      .headline-card .val {
+        margin-top: 10px;
+        font-size: 40px;
+      }
+
+      .headline-card .meta {
+        margin-top: 10px;
+        font-size: 14px;
+      }
+
+      .stats {
+        margin-top: 16px;
+        gap: 12px;
+      }
+
+      .stat {
+        padding: 12px 14px;
+        border-radius: 16px;
+      }
+
+      .stat .val {
+        margin-top: 9px;
+        font-size: 31px;
+      }
+
+      .meter {
+        margin-top: 12px;
+        height: 7px;
+      }
+
+      .main {
+        padding: 16px;
+        gap: 16px;
+      }
+
+      .panel-head {
+        padding: 14px 18px;
+        gap: 14px;
+        font-size: 14px;
+        letter-spacing: 1.4px;
+      }
+
+      .panel-head strong {
+        font-size: 19px;
+        letter-spacing: 0.9px;
+      }
+
+      .legend {
+        gap: 12px;
+      }
+
+      .legend span {
+        padding: 5px 10px;
+      }
+
+      .topology-head-tools,
+      .site-switch {
+        gap: 12px;
+      }
+
+      .site-switch-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+        letter-spacing: 1.1px;
+      }
+
+      .flow-toggle-btn {
+        padding: 7px 14px;
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+
+      .topology-board.layout-single .tower.single .tower-tag {
+        left: 36px;
+      }
+
+      .topology-board.layout-single .tower-tag {
+        top: 16px;
+        padding: 8px 14px;
+        font-size: 16px;
+        letter-spacing: 1.1px;
+      }
+
+      .topology-board.layout-single .tower-caption {
+        width: 220px;
+        top: 72px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 1.2px;
+        line-height: 1.05;
+        color: rgba(209,229,240,0.74);
+      }
+
+      .topology-board.layout-single .tower-caption.sources-cluster {
+        width: 290px;
+      }
+
+      .topology-board.layout-single .node.source .source-name {
+        top: 9px;
+        font-size: 15px;
+        letter-spacing: 1.3px;
+      }
+
+      .topology-board.layout-single .node.source .source-splits {
+        top: 64px;
+        gap: 5px;
+      }
+
+      .topology-board.layout-single .node.source .source-split {
+        font-size: 9px;
+      }
+
+      .topology-board.layout-single .source-wire-label text {
+        font-size: 11px;
+        stroke-width: 3.2px;
+      }
+    }
+
+    @media (min-width: 1760px) {
+      .topology-board.layout-single {
+        width: 1680px;
+      }
+
+      .topology-board.layout-single .tower {
+        width: 1588px;
+        height: 574px;
+      }
+    }
+
     /* 平板和较窄桌面下，顶部和底部辅助面板改成单列。 */
     @media (max-width: 1460px) {
       .header-top,
@@ -1889,19 +2066,40 @@
     const siteSwitchButtons = Array.from(document.querySelectorAll(".site-switch-btn"));
     const allSitesShellMarkup = topologyBoard.innerHTML;
     /* 需要和 .topology-board.layout-single 的 height 保持一致，保证 SVG 与 HTML 节点 1:1 对齐。 */
-    const singleSiteBoardHeight = 560;
+    const singleSiteBoardHeight = 602;
+    const largeScreenSingleSiteQuery = window.matchMedia("(min-width: 1760px)");
     const singleSiteStageCardWidth = 196;
     const singleSiteStageCardHeight = 142;
     const singleSiteStageHalfW = singleSiteStageCardWidth / 2;
     const singleSiteStageHalfH = singleSiteStageCardHeight / 2;
-    const singleSiteStageX = { L1: 470, L2: 700, L3: 930, BG: 1160, HCS: 1390 };
-    const singleSiteStageY = 278;
-    const singleSiteSourcePositions = {
-      RT: { x: 124, y: 120 },
-      BB: { x: 124, y: 240 },
-      OMDC: { x: 124, y: 360 },
-      CIIS: { x: 124, y: 480 }
+    const singleSiteDefaultGeometry = {
+      boardWidth: 1572,
+      sourceCaptionX: 236,
+      stageY: 300,
+      stageX: { L1: 470, L2: 700, L3: 930, BG: 1160, HCS: 1390 },
+      sourcePositions: {
+        RT: { x: 124, y: 150 },
+        BB: { x: 124, y: 270 },
+        OMDC: { x: 124, y: 390 },
+        CIIS: { x: 124, y: 510 }
+      }
     };
+    const singleSiteWideGeometry = {
+      boardWidth: 1680,
+      sourceCaptionX: 250,
+      stageY: 300,
+      stageX: { L1: 482, L2: 738, L3: 994, BG: 1250, HCS: 1506 },
+      sourcePositions: {
+        RT: { x: 130, y: 146 },
+        BB: { x: 130, y: 274 },
+        OMDC: { x: 130, y: 402 },
+        CIIS: { x: 130, y: 530 }
+      }
+    };
+
+    function singleSiteGeometry() {
+      return largeScreenSingleSiteQuery.matches ? singleSiteWideGeometry : singleSiteDefaultGeometry;
+    }
 
     /* 返回当前时间字符串，统一用于 UI 上的“updated xx:xx:xx”。 */
     function nowText() {
@@ -1986,17 +2184,18 @@
     }
 
     function singleSiteShellMarkup(site) {
+      const geometry = singleSiteGeometry();
       return `
         <div class="tower single">
           <div class="tower-tag">${towerTagMarkup(site)}</div>
         </div>
-        <div class="tower-caption sources-cluster" style="left:236px;">External Feeds</div>
-        <div class="tower-caption" style="left:470px;">Capture (L1)</div>
-        <div class="tower-caption" style="left:700px;">Calculation (L2)</div>
-        <div class="tower-caption" style="left:930px;">Reconciliation (L3)</div>
-        <div class="tower-caption" style="left:1160px;">BroadcastGateway (BG)</div>
-        <div class="tower-caption" style="left:1390px;">HealthCheck (HCS)</div>
-        ${topologySvgMarkup(`0 0 1572 ${singleSiteBoardHeight}`)}
+        <div class="tower-caption sources-cluster" style="left:${geometry.sourceCaptionX}px;">External Feeds</div>
+        <div class="tower-caption" style="left:${geometry.stageX.L1}px;">Capture (L1)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.L2}px;">Calculation (L2)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.L3}px;">Reconciliation (L3)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.BG}px;">BroadcastGateway (BG)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.HCS}px;">HealthCheck (HCS)</div>
+        ${topologySvgMarkup(`0 0 ${geometry.boardWidth} ${singleSiteBoardHeight}`)}
       `;
     }
 
@@ -2051,6 +2250,11 @@
         topologyScope = nextScope;
         renderTopology();
       });
+    });
+
+    largeScreenSingleSiteQuery.addEventListener("change", () => {
+      if (topologyScope === "ALL" || topologyScope === "CLOUD") return;
+      renderTopology();
     });
 
     setFlowPaused(true);
@@ -2796,11 +3000,12 @@
     }
 
     function buildSingleSiteTopologyState(site) {
+      const geometry = singleSiteGeometry();
       const singleSiteNodes = [];
 
       sourceNames.forEach((name) => {
         const original = nodeById[`${site}-${name}`];
-        const position = singleSiteSourcePositions[name];
+        const position = geometry.sourcePositions[name];
         singleSiteNodes.push({
           ...original,
           x: position.x,
@@ -2812,8 +3017,8 @@
         const original = nodeById[`${site}-${name}`];
         singleSiteNodes.push({
           ...original,
-          x: singleSiteStageX[name],
-          y: singleSiteStageY
+          x: geometry.stageX[name],
+          y: geometry.stageY
         });
       });
 
