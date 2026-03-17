@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+    <!-- 此页面需要匹配 1920 * 1080 屏幕 -->
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -443,6 +444,13 @@
       color: var(--muted);
     }
 
+    .toolbar-separator {
+      color: rgba(255,255,255,0.28);
+      font-size: 16px;
+      line-height: 1;
+      user-select: none;
+    }
+
     /* 拓扑图横向超宽时允许滚动，纵向保持裁切。 */
     .topology-wrap {
       overflow-x: auto;
@@ -595,9 +603,14 @@
       filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
     }
 
-    /* 暂停时直接关闭线路动画，避免保留大量冻结中的动画实例。 */
+    /* 关闭 flow 时仅暂停流动动画，warn / critical 的闪烁继续保留。 */
     .topology-board.flow-paused .route-flow {
-      animation: none;
+      animation-play-state: paused;
+    }
+
+    .topology-board.flow-paused .route-flow.warn,
+    .topology-board.flow-paused .route-flow.critical {
+      animation-play-state: paused, running;
     }
 
     /* 塔内前向链路的基础视觉。
@@ -953,7 +966,7 @@
     }
 
     .topology-board.flow-paused .node.source .source-wire-flow {
-      animation: none;
+      animation-play-state: paused;
     }
 
     .source-feed-pulse-pack {
@@ -1863,7 +1876,9 @@
                 <button type="button" class="site-switch-btn" data-topology-scope="CLOUD" aria-pressed="false">CLOUD</button>
                 <button type="button" class="site-switch-btn" data-topology-scope="ALL" aria-pressed="true">ALL</button>
               </div>
-              <button type="button" class="flow-toggle-btn" id="toggleFlowBtn" aria-pressed="true">开启线条流动</button>
+              <span class="toolbar-separator" aria-hidden="true">|</span>
+              <button type="button" class="flow-toggle-btn" id="togglePulseBtn" aria-pressed="true">pulse</button>
+              <button type="button" class="flow-toggle-btn" id="toggleFlowBtn" aria-pressed="false">flow</button>
             </div>
           </div>
           <div class="panel-body topology-wrap">
@@ -2257,6 +2272,7 @@
     const feedList = document.getElementById("feedList");
     const topologyBoard = document.getElementById("topologyBoard");
     const topologyTitle = document.getElementById("topologyTitle");
+    const togglePulseBtn = document.getElementById("togglePulseBtn");
     const toggleFlowBtn = document.getElementById("toggleFlowBtn");
     const siteSwitchButtons = Array.from(document.querySelectorAll(".site-switch-btn"));
     const allSitesShellMarkup = topologyBoard.innerHTML;
@@ -2335,6 +2351,7 @@
       return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
     }
 
+    let pulseEnabled = true;
     let flowPaused = true;
     let topologyScope = "ALL";
 
@@ -2432,6 +2449,7 @@
 
     function syncTopologyChrome() {
       topologyTitle.textContent = topologyTitleText();
+      togglePulseBtn.disabled = topologyScope === "CLOUD";
       toggleFlowBtn.disabled = topologyScope === "CLOUD";
       siteSwitchButtons.forEach((button) => {
         const active = button.dataset.topologyScope === topologyScope;
@@ -2459,13 +2477,22 @@
             : singleSiteShellMarkup(topologyScope);
     }
 
+    function setPulseEnabled(enabled) {
+      pulseEnabled = enabled;
+      togglePulseBtn.setAttribute("aria-pressed", pulseEnabled ? "true" : "false");
+      renderTopology();
+    }
+
     function setFlowPaused(paused) {
       flowPaused = paused;
       topologyBoard.classList.toggle("flow-paused", flowPaused);
-      toggleFlowBtn.setAttribute("aria-pressed", flowPaused ? "true" : "false");
-      toggleFlowBtn.textContent = flowPaused ? "开启线条流动" : "关闭线条流动";
+      toggleFlowBtn.setAttribute("aria-pressed", flowPaused ? "false" : "true");
       renderTopology();
     }
+
+    togglePulseBtn.addEventListener("click", () => {
+      setPulseEnabled(!pulseEnabled);
+    });
 
     toggleFlowBtn.addEventListener("click", () => {
       setFlowPaused(!flowPaused);
@@ -2802,7 +2829,7 @@
             labelText: sourceFeedLabelText(latency, config.compactLabel),
             labelPoint: config.labelPoint(points, idx, parts.length),
             labelRotate: config.labelRotate,
-            pulseOptions: !flowPaused && mode === "primary" ? sourceLikePulseOptions(severity) : null
+            pulseOptions: pulseEnabled && mode === "primary" ? sourceLikePulseOptions(severity) : null
           };
         })
       };
@@ -3237,7 +3264,7 @@
           baseClass: `route-base ${link.group} ${link.kind} ${variant} ${visualClass}`.trim(),
           flowClass: `route-flow ${link.group} ${link.kind} ${severity} ${variant} ${visualClass}`.trim(),
           markerId,
-          pulseMarkup: !flowPaused && primaryEnabled ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""
+          pulseMarkup: pulseEnabled && primaryEnabled ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""
         });
       }).join("");
 
@@ -3746,7 +3773,7 @@
           baseClass: `route-base ${link.group} ${link.kind} ${variant} ${visualClass}`.trim(),
           flowClass: `route-flow ${link.group} ${link.kind} ${severity} ${variant} ${visualClass}`.trim(),
           markerId,
-          pulseMarkup: !flowPaused && visualMode === "primary" ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""
+          pulseMarkup: pulseEnabled && visualMode === "primary" ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""
         });
       }).join("");
 
