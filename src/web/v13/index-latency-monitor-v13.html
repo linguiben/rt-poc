@@ -524,7 +524,7 @@
     }
 
     /* 塔顶部站点标签。
-       影响范围：TKO1 Backup / TKO2 Primary / SKM Tertiary 三个圆角标签。 */
+       影响范围：NX1 Backup / NX9 Primary / NX2 Tertiary 三个圆角标签。 */
     .tower-tag {
       position: absolute;
       left: 18px;
@@ -540,7 +540,7 @@
     }
 
     /* Primary 标记的强调色和闪烁。
-       影响范围：仅作用于 TKO2 标签里的 mark，不影响其它 tower-tag。 */
+       影响范围：仅作用于 NX9 标签里的 mark，不影响其它 tower-tag。 */
     .tower-tag .mark {
       color: var(--amber);
       margin-left: 8px;
@@ -1812,7 +1812,7 @@
           <div class="headline">
             <div class="headline-card">
               <div class="name">Primary Site</div>
-              <div class="val cyan" id="heroPrimary">TKO2</div>
+              <div class="val cyan" id="heroPrimary">NX9</div>
               <div class="meta"><span>Dispatch Tower</span><span id="heroClock">09:24:40</span></div>
             </div>
             <div class="headline-card">
@@ -1870,9 +1870,9 @@
             <strong id="topologyTitle">All-Sites Topology</strong>
             <div class="topology-head-tools">
               <div class="site-switch" id="siteSwitch" aria-label="Topology scope">
-                <button type="button" class="site-switch-btn" data-topology-scope="TKO1" aria-pressed="false">TKO1</button>
-                <button type="button" class="site-switch-btn" data-topology-scope="TKO2" aria-pressed="false">TKO2</button>
-                <button type="button" class="site-switch-btn" data-topology-scope="SKM" aria-pressed="false">SKM</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="NX1" aria-pressed="false">NX1</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="NX9" aria-pressed="false">NX9</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="NX2" aria-pressed="false">NX2</button>
                 <button type="button" class="site-switch-btn" data-topology-scope="CLOUD" aria-pressed="false">CLOUD</button>
                 <button type="button" class="site-switch-btn" data-topology-scope="ALL" aria-pressed="true">ALL</button>
               </div>
@@ -1885,13 +1885,13 @@
             <div class="topology-board layout-all" id="topologyBoard">
               <!-- 三个 tower 只是背景分栏，不是数据节点。 -->
               <div class="tower left">
-                <div class="tower-tag">TKO1 Backup</div>
+                <div class="tower-tag">NX1 Backup</div>
               </div>
               <div class="tower center">
-                <div class="tower-tag">TKO2 <span class="mark">Primary</span></div>
+                <div class="tower-tag">NX9 <span class="mark">Primary</span></div>
               </div>
               <div class="tower right">
-                <div class="tower-tag">SKM Tertiary</div>
+                <div class="tower-tag">NX2 Tertiary</div>
               </div>
               <!--
                 tower-caption 是每一层的行标题。
@@ -1994,9 +1994,9 @@
        2. 所有连线起点终点
        3. tower-caption 的 left 如果还是写死值，需要人工同步 */
     const towers = {
-      TKO1: { x: 292, stagesX: 292, label: "Backup", role: "secondary" },
-      TKO2: { x: 820, stagesX: 820, label: "Primary", role: "primary" },
-      SKM: { x: 1348, stagesX: 1348, label: "Tertiary", role: "tertiary" }
+      NX1: { x: 292, stagesX: 292, label: "Backup", role: "secondary" },
+      NX9: { x: 820, stagesX: 820, label: "Primary", role: "primary" },
+      NX2: { x: 1348, stagesX: 1348, label: "Tertiary", role: "tertiary" }
     };
 
     /* 控制塔的遍历顺序。
@@ -2004,7 +2004,7 @@
        1. nodes 的生成顺序
        2. links 的生成顺序
        3. 某些 UI 中同类数据的默认显示顺序 */
-    const siteOrder = ["TKO1", "TKO2", "SKM"];
+    const siteOrder = ["NX1", "NX9", "NX2"];
 
     /* 各层的纵向中心线。
        这是整个拓扑图最关键的布局参数之一。
@@ -2036,46 +2036,46 @@
     /* source 卡片内部小 feed 的视觉模式。
        key 为 "站点-source 名称"，value 为各分区到出口线的视觉级别。 */
     const sourceFeedModes = {
-      "TKO2-RT": { SS: "primary", SZ: "primary"},
-      "TKO2-OMDC": { HK: "primary" },
-      "TKO2-CIIS": { BJ: "primary" },
-      "TKO1-RT": { SS: "primary", SZ: "primary"},
-      "TKO1-OMDC": { HK: "primary" },
-      "TKO1-CIIS": { BJ: "primary" },
-      "SKM-RT": { HK: "primary"},
-      "SKM-BB": { SS: "primary", SZ: "primary"},
-      "SKM-CIIS": { BJ: "primary" },
+      "NX9-RT": { SS: "primary", SZ: "primary"},
+      "NX9-OMDC": { HK: "primary" },
+      "NX9-CIIS": { BJ: "primary" },
+      "NX1-RT": { SS: "primary", SZ: "primary"},
+      "NX1-OMDC": { HK: "primary" },
+      "NX1-CIIS": { BJ: "primary" },
+      "NX2-RT": { HK: "primary"},
+      "NX2-BB": { SS: "primary", SZ: "primary"},
+      "NX2-CIIS": { BJ: "primary" },
     };
     /* 主拓扑链路的视觉模式。
        primary 的线路会出现脉冲光波效果。
        这里的 primary 是纯视觉概念，不等同于 link.kind。 */
     const routeVisualModes = {
-      "TKO1-OMDC__TKO1-L1": "primary",
-      "TKO1-RT__TKO1-L1": "primary",
-      "TKO1-CIIS__TKO1-L1": "primary",
-      "TKO1-L1__TKO1-L2": "primary",
-      "TKO1-L2__TKO1-L3": "primary",
-      "SKM-L1__SKM-L2": "primary",
-      "SKM-L2__SKM-L3": "primary",
-      "TKO2-OMDC__TKO2-L1": "primary",
-      "TKO2-RT__TKO2-L1": "primary",
-      "TKO2-CIIS__TKO2-L1": "primary",
-      "TKO2-L1__TKO2-L2": "primary",
-      "TKO2-L2__TKO2-L3": "primary",
+      "NX1-OMDC__NX1-L1": "primary",
+      "NX1-RT__NX1-L1": "primary",
+      "NX1-CIIS__NX1-L1": "primary",
+      "NX1-L1__NX1-L2": "primary",
+      "NX1-L2__NX1-L3": "primary",
+      "NX2-L1__NX2-L2": "primary",
+      "NX2-L2__NX2-L3": "primary",
+      "NX9-OMDC__NX9-L1": "primary",
+      "NX9-RT__NX9-L1": "primary",
+      "NX9-CIIS__NX9-L1": "primary",
+      "NX9-L1__NX9-L2": "primary",
+      "NX9-L2__NX9-L3": "primary",
 
       // 发生role swap 之后
-      "TKO1-L3__TKO1-BG": "primary",
-      "TKO1-L3__TKO2-BG": "primary",
-      "TKO1-L3__SKM-BG": "primary",
-      // "TKO2-L3__TKO1-BG": "primary",
-      // "TKO2-L3__TKO2-BG": "primary",
-      // "TKO2-L3__SKM-BG": "primary",
-      "TKO1-BG__TKO1-HCS": "primary",
-      "TKO2-BG__TKO2-HCS": "primary",
-      "SKM-RT__SKM-L1": "primary",
-      "SKM-BB__SKM-L1": "primary",
-      "SKM-CIIS__SKM-L1": "primary",
-      "SKM-BG__SKM-HCS": "primary"
+      "NX1-L3__NX1-BG": "primary",
+      "NX1-L3__NX9-BG": "primary",
+      "NX1-L3__NX2-BG": "primary",
+      // "NX9-L3__NX1-BG": "primary",
+      // "NX9-L3__NX9-BG": "primary",
+      // "NX9-L3__NX2-BG": "primary",
+      "NX1-BG__NX1-HCS": "primary",
+      "NX9-BG__NX9-HCS": "primary",
+      "NX2-RT__NX2-L1": "primary",
+      "NX2-BB__NX2-L1": "primary",
+      "NX2-CIIS__NX2-L1": "primary",
+      "NX2-BG__NX2-HCS": "primary"
     };
     const sourceFeedBaseLatency = {
       RT: { SS: 28, SZ: 30, HK: 32 },
@@ -2083,7 +2083,7 @@
       OMDC: { HK: 26 },
       CIIS: { SS: 31, BJ: 29 }
     };
-    const sourceFeedSiteBias = { TKO1: 4, TKO2: 0, SKM: 3 };
+    const sourceFeedSiteBias = { NX1: 4, NX9: 0, NX2: 3 };
     const sourceFeedCurrentLift = {
       RT: { SS: 3, SZ: 4, HK: 3 },
       BB: { SS: 4, SZ: 5, HK: 4 },
@@ -2130,7 +2130,7 @@
           type: "source",
           x: towers[site].x + sourceOffsets[idx],
           y: levelY.sources,
-          rate: site === "TKO2" ? 940 - idx * 20 : site === "SKM" ? 900 - idx * 17 : 890 - idx * 18
+          rate: site === "NX9" ? 940 - idx * 20 : site === "NX2" ? 900 - idx * 17 : 890 - idx * 18
         });
       });
     });
@@ -2140,21 +2140,21 @@
        kind 会影响卡片配色；messages 目前只对 BG 生效；
        cpu / mem 用于卡片底部资源条。 */
     const stageSeed = {
-      TKO1: {
+      NX1: {
         L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, kind: "flow" },
         L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, kind: "process" },
         L3: { avg: 61, p95: 148, load: 70, cpu: 70, mem: 76, kind: "process" },
         BG: { avg: 18, p95: 335, load: 24, cpu: 24, mem: 31, kind: "process", messages: 182340 },
         HCS: { avg: 3, p95: 6, load: 10, cpu: 10, mem: 18, kind: "flow" }
       },
-      TKO2: {
+      NX9: {
         L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, kind: "flow" },
         L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, kind: "process" },
         L3: { avg: 74, p95: 80, load: 82, cpu: 82, mem: 87, kind: "process" },
         BG: { avg: 22, p95: 38, load: 31, cpu: 31, mem: 39, kind: "process", messages: 241680 },
         HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, kind: "flow" }
       },
-      SKM: {
+      NX2: {
         L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, kind: "flow" },
         L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, kind: "process" },
         L3: { avg: 63, p95: 34, load: 72, cpu: 72, mem: 78, kind: "process" },
@@ -2215,7 +2215,7 @@
       sourceNames.forEach((source) => {
         addLink(site + "-" + source, site + "-L1", 30, "sources", "backup", 31);
       });
-      addLink(site + "-L1", site + "-L2", 30, "l1-l2", site == "TKO2" ? "intra" : "intra", 36);
+      addLink(site + "-L1", site + "-L2", 30, "l1-l2", site == "NX9" ? "intra" : "intra", 36);
     });
 
     /* 下面是跨层、跨塔和反馈链路。
@@ -2225,45 +2225,45 @@
        3. 如果新增一类 group，通常还要同步补对应的汇总和说明逻辑 
        4. 光波脉冲效果见 routeVisualModes */
     // addLink(from: , to: , base: , group: , kind: , current: )
-    addLink("TKO1-L2", "TKO1-L3", 50, "l2-l3", "intra", 18);
-    addLink("SKM-L2", "SKM-L3", 50, "l2-l3", "intra", 124);
-    addLink("TKO1-L2", "TKO2-L3", 50, "l2-l3", "backup", 68);
-    addLink("SKM-L2", "TKO2-L3", 50, "l2-l3", "backup", 54);
-    addLink("TKO2-L2", "TKO1-L3", 50, "l2-l3", "backup", 196);
-    addLink("TKO2-L2", "SKM-L3", 50, "l2-l3", "backup", 30);
-    addLink("TKO2-L2", "TKO2-L3", 50, "l2-l3", "intra", 59);
+    addLink("NX1-L2", "NX1-L3", 50, "l2-l3", "intra", 18);
+    addLink("NX2-L2", "NX2-L3", 50, "l2-l3", "intra", 124);
+    addLink("NX1-L2", "NX9-L3", 50, "l2-l3", "backup", 68);
+    addLink("NX2-L2", "NX9-L3", 50, "l2-l3", "backup", 54);
+    addLink("NX9-L2", "NX1-L3", 50, "l2-l3", "backup", 196);
+    addLink("NX9-L2", "NX2-L3", 50, "l2-l3", "backup", 30);
+    addLink("NX9-L2", "NX9-L3", 50, "l2-l3", "intra", 59);
 
     // 发生了auto role swap 后的效果
-    addLink("TKO1-L3", "TKO1-BG", 30, "l3-bg", "intra", 92);
-    addLink("TKO1-L3", "TKO2-BG", 30, "l3-bg", "primary", 92);
-    addLink("TKO1-L3", "SKM-BG", 30, "l3-bg", "primary", 92);
-    // addLink("TKO2-L3", "TKO1-BG", 30, "l3-bg", "primary", 92);
-    // addLink("TKO2-L3", "SKM-BG", 30, "l3-bg", "primary", 86);
-    // addLink("TKO2-L3", "TKO2-BG", 30, "l3-bg", "intra", 34);
+    addLink("NX1-L3", "NX1-BG", 30, "l3-bg", "intra", 92);
+    addLink("NX1-L3", "NX9-BG", 30, "l3-bg", "primary", 92);
+    addLink("NX1-L3", "NX2-BG", 30, "l3-bg", "primary", 92);
+    // addLink("NX9-L3", "NX1-BG", 30, "l3-bg", "primary", 92);
+    // addLink("NX9-L3", "NX2-BG", 30, "l3-bg", "primary", 86);
+    // addLink("NX9-L3", "NX9-BG", 30, "l3-bg", "intra", 34);
 
-    addLink("TKO1-BG", "TKO1-L3", 30, "bg-l3-feedback", "feedback", 56);
-    addLink("TKO1-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 96);
-    addLink("SKM-BG", "SKM-L3", 30, "bg-l3-feedback", "feedback", 58);
-    addLink("SKM-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 94);
-    addLink("TKO2-BG", "TKO1-L3", 30, "bg-l3-feedback", "feedback", 88);
-    addLink("TKO2-BG", "SKM-L3", 30, "bg-l3-feedback", "feedback", 82);
-    addLink("TKO2-BG", "TKO2-L3", 30, "bg-l3-feedback", "feedback", 52);
+    addLink("NX1-BG", "NX1-L3", 30, "bg-l3-feedback", "feedback", 56);
+    addLink("NX1-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 96);
+    addLink("NX2-BG", "NX2-L3", 30, "bg-l3-feedback", "feedback", 58);
+    addLink("NX2-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 94);
+    addLink("NX9-BG", "NX1-L3", 30, "bg-l3-feedback", "feedback", 88);
+    addLink("NX9-BG", "NX2-L3", 30, "bg-l3-feedback", "feedback", 82);
+    addLink("NX9-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 52);
 
-    addLink("TKO1-L3", "TKO1-L1", 30, "l3-l1-feedback", "feedback", 48);
-    addLink("TKO1-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 102);
-    addLink("SKM-L3", "SKM-L1", 30, "l3-l1-feedback", "feedback", 52);
-    addLink("SKM-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 98);
-    addLink("TKO2-L3", "TKO1-L1", 30, "l3-l1-feedback", "feedback", 34);
-    addLink("TKO2-L3", "SKM-L1", 30, "l3-l1-feedback", "feedback", 46);
-    addLink("TKO2-L3", "TKO2-L1", 30, "l3-l1-feedback", "feedback", 61);
+    addLink("NX1-L3", "NX1-L1", 30, "l3-l1-feedback", "feedback", 48);
+    addLink("NX1-L3", "NX9-L1", 30, "l3-l1-feedback", "feedback", 102);
+    addLink("NX2-L3", "NX2-L1", 30, "l3-l1-feedback", "feedback", 52);
+    addLink("NX2-L3", "NX9-L1", 30, "l3-l1-feedback", "feedback", 98);
+    addLink("NX9-L3", "NX1-L1", 30, "l3-l1-feedback", "feedback", 34);
+    addLink("NX9-L3", "NX2-L1", 30, "l3-l1-feedback", "feedback", 46);
+    addLink("NX9-L3", "NX9-L1", 30, "l3-l1-feedback", "feedback", 61);
 
-    addLink("TKO1-BG", "TKO1-HCS", 30, "bg-hcs", "intra", 24);
-    addLink("TKO1-BG", "TKO2-HCS", 30, "bg-hcs", "backup", 72);
-    addLink("SKM-BG", "SKM-HCS", 30, "bg-hcs", "intra", 25);
-    addLink("SKM-BG", "TKO2-HCS", 30, "bg-hcs", "backup", 70);
-    addLink("TKO2-BG", "TKO1-HCS", 30, "bg-hcs", "backup", 78);
-    addLink("TKO2-BG", "SKM-HCS", 30, "bg-hcs", "backup", 74);
-    addLink("TKO2-BG", "TKO2-HCS", 30, "bg-hcs", "intra", 26);
+    addLink("NX1-BG", "NX1-HCS", 30, "bg-hcs", "intra", 24);
+    addLink("NX1-BG", "NX9-HCS", 30, "bg-hcs", "backup", 72);
+    addLink("NX2-BG", "NX2-HCS", 30, "bg-hcs", "intra", 25);
+    addLink("NX2-BG", "NX9-HCS", 30, "bg-hcs", "backup", 70);
+    addLink("NX9-BG", "NX1-HCS", 30, "bg-hcs", "backup", 78);
+    addLink("NX9-BG", "NX2-HCS", 30, "bg-hcs", "backup", 74);
+    addLink("NX9-BG", "NX9-HCS", 30, "bg-hcs", "intra", 26);
 
     const linkById = Object.fromEntries(links.map((link) => [link.id, link]));
 
@@ -2306,9 +2306,9 @@
     const singleSiteBgCardHalfW = singleSiteBgCardWidth / 2;
     const singleSiteBgCardHalfH = singleSiteBgCardHeight / 2;
     const singleSiteBgLinkDefaults = {
-      "l3-bg": { TKO1: 92, TKO2: 34, SKM: 86 },
-      "bg-l3-feedback": { TKO1: 56, TKO2: 52, SKM: 58 },
-      "bg-hcs": { TKO1: 24, TKO2: 26, SKM: 25 }
+      "l3-bg": { NX1: 92, NX9: 34, NX2: 86 },
+      "bg-l3-feedback": { NX1: 56, NX9: 52, NX2: 58 },
+      "bg-hcs": { NX1: 24, NX9: 26, NX2: 25 }
     };
     const singleSiteDefaultGeometry = {
       boardWidth: 1572,
@@ -2423,7 +2423,7 @@
     }
 
     function towerTagMarkup(site) {
-      if (site === "TKO2") return 'TKO2 <span class="mark">Primary</span>';
+      if (site === "NX9") return 'NX9 <span class="mark">Primary</span>';
       return `${site} ${towers[site].label}`;
     }
 
@@ -2988,8 +2988,8 @@
 
     /* 同塔 feedback 优先从外侧绕，避免回流线压在塔中间。 */
     function outerSide(site, group) {
-      if (site === "TKO1") return "left";
-      if (site === "SKM") return "right";
+      if (site === "NX1") return "left";
+      if (site === "NX2") return "right";
       return group === "l3-l1-feedback" ? "right" : "left";
     }
 
@@ -3095,10 +3095,10 @@
         const dir = side === "right" ? 1 : -1;
         const endDir = endSide === "right" ? 1 : -1;
         const singleTouchL3 =
-          link.id === "TKO2-BG__TKO1-L3" ||
-          link.id === "TKO2-BG__SKM-L3" ||
-          link.id === "TKO1-BG__TKO2-L3" ||
-          link.id === "SKM-BG__TKO2-L3";
+          link.id === "NX9-BG__NX1-L3" ||
+          link.id === "NX9-BG__NX2-L3" ||
+          link.id === "NX1-BG__NX9-L3" ||
+          link.id === "NX2-BG__NX9-L3";
         const start = edgePoint(from, side, { y: 12 });
         const end = edgePoint(to, endSide, { y: (sameSite ? 46 : 46) });
         /* span 越大，弧线越张开；越小，弧线越贴近节点。 */
@@ -3123,10 +3123,10 @@
         const dir = side === "right" ? 1 : -1;
         const endDir = endSide === "right" ? 1 : -1;
         const singleTouchL1 =
-          link.id === "TKO1-L3__TKO2-L1" ||
-          link.id === "SKM-L3__TKO2-L1" ||
-          link.id === "TKO2-L3__TKO1-L1" ||
-          link.id === "TKO2-L3__SKM-L1";
+          link.id === "NX1-L3__NX9-L1" ||
+          link.id === "NX2-L3__NX9-L1" ||
+          link.id === "NX9-L3__NX1-L1" ||
+          link.id === "NX9-L3__NX2-L1";
         const start = edgePoint(from, side, { y: -46 });
         const end = edgePoint(to, endSide, { y: 12 });
         const span = sameSite ? 100 : 80;
@@ -3205,15 +3205,15 @@
       const to = nodeById[link.to];
 
       /* 个别非常拥挤的路径需要单独特判。 */
-      if (link.id === "TKO2-L3__TKO1-BG") return 0.25;
-      if (link.id === "TKO2-BG__TKO1-HCS") return 0.25;
-      if (link.id === "SKM-BG__TKO2-HCS") return 0.25;
-      if (link.id === "TKO1-L2__TKO2-L3") return 0.75;
-      if (link.id === "TKO2-L2__SKM-L3") return 0.75;
-      if (link.id === "TKO1-L3__TKO2-L1") return 0.75;
-      if (link.id === "TKO2-L3__SKM-L1") return 0.75;
-      if (link.id === "TKO2-BG__TKO1-L3") return 0.30;
-      if (link.id === "SKM-BG__TKO2-L3") return 0.25;
+      if (link.id === "NX9-L3__NX1-BG") return 0.25;
+      if (link.id === "NX9-BG__NX1-HCS") return 0.25;
+      if (link.id === "NX2-BG__NX9-HCS") return 0.25;
+      if (link.id === "NX1-L2__NX9-L3") return 0.75;
+      if (link.id === "NX9-L2__NX2-L3") return 0.75;
+      if (link.id === "NX1-L3__NX9-L1") return 0.75;
+      if (link.id === "NX9-L3__NX2-L1") return 0.75;
+      if (link.id === "NX9-BG__NX1-L3") return 0.30;
+      if (link.id === "NX2-BG__NX9-L3") return 0.25;
 
       const midpointCrowded =
         ((link.kind === "primary" || link.kind === "backup") && (link.group === "l2-l3" || link.group === "l3-bg" || link.group === "bg-hcs")) ||
@@ -3844,7 +3844,7 @@
       const alertTone = criticals > 0 ? "critical" : warns > 0 ? "warn" : "cyan";
       const heroAlerts = document.getElementById("heroAlerts");
 
-      document.getElementById("heroPrimary").textContent = "TKO2";
+      document.getElementById("heroPrimary").textContent = "NX9";
       document.getElementById("heroClock").textContent = nowText();
       heroAlerts.textContent = `${warns} / ${criticals}`;
       heroAlerts.className = `val ${alertTone}`;
@@ -3890,37 +3890,37 @@
        如果新增链路但不加 anchor，它仍会工作，只是会退回到 base + 2 的粗略默认值。 */
     function evolveLinks() {
       const anchors = {
-        "TKO1-L2__TKO1-L3": 118,
-        "SKM-L2__SKM-L3": 124,
-        "TKO1-L2__TKO2-L3": 168,
-        "SKM-L2__TKO2-L3": 174,
-        "TKO2-L2__TKO1-L3": 196,
-        "TKO2-L2__SKM-L3": 182,
-        "TKO2-L2__TKO2-L3": 144,
-        "TKO2-L3__TKO1-BG": 92,
-        "TKO2-L3__SKM-BG": 86,
-        "TKO2-L3__TKO2-BG": 34,
-        "TKO1-BG__TKO1-L3": 56,
-        "TKO1-BG__TKO2-L3": 96,
-        "SKM-BG__SKM-L3": 58,
-        "SKM-BG__TKO2-L3": 94,
-        "TKO2-BG__TKO1-L3": 88,
-        "TKO2-BG__SKM-L3": 82,
-        "TKO2-BG__TKO2-L3": 52,
-        "TKO1-L3__TKO1-L1": 48,
-        "TKO1-L3__TKO2-L1": 102,
-        "SKM-L3__SKM-L1": 52,
-        "SKM-L3__TKO2-L1": 98,
-        "TKO2-L3__TKO1-L1": 124,
-        "TKO2-L3__SKM-L1": 116,
-        "TKO2-L3__TKO2-L1": 61,
-        "TKO1-BG__TKO1-HCS": 24,
-        "TKO1-BG__TKO2-HCS": 72,
-        "SKM-BG__SKM-HCS": 25,
-        "SKM-BG__TKO2-HCS": 70,
-        "TKO2-BG__TKO1-HCS": 78,
-        "TKO2-BG__SKM-HCS": 74,
-        "TKO2-BG__TKO2-HCS": 26
+        "NX1-L2__NX1-L3": 118,
+        "NX2-L2__NX2-L3": 124,
+        "NX1-L2__NX9-L3": 168,
+        "NX2-L2__NX9-L3": 174,
+        "NX9-L2__NX1-L3": 196,
+        "NX9-L2__NX2-L3": 182,
+        "NX9-L2__NX9-L3": 144,
+        "NX9-L3__NX1-BG": 92,
+        "NX9-L3__NX2-BG": 86,
+        "NX9-L3__NX9-BG": 34,
+        "NX1-BG__NX1-L3": 56,
+        "NX1-BG__NX9-L3": 96,
+        "NX2-BG__NX2-L3": 58,
+        "NX2-BG__NX9-L3": 94,
+        "NX9-BG__NX1-L3": 88,
+        "NX9-BG__NX2-L3": 82,
+        "NX9-BG__NX9-L3": 52,
+        "NX1-L3__NX1-L1": 48,
+        "NX1-L3__NX9-L1": 102,
+        "NX2-L3__NX2-L1": 52,
+        "NX2-L3__NX9-L1": 98,
+        "NX9-L3__NX1-L1": 124,
+        "NX9-L3__NX2-L1": 116,
+        "NX9-L3__NX9-L1": 61,
+        "NX1-BG__NX1-HCS": 24,
+        "NX1-BG__NX9-HCS": 72,
+        "NX2-BG__NX2-HCS": 25,
+        "NX2-BG__NX9-HCS": 70,
+        "NX9-BG__NX1-HCS": 78,
+        "NX9-BG__NX2-HCS": 74,
+        "NX9-BG__NX9-HCS": 26
       };
 
       links.forEach((link) => {

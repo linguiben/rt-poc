@@ -54,17 +54,17 @@
 
 ### 3.1 获取当前拓扑快照
 
-`GET /api/latency/snapshot?scope=ALL|TKO1|TKO2|SKM`
+`GET /api/latency/snapshot?scope=ALL|NX1|NX9|NX2`
 
 参数说明：
 
 - `scope`
   - `ALL`：返回 `ALL-SITES TOPOLOGY`
-  - `TKO1` / `TKO2` / `SKM`：返回对应 `SINGLE-SITE TOPOLOGY`
+  - `NX1` / `NX9` / `NX2`：返回对应 `SINGLE-SITE TOPOLOGY`
 
 ### 3.2 订阅拓扑流
 
-`GET /api/latency/stream?scope=ALL|TKO1|TKO2|SKM`
+`GET /api/latency/stream?scope=ALL|NX1|NX9|NX2`
 
 说明：
 
@@ -77,8 +77,8 @@
 ```json
 {
   "scope": "ALL",
-  "primaryTower": "TKO2",
-  "primaryL3NodeId": "TKO1-L3",
+  "primaryTower": "NX9",
+  "primaryL3NodeId": "NX1-L3",
   "refreshIntervalMs": 3000,
   "generatedAt": "2026-03-17T14:25:30+08:00",
   "thresholds": {
@@ -116,8 +116,8 @@
 
 ```json
 {
-  "id": "TKO2-L3",
-  "site": "TKO2",
+  "id": "NX9-L3",
+  "site": "NX9",
   "name": "L3",
   "displayName": "L3",
   "type": "stage",
@@ -139,11 +139,11 @@
 
 字段定义：
 
-- `id`: 节点唯一标识，例如 `TKO2-L3`
-- `site`: `TKO1 | TKO2 | SKM`
+- `id`: 节点唯一标识，例如 `NX9-L3`
+- `site`: `NX1 | NX9 | NX2`
 - `name`: 逻辑名称，例如 `RT / BB / OMDC / CIIS / L1 / L2 / L3 / BG / HCS`
 - `displayName`: 页面展示名称
-  - 例如 `BG (TKO1)`
+  - 例如 `BG (NX1)`
   - 例如 `L2-B1`
 - `type`
   - `source`
@@ -151,7 +151,7 @@
   - `stage-fragment`
 - `parentId`
   - 普通节点为 `null`
-  - 单站 `L2-B1 ~ L2-B4` 需要指向父节点 `TKO2-L2`
+  - 单站 `L2-B1 ~ L2-B4` 需要指向父节点 `NX9-L2`
 - `kind`
   - `flow`
   - `process`
@@ -190,9 +190,9 @@
 
 ```json
 {
-  "id": "TKO1-L3__TKO2-BG",
-  "from": "TKO1-L3",
-  "to": "TKO2-BG",
+  "id": "NX1-L3__NX9-BG",
+  "from": "NX1-L3",
+  "to": "NX9-BG",
   "parentId": null,
   "group": "l3-bg",
   "kind": "primary",
@@ -209,7 +209,7 @@
 - `from / to`: 起点和终点节点 ID
 - `parentId`
   - 派生线使用
-  - 例如单站 `L1 -> L2-B1` 可挂到父链路 `TKO2-L1__TKO2-L2`
+  - 例如单站 `L1 -> L2-B1` 可挂到父链路 `NX9-L1__NX9-L2`
 - `group`
   - `sources`
   - `l1-l2`
@@ -271,9 +271,9 @@
 
 ```json
 {
-  "id": "TKO2-RT__SS",
-  "sourceNodeId": "TKO2-RT",
-  "site": "TKO2",
+  "id": "NX9-RT__SS",
+  "sourceNodeId": "NX9-RT",
+  "site": "NX9",
   "sourceName": "RT",
   "partition": "SS",
   "status": "ok",
@@ -330,8 +330,8 @@
 ```json
 {
   "scope": "ALL",
-  "primaryTower": "TKO2",
-  "primaryL3NodeId": "TKO1-L3",
+  "primaryTower": "NX9",
+  "primaryL3NodeId": "NX1-L3",
   "refreshIntervalMs": 3000,
   "generatedAt": "2026-03-17T14:25:30+08:00",
   "thresholds": {
@@ -349,8 +349,8 @@
   },
   "nodes": [
     {
-      "id": "TKO1-L3",
-      "site": "TKO1",
+      "id": "NX1-L3",
+      "site": "NX1",
       "name": "L3",
       "displayName": "L3",
       "type": "stage",
@@ -369,8 +369,8 @@
       "messages": null
     },
     {
-      "id": "TKO2-L3",
-      "site": "TKO2",
+      "id": "NX9-L3",
+      "site": "NX9",
       "name": "L3",
       "displayName": "L3",
       "type": "stage",
@@ -391,9 +391,9 @@
   ],
   "links": [
     {
-      "id": "TKO1-L3__TKO1-BG",
-      "from": "TKO1-L3",
-      "to": "TKO1-BG",
+      "id": "NX1-L3__NX1-BG",
+      "from": "NX1-L3",
+      "to": "NX1-BG",
       "parentId": null,
       "group": "l3-bg",
       "kind": "intra",
@@ -403,9 +403,9 @@
       "current": 92
     },
     {
-      "id": "TKO1-L3__TKO2-BG",
-      "from": "TKO1-L3",
-      "to": "TKO2-BG",
+      "id": "NX1-L3__NX9-BG",
+      "from": "NX1-L3",
+      "to": "NX9-BG",
       "parentId": null,
       "group": "l3-bg",
       "kind": "primary",
@@ -417,9 +417,9 @@
   ],
   "sourceFeeds": [
     {
-      "id": "TKO2-RT__SS",
-      "sourceNodeId": "TKO2-RT",
-      "site": "TKO2",
+      "id": "NX9-RT__SS",
+      "sourceNodeId": "NX9-RT",
+      "site": "NX9",
       "sourceName": "RT",
       "partition": "SS",
       "status": "ok",
@@ -432,13 +432,13 @@
 
 ## 10. SINGLE-SITE 视图响应示例
 
-`scope = TKO2` 时，返回数据应直接对应 `SINGLE-SITE TOPOLOGY`。
+`scope = NX9` 时，返回数据应直接对应 `SINGLE-SITE TOPOLOGY`。
 
 ```json
 {
-  "scope": "TKO2",
-  "primaryTower": "TKO2",
-  "primaryL3NodeId": "TKO1-L3",
+  "scope": "NX9",
+  "primaryTower": "NX9",
+  "primaryL3NodeId": "NX1-L3",
   "refreshIntervalMs": 3000,
   "generatedAt": "2026-03-17T14:25:30+08:00",
   "thresholds": {
@@ -456,12 +456,12 @@
   },
   "nodes": [
     {
-      "id": "TKO2-L2-B1",
-      "site": "TKO2",
+      "id": "NX9-L2-B1",
+      "site": "NX9",
       "name": "L2",
       "displayName": "L2-B1",
       "type": "stage-fragment",
-      "parentId": "TKO2-L2",
+      "parentId": "NX9-L2",
       "kind": "process",
       "status": "ok",
       "isPrimary": false,
@@ -476,10 +476,10 @@
       "messages": null
     },
     {
-      "id": "TKO1-BG",
-      "site": "TKO1",
+      "id": "NX1-BG",
+      "site": "NX1",
       "name": "BG",
-      "displayName": "BG (TKO1)",
+      "displayName": "BG (NX1)",
       "type": "stage",
       "parentId": null,
       "kind": "process",
@@ -496,8 +496,8 @@
       "messages": 182340
     },
     {
-      "id": "TKO2-L3",
-      "site": "TKO2",
+      "id": "NX9-L3",
+      "site": "NX9",
       "name": "L3",
       "displayName": "L3",
       "type": "stage",
@@ -518,10 +518,10 @@
   ],
   "links": [
     {
-      "id": "TKO2-L1__TKO2-L2-B1",
-      "from": "TKO2-L1",
-      "to": "TKO2-L2-B1",
-      "parentId": "TKO2-L1__TKO2-L2",
+      "id": "NX9-L1__NX9-L2-B1",
+      "from": "NX9-L1",
+      "to": "NX9-L2-B1",
+      "parentId": "NX9-L1__NX9-L2",
       "group": "l1-l2",
       "kind": "intra",
       "status": "ok",
@@ -530,10 +530,10 @@
       "current": 34
     },
     {
-      "id": "TKO2-L2-B1__TKO2-L3",
-      "from": "TKO2-L2-B1",
-      "to": "TKO2-L3",
-      "parentId": "TKO2-L2__TKO2-L3",
+      "id": "NX9-L2-B1__NX9-L3",
+      "from": "NX9-L2-B1",
+      "to": "NX9-L3",
+      "parentId": "NX9-L2__NX9-L3",
       "group": "l2-l3",
       "kind": "intra",
       "status": "ok",
@@ -544,9 +544,9 @@
   ],
   "sourceFeeds": [
     {
-      "id": "TKO2-RT__SS",
-      "sourceNodeId": "TKO2-RT",
-      "site": "TKO2",
+      "id": "NX9-RT__SS",
+      "sourceNodeId": "NX9-RT",
+      "site": "NX9",
       "sourceName": "RT",
       "partition": "SS",
       "status": "ok",
@@ -559,9 +559,9 @@
 
 说明：
 
-- 上述示例中 `primaryL3NodeId = TKO1-L3`
-- 因此 `scope = TKO2` 的单站视图里，`TKO2-L3.isPrimary = false`
-- 该快照下不应返回任何 `from = TKO2-L3` 且 `group = "l3-bg"` 的线路
+- 上述示例中 `primaryL3NodeId = NX1-L3`
+- 因此 `scope = NX9` 的单站视图里，`NX9-L3.isPrimary = false`
+- 该快照下不应返回任何 `from = NX9-L3` 且 `group = "l3-bg"` 的线路
 
 ## 11. 与前端显示规则的对应关系
 
