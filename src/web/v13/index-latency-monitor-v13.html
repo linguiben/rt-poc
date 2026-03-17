@@ -2033,79 +2033,55 @@
       OMDC: ["HK"],
       CIIS: ["SS", "BJ"]
     };
-    /* source 卡片内部小 feed 的视觉模式。
-       key 为 "站点-source 名称"，value 为各分区到出口线的视觉级别。 */
-    const sourceFeedModes = {
-      "NX9-RT": { SS: "primary", SZ: "primary"},
-      "NX9-OMDC": { HK: "primary" },
-      "NX9-CIIS": { BJ: "primary" },
-      "NX1-RT": { SS: "primary", SZ: "primary"},
-      "NX1-OMDC": { HK: "primary" },
-      "NX1-CIIS": { BJ: "primary" },
-      "NX2-RT": { HK: "primary"},
-      "NX2-BB": { SS: "primary", SZ: "primary"},
-      "NX2-CIIS": { BJ: "primary" },
-    };
-    /* 主拓扑链路的视觉模式。
-       primary 的线路会出现脉冲光波效果。
-       这里的 primary 是纯视觉概念，不等同于 link.kind。 */
-    const routeVisualModes = {
-      "NX1-OMDC__NX1-L1": "primary",
-      "NX1-RT__NX1-L1": "primary",
-      "NX1-CIIS__NX1-L1": "primary",
-      "NX1-L1__NX1-L2": "primary",
-      "NX1-L2__NX1-L3": "primary",
-      "NX2-L1__NX2-L2": "primary",
-      "NX2-L2__NX2-L3": "primary",
-      "NX9-OMDC__NX9-L1": "primary",
-      "NX9-RT__NX9-L1": "primary",
-      "NX9-CIIS__NX9-L1": "primary",
-      "NX9-L1__NX9-L2": "primary",
-      "NX9-L2__NX9-L3": "primary",
-
-      // 发生role swap 之后
-      "NX1-L3__NX1-BG": "primary",
-      "NX1-L3__NX9-BG": "primary",
-      "NX1-L3__NX2-BG": "primary",
-      // "NX9-L3__NX1-BG": "primary",
-      // "NX9-L3__NX9-BG": "primary",
-      // "NX9-L3__NX2-BG": "primary",
-      "NX1-BG__NX1-HCS": "primary",
-      "NX9-BG__NX9-HCS": "primary",
-      "NX2-RT__NX2-L1": "primary",
-      "NX2-BB__NX2-L1": "primary",
-      "NX2-CIIS__NX2-L1": "primary",
-      "NX2-BG__NX2-HCS": "primary"
-    };
-    const sourceFeedBaseLatency = {
+    const initialPrimaryTower = "NX9";  // Primary Site
+    const initialPrimaryL3NodeId = "NX9-L3";  // Primary L3
+    const initialPrimarySourceFeedIds = new Set([
+      "NX9-RT__SS",
+      "NX9-RT__SZ",
+      "NX9-OMDC__HK",
+      "NX9-CIIS__BJ",
+      "NX1-RT__SS",
+      "NX1-RT__SZ",
+      "NX1-OMDC__HK",
+      "NX1-CIIS__BJ",
+      "NX2-RT__HK",
+      "NX2-BB__SS",
+      "NX2-BB__SZ",
+      "NX2-CIIS__BJ"
+    ]);
+    const initialPrimaryLinkIds = new Set([
+      "NX1-OMDC__NX1-L1",
+      "NX1-RT__NX1-L1",
+      "NX1-CIIS__NX1-L1",
+      "NX1-L1__NX1-L2",
+      "NX1-L2__NX1-L3",
+      "NX2-L1__NX2-L2",
+      "NX2-L2__NX2-L3",
+      "NX9-OMDC__NX9-L1",
+      "NX9-RT__NX9-L1",
+      "NX9-CIIS__NX9-L1",
+      "NX9-L1__NX9-L2",
+      "NX9-L2__NX9-L3",
+      "NX1-BG__NX1-HCS",
+      "NX9-BG__NX9-HCS",
+      "NX2-RT__NX2-L1",
+      "NX2-BB__NX2-L1",
+      "NX2-CIIS__NX2-L1",
+      "NX2-BG__NX2-HCS"
+    ]);
+    const mockSourceFeedBaseLatency = {
       RT: { SS: 28, SZ: 30, HK: 32 },
       BB: { SS: 29, SZ: 31, HK: 34 },
       OMDC: { HK: 26 },
       CIIS: { SS: 31, BJ: 29 }
     };
-    const sourceFeedSiteBias = { NX1: 4, NX9: 0, NX2: 3 };
-    const sourceFeedCurrentLift = {
+    const mockSourceFeedSiteBias = { NX1: 4, NX9: 0, NX2: 3 };
+    const mockSourceFeedCurrentLift = {
       RT: { SS: 3, SZ: 4, HK: 3 },
       BB: { SS: 4, SZ: 5, HK: 4 },
       OMDC: { HK: 3 },
       CIIS: { SS: 4, BJ: 3 }
     };
-    const sourceFeedLatencies = {};
-
-    siteOrder.forEach((site) => {
-      sourceNames.forEach((name) => {
-        (sourcePartitions[name] || []).forEach((part, idx) => {
-          const baseSeed = sourceFeedBaseLatency[name]?.[part] ?? 26;
-          const base = baseSeed + (sourceFeedSiteBias[site] || 0) + idx;
-          const anchor = base + (sourceFeedCurrentLift[name]?.[part] ?? 3);
-          sourceFeedLatencies[`${site}-${name}__${part}`] = {
-            base,
-            current: anchor,
-            anchor
-          };
-        });
-      });
-    });
     const summaryCardDefaults = {
       externalSources: { healthy: 27, total: 27 },
       capturesL1: { healthy: 9, total: 9 },
@@ -2116,7 +2092,7 @@
       vendors: { healthy: 10, total: 10 }
     };
 
-    /* 所有节点的运行时数据都放在这里。 */
+    /* ALL-SITES 静态节点模板。 */
     const nodes = [];
 
     /* 生成最上层 source 节点。
@@ -2129,17 +2105,13 @@
           name,
           type: "source",
           x: towers[site].x + sourceOffsets[idx],
-          y: levelY.sources,
-          rate: site === "NX9" ? 940 - idx * 20 : site === "NX2" ? 900 - idx * 17 : 890 - idx * 18
+          y: levelY.sources
         });
       });
     });
 
-    /* 每座塔业务层节点的初始种子数据。
-       这些值会在首次 render 时显示，后续再由 evolveNodes() 做轻微波动。
-       kind 会影响卡片配色；messages 目前只对 BG 生效；
-       cpu / mem 用于卡片底部资源条。 */
-    const stageSeed = {
+    /* 本地 mock 用的节点状态种子。后续接 API 时只需要替换取数层。 */
+    const mockStageMetricsSeed = {
       NX1: {
         L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, kind: "flow" },
         L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, kind: "process" },
@@ -2163,9 +2135,10 @@
       }
     };
 
-    /* 根据 stageSeed 生成各塔的 L1/L2/L3/BG/HCS 节点。 */
+    /* 业务层静态模板只保留几何和业务种类，不再携带当前数值。 */
     siteOrder.forEach((site) => {
       ["L1", "L2", "L3", "BG", "HCS"].forEach((name) => {
+        const stageSeed = mockStageMetricsSeed[site][name];
         nodes.push({
           id: site + "-" + name,
           site,
@@ -2173,22 +2146,19 @@
           type: "stage",
           x: towers[site].stagesX,
           y: levelY[name.toLowerCase()],
-          ...stageSeed[site][name]
+          kind: stageSeed.kind
         });
       });
     });
 
-    /* 通过 id 建索引，后面画线时可以 O(1) 找到起点终点节点。 */
-    const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
-
-    /* 所有链路数据都放这里。 */
+    /* ALL-SITES 静态链路模板。 */
     const links = [];
 
     /* 统一新增链路的辅助函数。
        group 用于“业务分组”和“路径几何规则”；
        kind 用于“视觉风格”和“告警文本”。 */
-    function createLink(from, to, base, group, kind, current, extra = {}) {
-      return { id: from + "__" + to, from, to, base, group, kind, current, ...extra };
+    function createLink(from, to, base, group, kind, seedCurrent, extra = {}) {
+      return { id: from + "__" + to, from, to, base, group, kind, seedCurrent, ...extra };
     }
 
     function addLink(targetOrFrom, maybeFrom, maybeTo, maybeBase, maybeGroup, maybeKind, maybeCurrent, maybeExtra = {}) {
@@ -2199,13 +2169,13 @@
       const base = useCustomTarget ? maybeBase : maybeTo;
       const group = useCustomTarget ? maybeGroup : maybeBase;
       const kind = useCustomTarget ? maybeKind : maybeGroup;
-      const current = useCustomTarget ? maybeCurrent : maybeKind;
+      const seedCurrent = useCustomTarget ? maybeCurrent : maybeKind;
       const extra = useCustomTarget
         ? maybeExtra
         : maybeCurrent && typeof maybeCurrent === "object"
           ? maybeCurrent
           : {};
-      const link = createLink(from, to, base, group, kind, current, extra);
+      const link = createLink(from, to, base, group, kind, seedCurrent, extra);
       target.push(link);
       return link;
     }
@@ -2221,9 +2191,9 @@
     /* 下面是跨层、跨塔和反馈链路。
        维护时最重要的是理解：
        1. group 决定 controlPointsForLink() 里的路径计算分支
-       2. id 可能被 routeVariantClass() / labelT() / evolveLinks() 特判
+       2. id 可能被 routeVariantClass() / labelT() 特判
        3. 如果新增一类 group，通常还要同步补对应的汇总和说明逻辑 
-       4. 光波脉冲效果见 routeVisualModes */
+       4. 光波脉冲效果由 snapshot 里的 link.isPrimary 决定 */
     // addLink(from: , to: , base: , group: , kind: , current: )
     addLink("NX1-L2", "NX1-L3", 50, "l2-l3", "intra", 18);
     addLink("NX2-L2", "NX2-L3", 50, "l2-l3", "intra", 124);
@@ -2233,13 +2203,18 @@
     addLink("NX9-L2", "NX2-L3", 50, "l2-l3", "backup", 30);
     addLink("NX9-L2", "NX9-L3", 50, "l2-l3", "intra", 59);
 
-    // 发生了auto role swap 后的效果
-    addLink("NX1-L3", "NX1-BG", 30, "l3-bg", "intra", 92);
-    addLink("NX1-L3", "NX9-BG", 30, "l3-bg", "primary", 92);
-    addLink("NX1-L3", "NX2-BG", 30, "l3-bg", "primary", 92);
-    // addLink("NX9-L3", "NX1-BG", 30, "l3-bg", "primary", 92);
-    // addLink("NX9-L3", "NX2-BG", 30, "l3-bg", "primary", 86);
-    // addLink("NX9-L3", "NX9-BG", 30, "l3-bg", "intra", 34);
+    siteOrder.forEach((l3Site) => {
+      siteOrder.forEach((bgSite) => {
+        addLink(
+          `${l3Site}-L3`,
+          `${bgSite}-BG`,
+          30,
+          "l3-bg",
+          l3Site === bgSite ? "intra" : "primary",
+          bgSite === "NX9" ? 34 : bgSite === "NX2" ? 86 : 92
+        );
+      });
+    });
 
     addLink("NX1-BG", "NX1-L3", 30, "bg-l3-feedback", "feedback", 56);
     addLink("NX1-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 96);
@@ -2265,6 +2240,8 @@
     addLink("NX9-BG", "NX2-HCS", 30, "bg-hcs", "backup", 74);
     addLink("NX9-BG", "NX9-HCS", 30, "bg-hcs", "intra", 26);
 
+    /* 通过 id 建索引，供路径计算和单站模板复用。 */
+    const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
     const linkById = Object.fromEntries(links.map((link) => [link.id, link]));
 
     /* 页面上几个关键挂载点。
@@ -2305,11 +2282,6 @@
     const singleSiteBgCardGap = 12;
     const singleSiteBgCardHalfW = singleSiteBgCardWidth / 2;
     const singleSiteBgCardHalfH = singleSiteBgCardHeight / 2;
-    const singleSiteBgLinkDefaults = {
-      "l3-bg": { NX1: 92, NX9: 34, NX2: 86 },
-      "bg-l3-feedback": { NX1: 56, NX9: 52, NX2: 58 },
-      "bg-hcs": { NX1: 24, NX9: 26, NX2: 25 }
-    };
     const singleSiteDefaultGeometry = {
       boardWidth: 1572,
       sourceCaptionX: 236,
@@ -2550,7 +2522,199 @@
     }
 
     function statusClassForLink(link) {
+      if (link.status) return link.status;
+      if (link.current == null) return "unknown";
       return statusClass(link.current, thresholdsForLink(link));
+    }
+
+    function sourceRateSeed(site, index) {
+      if (site === "NX9") return 940 - index * 20;
+      if (site === "NX2") return 900 - index * 17;
+      return 890 - index * 18;
+    }
+
+    function deriveNodeStatusFromMetrics(metrics) {
+      if (metrics.p95Ms != null) return statusClass(metrics.p95Ms, defaultThresholds);
+      if (metrics.ratePerSec != null) return statusClass(Math.round(metrics.ratePerSec / 12), defaultThresholds);
+      return "unknown";
+    }
+
+    function createNodeState(metrics = {}, extra = {}) {
+      const normalizedMetrics = {
+        avgMs: metrics.avgMs ?? null,
+        p95Ms: metrics.p95Ms ?? null,
+        msgCount: metrics.msgCount ?? null,
+        cpuPct: metrics.cpuPct ?? null,
+        memPct: metrics.memPct ?? null,
+        ratePerSec: metrics.ratePerSec ?? null
+      };
+      return {
+        status: extra.status || deriveNodeStatusFromMetrics(normalizedMetrics),
+        isPrimary: !!extra.isPrimary,
+        metrics: normalizedMetrics
+      };
+    }
+
+    function createLinkState(latencyMs, group, extra = {}) {
+      return {
+        visible: extra.visible !== false,
+        status: extra.status || (latencyMs == null ? "unknown" : statusClass(latencyMs, thresholdsForGroup(group))),
+        isPrimary: !!extra.isPrimary,
+        latencyMs: latencyMs ?? null
+      };
+    }
+
+    function buildMockL2ServerMetrics(site, profile) {
+      const l2Seed = mockStageMetricsSeed[site].L2;
+      const baseCpu = l2Seed.cpu ?? l2Seed.load ?? 0;
+      const baseMem = l2Seed.mem ?? Math.min(100, baseCpu + 8);
+      const avgMs = clampInt(l2Seed.avg + profile.avgDelta, 1, 999);
+      const p95Ms = clampInt(Math.max(avgMs + 3, l2Seed.p95 + profile.p95Delta), avgMs + 3, 999);
+      const cpuPct = clampInt(baseCpu + profile.cpuDelta, 1, 99);
+      const memPct = clampInt(baseMem + profile.memDelta, 1, 99);
+      return { avgMs, p95Ms, cpuPct, memPct };
+    }
+
+    function isL3BgLinkId(linkId) {
+      const parts = linkId.split("__");
+      return parts.length === 2 && parts[0].endsWith("-L3") && parts[1].endsWith("-BG");
+    }
+
+    function syncPrimarySelection(snapshot) {
+      siteOrder.forEach((site) => {
+        const l3Id = `${site}-L3`;
+        if (!snapshot.nodeStatesById[l3Id]) {
+          snapshot.nodeStatesById[l3Id] = createNodeState();
+        }
+        snapshot.nodeStatesById[l3Id].isPrimary = l3Id === snapshot.primaryL3NodeId;
+      });
+
+      Object.entries(snapshot.linkStatesById).forEach(([linkId, linkState]) => {
+        if (!isL3BgLinkId(linkId)) return;
+        const [from] = linkId.split("__");
+        linkState.visible = from === snapshot.primaryL3NodeId;
+        linkState.isPrimary = linkState.visible;
+      });
+
+      return snapshot;
+    }
+
+    function buildMockSnapshotState() {
+      const snapshot = {
+        topologyTemplateVersion: "v13-static-1",
+        generatedAt: new Date().toISOString(),
+        refreshIntervalMs: 3000,
+        primaryTower: initialPrimaryTower,
+        primaryL3NodeId: initialPrimaryL3NodeId,
+        nodeStatesById: {},
+        linkStatesById: {},
+        sourceFeedStatesById: {}
+      };
+
+      siteOrder.forEach((site) => {
+        sourceNames.forEach((name, index) => {
+          snapshot.nodeStatesById[`${site}-${name}`] = createNodeState({
+            ratePerSec: sourceRateSeed(site, index)
+          });
+        });
+
+        ["L1", "L2", "L3", "BG", "HCS"].forEach((name) => {
+          const seed = mockStageMetricsSeed[site][name];
+          snapshot.nodeStatesById[`${site}-${name}`] = createNodeState({
+            avgMs: seed.avg,
+            p95Ms: seed.p95,
+            msgCount: seed.messages ?? null,
+            cpuPct: seed.cpu ?? seed.load ?? null,
+            memPct: seed.mem ?? null
+          });
+        });
+
+        singleSiteL2ServerProfiles.forEach((profile) => {
+          snapshot.nodeStatesById[`${site}-${profile.name}`] = createNodeState(buildMockL2ServerMetrics(site, profile));
+          snapshot.linkStatesById[`${site}-L1__${site}-${profile.name}`] = createLinkState(profile.ingressCurrent, "l1-l2");
+          snapshot.linkStatesById[`${site}-${profile.name}__${site}-L3`] = createLinkState(profile.egressCurrent, "l2-l3");
+        });
+      });
+
+      links.forEach((link) => {
+        snapshot.linkStatesById[link.id] = createLinkState(link.seedCurrent, link.group, {
+          isPrimary: initialPrimaryLinkIds.has(link.id)
+        });
+      });
+
+      siteOrder.forEach((site) => {
+        sourceNames.forEach((name) => {
+          (sourcePartitions[name] || []).forEach((part, idx) => {
+            const baseSeed = mockSourceFeedBaseLatency[name]?.[part] ?? 26;
+            const base = baseSeed + (mockSourceFeedSiteBias[site] || 0) + idx;
+            const latencyMs = base + (mockSourceFeedCurrentLift[name]?.[part] ?? 3);
+            const feedId = `${site}-${name}__${part}`;
+            snapshot.sourceFeedStatesById[feedId] = {
+              status: statusClass(latencyMs, thresholdsForGroup("sources")),
+              isPrimary: initialPrimarySourceFeedIds.has(feedId),
+              latencyMs
+            };
+          });
+        });
+      });
+
+      return syncPrimarySelection(snapshot);
+    }
+
+    function mergeNodeTemplateWithSnapshot(node, snapshot) {
+      const state = snapshot.nodeStatesById[node.id] || createNodeState();
+      const metrics = state.metrics || {};
+      return {
+        ...node,
+        status: state.status || "unknown",
+        isPrimary: !!state.isPrimary,
+        rate: metrics.ratePerSec,
+        avg: metrics.avgMs,
+        p95: metrics.p95Ms,
+        load: metrics.cpuPct,
+        cpu: metrics.cpuPct,
+        mem: metrics.memPct,
+        messages: metrics.msgCount
+      };
+    }
+
+    function mergeLinkTemplateWithSnapshot(link, snapshot) {
+      const state = snapshot.linkStatesById[link.id] || createLinkState(link.seedCurrent, link.group);
+      return {
+        ...link,
+        current: state.latencyMs,
+        status: state.status || "unknown",
+        isPrimary: !!state.isPrimary,
+        visible: state.visible !== false
+      };
+    }
+
+    let topologySnapshot = buildMockSnapshotState();
+
+    function applyTopologySnapshot(nextSnapshot) {
+      topologySnapshot = syncPrimarySelection({
+        topologyTemplateVersion: nextSnapshot.topologyTemplateVersion || topologySnapshot.topologyTemplateVersion,
+        generatedAt: nextSnapshot.generatedAt || new Date().toISOString(),
+        refreshIntervalMs: nextSnapshot.refreshIntervalMs || topologySnapshot.refreshIntervalMs,
+        primaryTower: nextSnapshot.primaryTower || topologySnapshot.primaryTower,
+        primaryL3NodeId: nextSnapshot.primaryL3NodeId || topologySnapshot.primaryL3NodeId,
+        nodeStatesById: nextSnapshot.nodeStatesById || {},
+        linkStatesById: nextSnapshot.linkStatesById || {},
+        sourceFeedStatesById: nextSnapshot.sourceFeedStatesById || {}
+      });
+      render();
+    }
+
+    function buildAllSitesTopologyState() {
+      const mergedNodes = nodes.map((node) => mergeNodeTemplateWithSnapshot(node, topologySnapshot));
+      const mergedLinks = links
+        .map((link) => mergeLinkTemplateWithSnapshot(link, topologySnapshot))
+        .filter((link) => link.visible !== false);
+      return {
+        nodes: mergedNodes,
+        nodeById: Object.fromEntries(mergedNodes.map((node) => [node.id, node])),
+        links: mergedLinks
+      };
     }
 
     /* 预留的链路主色选择函数。
@@ -2573,7 +2737,7 @@
     }
 
     function routeVisualMode(link) {
-      return routeVisualModes[link.id] || "";
+      return link.isPrimary ? "primary" : "";
     }
 
     /* 把业务链路 id 转成安全的 SVG path id。 */
@@ -2707,8 +2871,8 @@
     }
 
     function sourceFeedMode(node, part) {
-      const modes = sourceFeedModes[`${node.site}-${node.name}`] || {};
-      return modes[part] || "";
+      const feedState = topologySnapshot.sourceFeedStatesById[sourceFeedKey(node, part)];
+      return feedState && feedState.isPrimary ? "primary" : "";
     }
 
     function sourceFeedKey(node, part) {
@@ -2716,15 +2880,19 @@
     }
 
     function sourceFeedLatency(node, part) {
-      return sourceFeedLatencies[sourceFeedKey(node, part)] || { base: 0, current: 0, anchor: 0 };
+      return topologySnapshot.sourceFeedStatesById[sourceFeedKey(node, part)] || {
+        status: "unknown",
+        isPrimary: false,
+        latencyMs: null
+      };
     }
 
     function sourceFeedSeverity(node, part) {
-      return statusClass(sourceFeedLatency(node, part).current, thresholdsForGroup("sources"));
+      return sourceFeedLatency(node, part).status || "unknown";
     }
 
     function sourceFeedLabelText(latency, compact) {
-      return `${latency.current}ms`;
+      return latency.latencyMs == null ? "--" : `${latency.latencyMs}ms`;
     }
 
     function staggerOffset(index, total, step) {
@@ -2865,7 +3033,7 @@
 
     /* source 节点用 rate 粗略映射状态，stage 节点用 p95 映射状态。 */
     function nodeStatus(node) {
-      return statusClass(node.p95 || Math.round(node.rate / 12), defaultThresholds);
+      return node.status || statusClass(node.p95 || Math.round((node.rate || 0) / 12), defaultThresholds);
     }
 
     /* 生成资源进度条 HTML。
@@ -2892,13 +3060,15 @@
     }
 
     function stageMetricsHtml(node, tone) {
+      const avgText = node.avg == null ? "--" : `${node.avg}ms`;
+      const p95Text = node.p95 == null ? "--" : `${node.p95}ms`;
       const msgLine = node.name === "BG"
         ? `<div class="line msg"><span>MSG:</span><strong>${(node.messages || 0).toLocaleString()}</strong></div>`
         : "";
       return `
         <div class="metrics">
-          <div class="line"><span>AVG</span><strong>${node.avg}ms</strong></div>
-          <div class="line"><span>P95</span><strong class="${tone}">${node.p95}ms</strong></div>
+          <div class="line"><span>AVG</span><strong>${avgText}</strong></div>
+          <div class="line"><span>P95</span><strong class="${tone}">${p95Text}</strong></div>
           ${msgLine}
         </div>
       `;
@@ -3244,12 +3414,13 @@
     /* 全站拓扑渲染。
        这一块沿用 v9 的三塔布局，只是改成从当前 board 动态获取挂载层。 */
     function renderAllSitesTopology() {
+      const state = buildAllSitesTopologyState();
       const { routeLayer, labelLayer, nodeLayer } = topologyLayers();
       if (!routeLayer || !labelLayer || !nodeLayer) return;
 
-      nodeLayer.innerHTML = nodes.map(nodeHtml).join("");
+      nodeLayer.innerHTML = state.nodes.map(nodeHtml).join("");
 
-      routeLayer.innerHTML = links.map((link) => {
+      routeLayer.innerHTML = state.links.map((link) => {
         const path = pathForLink(link);
         const severity = statusClassForLink(link);
         const variant = routeVariantClass(link);
@@ -3268,7 +3439,7 @@
         });
       }).join("");
 
-      labelLayer.innerHTML = links.map((link) => {
+      labelLayer.innerHTML = state.links.map((link) => {
         const point = labelPoint(link);
         const severity = statusClassForLink(link);
         return latencyLabelMarkup({
@@ -3281,7 +3452,7 @@
       }).join("");
     }
 
-    function buildSingleSiteTopologyState(site) {
+    function buildSingleSiteTopologyTemplate(site) {
       const geometry = singleSiteGeometry();
       const singleSiteNodes = [];
 
@@ -3325,12 +3496,7 @@
 
       const l2Node = singleSiteNodes.find((node) => node.id === `${site}-L2`);
       const singleSiteL2Servers = l2Node
-        ? l2ClusterServers(l2Node).map((server) => ({
-            ...server,
-            type: "stage-fragment",
-            hidden: true,
-            parentId: l2Node.id
-          }))
+        ? buildSingleSiteL2ServerTemplates(l2Node)
         : [];
 
       singleSiteNodes.push(...singleSiteL2Servers);
@@ -3351,10 +3517,10 @@
           singleSiteLinks,
           `${site}-L1`,
           server.id,
-          Math.max(10, server.ingressCurrent - 4),
+          30,
           "l1-l2",
           "intra",
-          server.ingressCurrent,
+          server.seedCurrent,
           { parentId: l1L2ParentLink ? l1L2ParentLink.id : "", branchIndex: server.branchIndex, singleSiteDerived: true }
         );
       });
@@ -3364,10 +3530,10 @@
           singleSiteLinks,
           server.id,
           `${site}-L3`,
-          Math.max(10, server.egressCurrent - 4),
+          50,
           "l2-l3",
           "intra",
-          server.egressCurrent,
+          server.seedCurrentEgress,
           { parentId: l2L3ParentLink ? l2L3ParentLink.id : "", branchIndex: server.branchIndex, singleSiteDerived: true }
         );
       });
@@ -3382,10 +3548,10 @@
           singleSiteLinks,
           `${site}-L3`,
           `${bgSite}-BG`,
-          Math.max(10, (singleSiteBgLinkDefaults["l3-bg"][bgSite] || 36) - 4),
+          30,
           "l3-bg",
           l3BgKind,
-          singleSiteBgLinkDefaults["l3-bg"][bgSite] || 36,
+          0,
           { branchIndex: bgIndex, singleSiteBgLink: true, bgSite }
         );
 
@@ -3393,10 +3559,10 @@
           singleSiteLinks,
           `${bgSite}-BG`,
           `${site}-L3`,
-          Math.max(10, (singleSiteBgLinkDefaults["bg-l3-feedback"][bgSite] || 28) - 4),
+          30,
           "bg-l3-feedback",
           "feedback",
-          singleSiteBgLinkDefaults["bg-l3-feedback"][bgSite] || 28,
+          0,
           { branchIndex: bgIndex, singleSiteBgLink: true, bgSite }
         );
 
@@ -3404,10 +3570,10 @@
           singleSiteLinks,
           `${bgSite}-BG`,
           `${site}-HCS`,
-          Math.max(10, (singleSiteBgLinkDefaults["bg-hcs"][bgSite] || 24) - 4),
+          30,
           "bg-hcs",
           bgHcsKind,
-          singleSiteBgLinkDefaults["bg-hcs"][bgSite] || 24,
+          0,
           { branchIndex: bgIndex, singleSiteBgLink: true, bgSite }
         );
       });
@@ -3426,6 +3592,19 @@
       };
     }
 
+    function buildSingleSiteTopologyState(site) {
+      const template = buildSingleSiteTopologyTemplate(site);
+      const mergedNodes = template.nodes.map((node) => mergeNodeTemplateWithSnapshot(node, topologySnapshot));
+      const mergedLinks = template.links
+        .map((link) => mergeLinkTemplateWithSnapshot(link, topologySnapshot))
+        .filter((link) => link.visible !== false);
+      return {
+        nodes: mergedNodes,
+        nodeById: Object.fromEntries(mergedNodes.map((node) => [node.id, node])),
+        links: mergedLinks
+      };
+    }
+
     function singleSiteSourcePartitionsHtml(node) {
       const parts = sourcePartitions[node.name];
       if (!parts || parts.length === 0) return "";
@@ -3440,49 +3619,50 @@
       return sourceFeedSvgMarkup(node, "single");
     }
 
-    function l2ClusterServers(node) {
-      const baseCpu = node.cpu ?? node.load ?? 0;
-      const baseMem = node.mem ?? Math.min(100, baseCpu + 8);
+    function buildSingleSiteL2ServerTemplates(node) {
       const firstServerY = node.y - singleSiteL2ClusterHalfH + singleSiteL2ServerHalfH;
       return singleSiteL2ServerProfiles.map((profile, index) => {
-        const avg = clampInt(node.avg + profile.avgDelta, 1, 999);
-        const p95 = clampInt(Math.max(avg + 3, node.p95 + profile.p95Delta), avg + 3, 999);
-        const cpu = clampInt(baseCpu + profile.cpuDelta, 1, 99);
-        const mem = clampInt(baseMem + profile.memDelta, 1, 99);
         return {
-          ...profile,
           id: `${node.site}-${profile.name}`,
           site: node.site,
+          name: "L2",
+          titleLabel: profile.name,
+          type: "stage-fragment",
           x: node.x,
           y: firstServerY + index * (singleSiteL2ServerCardHeight + singleSiteL2ServerGap),
           anchorHalfW: singleSiteL2ServerHalfW,
           anchorHalfH: singleSiteL2ServerHalfH,
           branchIndex: index,
-          avg,
-          p95,
-          cpu,
-          mem,
-          tone: statusClass(p95, defaultThresholds)
+          parentId: node.id,
+          hidden: true,
+          seedCurrent: profile.ingressCurrent,
+          seedCurrentEgress: profile.egressCurrent
         };
       });
     }
 
-    function singleSiteL2ClusterHtml(node) {
-      const servers = l2ClusterServers(node);
+    function singleSiteL2ServerNodes(node, state) {
+      return singleSiteL2ServerProfiles
+        .map((profile) => state.nodeById[`${node.site}-${profile.name}`])
+        .filter(Boolean);
+    }
+
+    function singleSiteL2ClusterHtml(node, state) {
+      const servers = singleSiteL2ServerNodes(node, state);
       return `
         <article class="node stage process l2-cluster" style="left:${node.x - singleSiteL2ClusterHalfW}px; top:${node.y - singleSiteL2ClusterHalfH}px;">
           <div class="l2-server-stack">
             ${servers.map((server) => `
               <section class="l2-server">
                 <div class="server-head">
-                  <span>${server.name}</span>
-                  <span class="badge ${server.tone}">${server.tone}</span>
+                  <span>${server.titleLabel || server.id}</span>
+                  <span class="badge ${nodeStatus(server)}">${nodeStatus(server)}</span>
                 </div>
                 <div class="server-metrics">
-                  <div class="server-metric">AVG<strong>${server.avg}ms</strong></div>
-                  <div class="server-metric">P95<strong class="${server.tone}">${server.p95}ms</strong></div>
-                  <div class="server-metric">CPU<strong>${server.cpu}%</strong></div>
-                  <div class="server-metric">MEM<strong>${server.mem}%</strong></div>
+                  <div class="server-metric">AVG<strong>${server.avg == null ? "--" : `${server.avg}ms`}</strong></div>
+                  <div class="server-metric">P95<strong class="${nodeStatus(server)}">${server.p95 == null ? "--" : `${server.p95}ms`}</strong></div>
+                  <div class="server-metric">CPU<strong>${server.cpu == null ? "--" : `${server.cpu}%`}</strong></div>
+                  <div class="server-metric">MEM<strong>${server.mem == null ? "--" : `${server.mem}%`}</strong></div>
                 </div>
               </section>
             `).join("")}
@@ -3491,7 +3671,7 @@
       `;
     }
 
-    function singleSiteNodeHtml(node) {
+    function singleSiteNodeHtml(node, state) {
       if (node.type === "source") {
         const tone = nodeStatus(node);
         return `
@@ -3508,7 +3688,7 @@
       }
 
       if (node.name === "L2") {
-        return singleSiteL2ClusterHtml(node);
+        return singleSiteL2ClusterHtml(node, state);
       }
 
       const tone = nodeStatus(node);
@@ -3748,8 +3928,7 @@
     }
 
     function singleSiteRouteVisualMode(link, site) {
-      if (link.id === `${site}-L3__${site}-BG`) return "primary";
-      return routeVisualModes[link.id] || "";
+      return link.isPrimary ? "primary" : "";
     }
 
     function renderSingleSiteTopology(site) {
@@ -3757,7 +3936,7 @@
       const { routeLayer, labelLayer, nodeLayer } = topologyLayers();
       if (!routeLayer || !labelLayer || !nodeLayer) return;
 
-      nodeLayer.innerHTML = state.nodes.filter((node) => !node.hidden).map(singleSiteNodeHtml).join("");
+      nodeLayer.innerHTML = state.nodes.filter((node) => !node.hidden).map((node) => singleSiteNodeHtml(node, state)).join("");
 
       routeLayer.innerHTML = state.links.map((link) => {
         const path = singleSitePathForLink(link, state);
@@ -3813,8 +3992,10 @@
     /* 渲染事件流。
        这里不是严格日志，而是从当前最热路径生成一段说明性文本。 */
     function renderFeed() {
+      const state = buildAllSitesTopologyState();
       const time = nowText();
-      const items = [...links]
+      const items = [...state.links]
+        .filter((link) => link.current != null)
         .sort((a, b) => b.current - a.current)
         .slice(0, 5)
         .map((link) => {
@@ -3839,12 +4020,13 @@
     /* 渲染顶部摘要和统计卡。
        这是多个模块的汇总层，依赖 links / nodes 当前状态。 */
     function renderSummary() {
-      const warns = links.filter((link) => statusClassForLink(link) === "warn").length;
-      const criticals = links.filter((link) => statusClassForLink(link) === "critical").length;
+      const state = buildAllSitesTopologyState();
+      const warns = state.links.filter((link) => statusClassForLink(link) === "warn").length;
+      const criticals = state.links.filter((link) => statusClassForLink(link) === "critical").length;
       const alertTone = criticals > 0 ? "critical" : warns > 0 ? "warn" : "cyan";
       const heroAlerts = document.getElementById("heroAlerts");
 
-      document.getElementById("heroPrimary").textContent = "NX9";
+      document.getElementById("heroPrimary").textContent = topologySnapshot.primaryTower;
       document.getElementById("heroClock").textContent = nowText();
       heroAlerts.textContent = `${warns} / ${criticals}`;
       heroAlerts.className = `val ${alertTone}`;
@@ -3858,103 +4040,16 @@
       document.getElementById("statVendors").textContent = summaryPairText(summaryCardDefaults.vendors);
     }
 
-    /* 生成围绕基准值上下波动的随机数，并限制最小值。 */
-    function jitter(base, range, floor) {
-      return Math.max(floor, Math.round(base + (Math.random() - 0.5) * range));
-    }
-
-    /* 让节点数据随时间轻微变化，模拟实时监控效果。
-       这里不会新增/删除节点，只会修改现有字段。 */
-    function evolveNodes() {
-      nodes.forEach((node) => {
-        if (node.type === "source") {
-          node.rate = jitter(node.rate, 40, 700);
-          return;
-        }
-        /* L3 设更大波动，体现它是主要热点层。 */
-        const scale = node.name === "L3" ? 12 : 7;
-        node.avg = jitter(node.avg, scale, 2);
-        node.p95 = jitter(node.p95, scale * 1.5, node.avg + 3);
-        node.cpu = Math.max(8, Math.min(96, jitter(node.cpu ?? node.load ?? 20, scale * 1.7, 8)));
-        node.mem = Math.max(10, Math.min(98, jitter(node.mem ?? (node.cpu + 8), scale * 1.4, 10)));
-        /* 保留 load 这个旧字段，避免后续其它逻辑还引用它时拿不到值。 */
-        node.load = node.cpu;
-        if (node.name === "BG") {
-          node.messages = jitter(node.messages || 180000, 12000, 100000);
-        }
-      });
-    }
-
-    /* 让链路耗时围绕锚点波动。
-       anchors 是“这条链路大概应该落在哪个延迟区间”的基准值。
-       如果新增链路但不加 anchor，它仍会工作，只是会退回到 base + 2 的粗略默认值。 */
-    function evolveLinks() {
-      const anchors = {
-        "NX1-L2__NX1-L3": 118,
-        "NX2-L2__NX2-L3": 124,
-        "NX1-L2__NX9-L3": 168,
-        "NX2-L2__NX9-L3": 174,
-        "NX9-L2__NX1-L3": 196,
-        "NX9-L2__NX2-L3": 182,
-        "NX9-L2__NX9-L3": 144,
-        "NX9-L3__NX1-BG": 92,
-        "NX9-L3__NX2-BG": 86,
-        "NX9-L3__NX9-BG": 34,
-        "NX1-BG__NX1-L3": 56,
-        "NX1-BG__NX9-L3": 96,
-        "NX2-BG__NX2-L3": 58,
-        "NX2-BG__NX9-L3": 94,
-        "NX9-BG__NX1-L3": 88,
-        "NX9-BG__NX2-L3": 82,
-        "NX9-BG__NX9-L3": 52,
-        "NX1-L3__NX1-L1": 48,
-        "NX1-L3__NX9-L1": 102,
-        "NX2-L3__NX2-L1": 52,
-        "NX2-L3__NX9-L1": 98,
-        "NX9-L3__NX1-L1": 124,
-        "NX9-L3__NX2-L1": 116,
-        "NX9-L3__NX9-L1": 61,
-        "NX1-BG__NX1-HCS": 24,
-        "NX1-BG__NX9-HCS": 72,
-        "NX2-BG__NX2-HCS": 25,
-        "NX2-BG__NX9-HCS": 70,
-        "NX9-BG__NX1-HCS": 78,
-        "NX9-BG__NX2-HCS": 74,
-        "NX9-BG__NX9-HCS": 26
-      };
-
-      links.forEach((link) => {
-        const anchor = anchors[link.id] || link.base + 2;
-        const swing = link.kind === "primary" ? 18 : link.kind === "backup" ? 14 : link.kind === "feedback" ? 14 : 6;
-        link.current = jitter(anchor, swing, link.base);
-      });
-    }
-
-    function evolveSourceFeeds() {
-      Object.values(sourceFeedLatencies).forEach((latency) => {
-        latency.current = jitter(latency.anchor || latency.base + 3, 7, latency.base);
-      });
-    }
-
     /* 总渲染入口。
-       任何时候只要 nodes / links 发生变化，最终都应该调用它。 */
+       当前页面已改为 snapshot 驱动；接 API 后只需要替换 topologySnapshot 即可。 */
     function render() {
       renderTopology();
       renderFeed();
       renderSummary();
     }
 
-    /* 一个完整刷新周期：先改数据，再重新渲染。 */
-    function evolve() {
-      evolveNodes();
-      evolveLinks();
-      evolveSourceFeeds();
-      render();
-    }
-
-    /* 首次加载先渲染一次，然后每 2.4 秒刷新。 */
+    /* 首次加载先渲染一次。 */
     render();
-    // setInterval(evolve, 2400);
   </script>
 </body>
 </html>
