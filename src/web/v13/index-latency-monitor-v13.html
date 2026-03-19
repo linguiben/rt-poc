@@ -810,7 +810,7 @@
       stroke-width: 3px;
     }
 
-    /* 每一层的文字标题，比如 External Feeds / BG Dispatch。
+    /* 每一层的文字标题，比如 External Sources / BG Dispatch。
        这里只是说明标签，不会驱动节点位置。 */
     .tower-caption {
       position: absolute;
@@ -822,6 +822,13 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       font-size: 12px;
+    }
+
+    .tower-caption.side-meaning {
+      width: 220px;
+      left: 0;
+      transform: translateY(-50%);
+      text-align: left;
     }
 
     .topology-board.layout-single .tower-caption {
@@ -1898,21 +1905,26 @@
                 如果你调整 levelY（节点真实纵坐标），这里通常也要同步调整 top，
                 否则会出现“文字标题和卡片层级对不上”的问题。
               -->
-              <div class="tower-caption" style="left:292px; top:96px;">External Feeds</div>
-              <div class="tower-caption" style="left:820px; top:96px;">External Feeds</div>
-              <div class="tower-caption" style="left:1348px; top:96px;">External Feeds</div>
+              <div class="tower-caption" style="left:292px; top:96px;">External Sources</div>
+              <div class="tower-caption" style="left:820px; top:96px;">External Sources</div>
+              <div class="tower-caption" style="left:1348px; top:96px;">External Sources</div>
+              <div class="tower-caption side-meaning" style="left:15px; top:350px;">CAPTURE</div>
               <div class="tower-caption" style="left:292px; top:288px;">Input Gate</div>
               <div class="tower-caption" style="left:820px; top:288px;">Input Gate</div>
               <div class="tower-caption" style="left:1348px; top:288px;">Input Gate</div>
+              <div class="tower-caption side-meaning" style="left:15px; top:510px;">CALCULATION</div>
               <div class="tower-caption" style="left:292px; top:452px;">Process Layer</div>
               <div class="tower-caption" style="left:820px; top:452px;">Process Layer</div>
               <div class="tower-caption" style="left:1348px; top:452px;">Process Layer</div>
+              <div class="tower-caption side-meaning" style="left:15px; top:670px;">RECONCILIATION</div>
               <div class="tower-caption" style="left:292px; top:612px;">Compute Layer</div>
               <div class="tower-caption" style="left:820px; top:612px;">Compute Layer</div>
               <div class="tower-caption" style="left:1348px; top:612px;">Compute Layer</div>
+              <div class="tower-caption side-meaning" style="left:15px; top:847px;">BROADCASTGATEWAYS</div>
               <div class="tower-caption" style="left:292px; top:789px;">BG Dispatch</div>
               <div class="tower-caption" style="left:820px; top:789px;">BG Dispatch</div>
               <div class="tower-caption" style="left:1348px; top:789px;">BG Dispatch</div>
+              <div class="tower-caption side-meaning" style="left:15px; top:1007px;">HEALTHCHECK</div>
               <div class="tower-caption" style="left:292px; top:949px;">HCS Delivery</div>
               <div class="tower-caption" style="left:820px; top:949px;">HCS Delivery</div>
               <div class="tower-caption" style="left:1348px; top:949px;">HCS Delivery</div>
@@ -2388,7 +2400,7 @@
         <div class="tower single">
           <div class="tower-tag">${towerTagMarkup(site)}</div>
         </div>
-        <div class="tower-caption sources-cluster" style="left:${geometry.sourceCaptionX}px;">External Feeds</div>
+        <div class="tower-caption sources-cluster" style="left:${geometry.sourceCaptionX}px;">External Sources</div>
         <div class="tower-caption" style="left:${geometry.stageX.L1}px;">Capture (L1)</div>
         <div class="tower-caption" style="left:${geometry.stageX.L2}px;">Calculation (L2)</div>
         <div class="tower-caption" style="left:${geometry.stageX.L3}px;">Reconciliation (L3)</div>
@@ -2710,7 +2722,7 @@
     }
 
     /* 给特定链路附加视觉变体类。
-       当前 EXTERNAL FEEDS -> L1 默认统一，不再按 site 额外弱化。 */
+       当前 External Sources -> L1 默认统一，不再按 site 额外弱化。 */
     function routeVariantClass(link) {
       return "";
     }
