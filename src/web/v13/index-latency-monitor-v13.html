@@ -108,6 +108,23 @@
       50% { opacity: 0.45; }
     }
 
+    /* 当前 primary tower 的边框呼吸效果。
+       影响范围：仅用于 ALL-SITES 视图中被选为主站的塔背景高亮。 */
+    @keyframes towerPrimaryPulse {
+      0%, 100% {
+        opacity: 0.7;
+        box-shadow:
+          0 0 0 rgba(255, 215, 104, 0),
+          inset 0 0 0 rgba(255, 215, 104, 0);
+      }
+      50% {
+        opacity: 1;
+        box-shadow:
+          0 0 24px rgba(255, 215, 104, 0.14),
+          inset 0 0 30px rgba(255, 215, 104, 0.08);
+      }
+    }
+
     /* 页面最大宽度容器，控制整体居中和外边距。 */
     .app {
       max-width: 1940px;
@@ -380,7 +397,8 @@
       flex-wrap: wrap;
     }
 
-    .site-switch-btn {
+    .site-switch-btn,
+    .flow-toggle-btn {
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 999px;
       padding: 5px 10px;
@@ -395,47 +413,22 @@
       transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     }
 
-    .site-switch-btn:hover {
+    .site-switch-btn:hover,
+    .flow-toggle-btn:hover {
       border-color: rgba(99,230,255,0.28);
       background: rgba(99,230,255,0.1);
       color: var(--text);
     }
 
-    .site-switch-btn[aria-pressed="true"] {
+    .site-switch-btn[aria-pressed="true"],
+    .flow-toggle-btn[aria-pressed="true"] {
       border-color: rgba(99,230,255,0.44);
       background: rgba(99,230,255,0.16);
       color: var(--text);
       box-shadow: 0 0 18px rgba(99,230,255,0.12);
     }
 
-    /* 线条流动开关按钮。
-       影响范围：仅“Vertical Triple-Tower Topology”标题栏里的交互按钮。 */
-    .flow-toggle-btn {
-      border: 1px solid rgba(99,230,255,0.3);
-      border-radius: 999px;
-      padding: 6px 12px;
-      background: rgba(99,230,255,0.12);
-      color: var(--text);
-      font: inherit;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
-    }
-
-    .flow-toggle-btn:hover {
-      border-color: rgba(99,230,255,0.55);
-      background: rgba(99,230,255,0.2);
-    }
-
-    .flow-toggle-btn[aria-pressed="true"] {
-      border-color: rgba(255,215,104,0.56);
-      background: rgba(255,215,104,0.16);
-      color: #fff3cf;
-    }
-
+    .site-switch-btn:disabled,
     .flow-toggle-btn:disabled {
       cursor: not-allowed;
       opacity: 0.46;
@@ -498,6 +491,30 @@
       background: linear-gradient(180deg, rgba(11, 37, 53, 0.26), rgba(4, 13, 20, 0.18));
     }
 
+    .tower::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .tower.is-primary-site {
+      border-color: rgba(255, 215, 104, 0.3);
+      background:
+        radial-gradient(circle at 50% 10%, rgba(255, 215, 104, 0.12), transparent 28%),
+        radial-gradient(circle at 50% 42%, rgba(99,230,255,0.08), transparent 44%),
+        linear-gradient(180deg, rgba(25, 44, 57, 0.4), rgba(8, 18, 26, 0.26));
+      box-shadow: inset 0 0 0 1px rgba(255, 215, 104, 0.08);
+    }
+
+    .tower.is-primary-site::after {
+      opacity: 1;
+      border: 1px solid rgba(255, 215, 104, 0.26);
+      animation: towerPrimaryPulse 2.4s ease-in-out infinite;
+    }
+
     /* 三座塔左右定位基准。
        影响范围：背景塔本身的左右留白，以及与节点/标题的整体横向对齐。 */
     .tower.left { left: 42px; }
@@ -545,6 +562,12 @@
       color: var(--amber);
       margin-left: 8px;
       animation: signalBlink 1.9s ease-in-out infinite;
+    }
+
+    .tower.is-primary-site .tower-tag {
+      border-color: rgba(255, 215, 104, 0.34);
+      background: linear-gradient(180deg, rgba(52, 38, 16, 0.96), rgba(21, 17, 11, 0.94));
+      box-shadow: 0 0 18px rgba(255, 215, 104, 0.12);
     }
 
     /* SVG 层负责画线；node-layer 负责放 HTML 卡片。
@@ -1667,16 +1690,11 @@
         gap: 12px;
       }
 
-      .site-switch-btn {
+      .site-switch-btn,
+      .flow-toggle-btn {
         padding: 6px 12px;
         font-size: 13px;
         letter-spacing: 1.1px;
-      }
-
-      .flow-toggle-btn {
-        padding: 7px 14px;
-        font-size: 13px;
-        letter-spacing: 1px;
       }
 
       .topology-board.layout-single .tower.single .tower-tag {
@@ -1891,13 +1909,13 @@
           <div class="panel-body topology-wrap">
             <div class="topology-board layout-all" id="topologyBoard">
               <!-- 三个 tower 只是背景分栏，不是数据节点。 -->
-              <div class="tower left">
+              <div class="tower left" data-site="NX1">
                 <div class="tower-tag">NX1 Backup</div>
               </div>
-              <div class="tower center">
+              <div class="tower center" data-site="NX9">
                 <div class="tower-tag">NX9 <span class="mark">Primary</span></div>
               </div>
-              <div class="tower right">
+              <div class="tower right" data-site="NX2">
                 <div class="tower-tag">NX2 Tertiary</div>
               </div>
               <!--
@@ -2424,6 +2442,14 @@
       });
     }
 
+    function syncAllSitesPrimaryTowerAccent() {
+      const towerEls = Array.from(topologyBoard.querySelectorAll(".tower[data-site]"));
+      towerEls.forEach((towerEl) => {
+        const active = towerEl.dataset.site === topologySnapshot.primaryTower;
+        towerEl.classList.toggle("is-primary-site", active);
+      });
+    }
+
     function renderTopologyBoardShell() {
       const className = topologyBoardClassName();
       const nextClassName = flowPaused ? className + " flow-paused" : className;
@@ -2431,6 +2457,7 @@
 
       if (topologyBoard.dataset.scope === topologyScope) {
         topologyBoard.className = nextClassName;
+        if (topologyScope === "ALL") syncAllSitesPrimaryTowerAccent();
         return;
       }
 
@@ -2442,6 +2469,8 @@
           : topologyScope === "CLOUD"
             ? cloudShellMarkup()
             : singleSiteShellMarkup(topologyScope);
+
+      if (topologyScope === "ALL") syncAllSitesPrimaryTowerAccent();
     }
 
     function setPulseEnabled(enabled) {
