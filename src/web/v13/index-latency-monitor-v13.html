@@ -2035,38 +2035,21 @@
     };
     const initialPrimaryTower = "NX9";  // Primary Site
     const initialPrimaryL3NodeId = "NX9-L3";  // Primary L3
+    // 以下两个集合控制出现脉冲效果
     const initialPrimarySourceFeedIds = new Set([
       "NX9-RT__SS",
       "NX9-RT__SZ",
       "NX9-OMDC__HK",
       "NX9-CIIS__BJ",
-      "NX1-RT__SS",
-      "NX1-RT__SZ",
-      "NX1-OMDC__HK",
-      "NX1-CIIS__BJ",
-      "NX2-RT__HK",
-      "NX2-BB__SS",
-      "NX2-BB__SZ",
-      "NX2-CIIS__BJ"
     ]);
     const initialPrimaryLinkIds = new Set([
-      "NX1-OMDC__NX1-L1",
-      "NX1-RT__NX1-L1",
-      "NX1-CIIS__NX1-L1",
-      "NX1-L1__NX1-L2",
-      "NX1-L2__NX1-L3",
-      "NX2-L1__NX2-L2",
-      "NX2-L2__NX2-L3",
       "NX9-OMDC__NX9-L1",
       "NX9-RT__NX9-L1",
       "NX9-CIIS__NX9-L1",
       "NX9-L1__NX9-L2",
       "NX9-L2__NX9-L3",
-      "NX1-BG__NX1-HCS",
       "NX9-BG__NX9-HCS",
-      "NX2-RT__NX2-L1",
-      "NX2-BB__NX2-L1",
-      "NX2-CIIS__NX2-L1",
+      "NX1-BG__NX1-HCS",
       "NX2-BG__NX2-HCS"
     ]);
     const mockSourceFeedBaseLatency = {

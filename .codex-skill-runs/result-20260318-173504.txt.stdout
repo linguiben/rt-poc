@@ -1,0 +1,13 @@
+I can’t accurately analyze `v13.html` from this session because local file inspection is blocked: every attempt to read the repository fails before execution with a sandbox `LandlockRestrict` error. Without the file contents, I’d be guessing about the pulse-effect implementation and trigger conditions.
+
+If you paste `v13.html` here, or just the sections that define:
+- the topology SVG/canvas/DOM line elements
+- any CSS animation classes or `@keyframes`
+- the JS render/update loop
+- the data model for latency/status/alerts
+
+I’ll give you the exact structured breakdown you asked for:
+1. where the pulse logic is implemented, including locations, functions, variables, and data flow
+2. the precise conditions that cause the pulse effect to appear, including state checks, data fields, and event sources
+
+Changed files: none. Validation: none run, because no files were modified and the repository could not be inspected from this session.

@@ -1,0 +1,10 @@
+You are working inside the repository at: /opt/repo/rt-poc
+
+Follow these rules:
+- stay inside this workspace
+- do not touch unrelated files
+- if you change code, run the smallest relevant validation available
+- end with a concise summary of changed files and validation outcome
+
+Task:
+Analyze v13.html in this project. Explain: (1) what logic implements the pulse effect on topology lines; identify relevant code locations, functions, variables, and data flow. (2) Under what conditions does the pulse effect appear; specify trigger conditions, state checks, data fields, or event sources. Do not modify any files. Provide a structured answer and quote short key snippets when useful.
