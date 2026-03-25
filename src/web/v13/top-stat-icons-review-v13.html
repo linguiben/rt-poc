@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Top Stat Icons Review v13</title>
+  <style>
+    :root {
+      --bg-0: #041018;
+      --bg-1: #0a2230;
+      --panel: rgba(10, 31, 45, 0.94);
+      --line: rgba(113, 192, 235, 0.2);
+      --text: #f1f9ff;
+      --muted: #8db3c8;
+      --cyan: #63e6ff;
+      --green: #37efb0;
+      --amber: #ffd768;
+      --red: #ff6374;
+      --blue: #98bafd;
+      --violet: #a28dff;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Barlow Condensed", "DIN Alternate", "Arial Narrow", sans-serif;
+      background:
+        radial-gradient(circle at 14% 0%, rgba(55,239,176,0.11), transparent 24%),
+        radial-gradient(circle at 90% 0%, rgba(125,168,255,0.15), transparent 28%),
+        linear-gradient(180deg, #103649, var(--bg-0));
+    }
+
+    .app {
+      max-width: 1480px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .shell {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(8, 26, 39, 0.98), rgba(4, 14, 20, 0.97));
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      padding: 20px 22px 18px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(12, 43, 60, 0.9), rgba(6, 20, 29, 0.55));
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 12px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+    }
+
+    h1 {
+      margin: 10px 0 0;
+      font-size: clamp(30px, 4vw, 54px);
+      line-height: 0.95;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .subtitle {
+      margin-top: 10px;
+      max-width: 860px;
+      color: var(--muted);
+      font-size: 15px;
+      letter-spacing: 0.5px;
+    }
+
+    .grid {
+      padding: 18px 22px 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.94), rgba(5, 15, 22, 0.94));
+      padding: 10px 12px;
+      min-height: 152px;
+    }
+
+    .card .name {
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-size: 12px;
+      min-height: 30px;
+    }
+
+    .card .val {
+      margin-top: 8px;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .card .row {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .icon-box {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .icon-box img {
+      width: 36px;
+      height: 36px;
+      display: block;
+    }
+
+    .meter-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .meter-caption {
+      color: rgba(141,179,200,0.8);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    }
+
+    .meter {
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+      box-shadow: 0 0 14px rgba(99,230,255,0.32);
+    }
+
+    .card.external .meter span {
+      background: linear-gradient(90deg, var(--cyan), var(--green));
+    }
+
+    .card.capture .meter span {
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+    }
+
+    .card.calculation .meter span {
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+    }
+
+    .card.reconciliation .meter span {
+      background: linear-gradient(90deg, var(--amber), #ffefaa);
+    }
+
+    .card.broadcast .meter span {
+      background: linear-gradient(90deg, var(--amber), var(--red));
+    }
+
+    .card.health .meter span {
+      background: linear-gradient(90deg, var(--violet), var(--cyan));
+    }
+
+    .card.vendor .meter span {
+      background: linear-gradient(90deg, var(--green), var(--cyan));
+    }
+
+    .notes {
+      padding: 0 22px 22px;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.3px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .notes strong {
+      color: var(--text);
+      letter-spacing: 0.6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <div class="header">
+        <div class="eyebrow">v13 icon review</div>
+        <h1>Top Stat Card Icons</h1>
+        <div class="subtitle">
+          下面是 7 张顶部统计卡的 icon 预览。布局按“标题与主数值不变，左下放 icon，右侧放缩短后的 meter”做了 mockup，用于先评审图形方向，不改主页面。
+        </div>
+      </div>
+
+      <div class="grid">
+        <article class="card external">
+          <div class="name">External Sources</div>
+          <div class="val">27/27</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-external-sources.svg" alt="External Sources icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Multi-feed ingress hub</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card capture">
+          <div class="name">Captures (L1)</div>
+          <div class="val">9/9</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-captures-l1.svg" alt="Captures icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Ingress capture tray</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card calculation">
+          <div class="name">Calculations (L2)</div>
+          <div class="val">12/12</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-calculations-l2.svg" alt="Calculations icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Compute processor grid</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card reconciliation">
+          <div class="name">Reconciliation (L3)</div>
+          <div class="val">3/3</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-reconciliation-l3.svg" alt="Reconciliation icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Compare and confirm</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card broadcast">
+          <div class="name">BroadcastGateways (BG)</div>
+          <div class="val">3/3</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-broadcastgateways-bg.svg" alt="BroadcastGateways icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Signal relay tower</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card health">
+          <div class="name">HealthCheckServices (HCS)</div>
+          <div class="val">3/3</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-healthcheckservices-hcs.svg" alt="HealthCheckServices icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Heartbeat and verify</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+
+        <article class="card vendor">
+          <div class="name">Vendors</div>
+          <div class="val">10/10</div>
+          <div class="row">
+            <div class="icon-box"><img src="./icon-stat-vendors.svg" alt="Vendors icon" /></div>
+            <div class="meter-stack">
+              <div class="meter-caption">Partner network mesh</div>
+              <div class="meter"><span style="width: 100%;"></span></div>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <div class="notes">
+        <div><strong>布局建议：</strong>icon 建议用 36px 到 40px，放在卡片左下；meter 改成右侧横条，不需要加高卡片。</div>
+        <div><strong>风格建议：</strong>7 个 icon 共用圆角底板和细线描边，只在主色上跟随各卡当前进度条颜色，保持统一而不混淆。</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

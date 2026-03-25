@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Calculations (L2)</title>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#122C45"/>
+      <stop offset="1" stop-color="#07121E"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="15" y1="12" x2="49" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#98BAFD"/>
+      <stop offset="1" stop-color="#63E6FF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 32) rotate(90) scale(20)">
+      <stop stop-color="#98BAFD" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#98BAFD" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="16" fill="url(#bg)" stroke="#365171" stroke-opacity=".8"/>
+  <circle cx="32" cy="32" r="18" fill="url(#glow)"/>
+  <rect x="18" y="16" width="28" height="32" rx="7" fill="#08131C" stroke="url(#stroke)" stroke-width="2.4"/>
+  <path d="M23 22H41" stroke="#98BAFD" stroke-width="2" stroke-linecap="round" opacity=".85"/>
+  <rect x="23" y="28" width="7" height="7" rx="2" fill="#102233" stroke="#63E6FF" stroke-opacity=".75"/>
+  <rect x="34" y="28" width="7" height="7" rx="2" fill="#102233" stroke="#98BAFD" stroke-opacity=".75"/>
+  <rect x="23" y="39" width="7" height="4" rx="2" fill="#63E6FF" fill-opacity=".18" stroke="#63E6FF" stroke-opacity=".55"/>
+  <path d="M35 41H41" stroke="#98BAFD" stroke-width="2" stroke-linecap="round"/>
+  <path d="M32 10V16M24 10V16M40 10V16M32 48V54M24 48V54M40 48V54M10 24H18M10 32H18M10 40H18M46 24H54M46 32H54M46 40H54" stroke="url(#stroke)" stroke-width="2" stroke-linecap="round" opacity=".78"/>
+</svg>

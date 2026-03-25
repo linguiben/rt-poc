@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>Reconciliation (L3)</title>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3C2E17"/>
+      <stop offset="1" stop-color="#171007"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="16" y1="15" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD768"/>
+      <stop offset="1" stop-color="#FFF1BE"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 34) rotate(90) scale(19)">
+      <stop stop-color="#FFD768" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#FFD768" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="16" fill="url(#bg)" stroke="#715C2D" stroke-opacity=".82"/>
+  <circle cx="32" cy="34" r="18" fill="url(#glow)"/>
+  <rect x="12.5" y="18.5" width="14" height="16" rx="3.5" fill="#151107" stroke="#FFD768" stroke-width="2"/>
+  <rect x="37.5" y="18.5" width="14" height="16" rx="3.5" fill="#151107" stroke="#FFF1BE" stroke-width="2"/>
+  <path d="M17 24H22M17 28H21M42 24H47M42 28H46" stroke="url(#stroke)" stroke-width="1.8" stroke-linecap="round" opacity=".8"/>
+  <path d="M26.5 38L30.5 42M37.5 38L33.5 42" stroke="url(#stroke)" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="32" cy="44" r="8" fill="#181106" stroke="url(#stroke)" stroke-width="2.2"/>
+  <path d="M28 44L31 47L36.5 41.5" stroke="#FFF1BE" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
