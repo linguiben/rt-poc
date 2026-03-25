@@ -1136,6 +1136,58 @@
       gap: 8px;
     }
 
+    .topology-board.layout-all .node.stage {
+      min-height: 142px;
+    }
+
+    .topology-board.layout-all .node.stage .metrics {
+      margin-top: 8px;
+      gap: 4px;
+    }
+
+    .topology-board.layout-all .node.stage .line.metric-inline {
+      justify-content: flex-start;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .topology-board.layout-all .node.stage .line.metric-inline .metric-block {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .topology-board.layout-all .node.stage .line.metric-inline .metric-divider {
+      color: rgba(141,179,200,0.68);
+    }
+
+    .topology-board.layout-all .node.stage .line.msg-inline {
+      justify-content: flex-start;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .topology-board.layout-all .node.stage .resource-stack {
+      margin-top: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .topology-board.layout-all .node.stage .resource-stack .resource-row {
+      margin-top: 0;
+    }
+
+    .topology-board.layout-all .node.stage .resource-stack .resource-row.single {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .topology-board.layout-all .node.stage .resource-bar span {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding-left: 10px;
+    }
+
     /* stage 卡片底部的资源条容器：CPU / MEM 同一行并排展示。 */
     .node.stage .resource-row {
       margin-top: 10px;
@@ -1170,6 +1222,10 @@
        影响范围：stage 卡片底部第二条资源条，使其与 CPU 条形成色彩区分。 */
     .node.stage .resource-bar.mem::before {
       background: linear-gradient(90deg, rgba(125,168,255,0.76), rgba(162,141,255,0.7));
+    }
+
+    .node.stage .resource-bar.disk::before {
+      background: linear-gradient(90deg, rgba(255,215,104,0.82), rgba(255,99,116,0.7));
     }
 
     /* 半透明文字覆盖在进度条上方，既能读数值，也能保留条形填充。 */
@@ -2114,25 +2170,25 @@
     /* 本地 mock 用的节点状态种子。后续接 API 时只需要替换取数层。 */
     const mockStageMetricsSeed = {
       NX1: {
-        L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, kind: "flow" },
-        L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, kind: "process" },
-        L3: { avg: 61, p95: 148, load: 70, cpu: 70, mem: 76, kind: "process" },
-        BG: { avg: 18, p95: 335, load: 24, cpu: 24, mem: 31, kind: "process", messages: 182340 },
-        HCS: { avg: 3, p95: 6, load: 10, cpu: 10, mem: 18, kind: "flow" }
+        L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, disk: 51, kind: "flow" },
+        L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, disk: 57, kind: "process" },
+        L3: { avg: 61, p95: 148, load: 70, cpu: 70, mem: 76, disk: 64, kind: "process" },
+        BG: { avg: 18, p95: 335, load: 24, cpu: 24, mem: 31, disk: 46, kind: "process", messages: 182340 },
+        HCS: { avg: 3, p95: 6, load: 10, cpu: 10, mem: 18, disk: 29, kind: "flow" }
       },
       NX9: {
-        L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, kind: "flow" },
-        L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, kind: "process" },
-        L3: { avg: 74, p95: 80, load: 82, cpu: 82, mem: 87, kind: "process" },
-        BG: { avg: 22, p95: 38, load: 31, cpu: 31, mem: 39, kind: "process", messages: 241680 },
-        HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, kind: "flow" }
+        L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, disk: 54, kind: "flow" },
+        L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, disk: 61, kind: "process" },
+        L3: { avg: 74, p95: 80, load: 82, cpu: 82, mem: 87, disk: 73, kind: "process" },
+        BG: { avg: 22, p95: 38, load: 31, cpu: 31, mem: 39, disk: 48, kind: "process", messages: 241680 },
+        HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, disk: 31, kind: "flow" }
       },
       NX2: {
-        L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, kind: "flow" },
-        L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, kind: "process" },
-        L3: { avg: 63, p95: 34, load: 72, cpu: 72, mem: 78, kind: "process" },
-        BG: { avg: 19, p95: 36, load: 25, cpu: 25, mem: 33, kind: "process", messages: 193120 },
-        HCS: { avg: 3, p95: 6, load: 11, cpu: 11, mem: 19, kind: "flow" }
+        L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, disk: 50, kind: "flow" },
+        L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, disk: 58, kind: "process" },
+        L3: { avg: 63, p95: 34, load: 72, cpu: 72, mem: 78, disk: 67, kind: "process" },
+        BG: { avg: 19, p95: 36, load: 25, cpu: 25, mem: 33, disk: 45, kind: "process", messages: 193120 },
+        HCS: { avg: 3, p95: 6, load: 11, cpu: 11, mem: 19, disk: 30, kind: "flow" }
       }
     };
 
@@ -2558,6 +2614,7 @@
         msgCount: metrics.msgCount ?? null,
         cpuPct: metrics.cpuPct ?? null,
         memPct: metrics.memPct ?? null,
+        diskPct: metrics.diskPct ?? null,
         ratePerSec: metrics.ratePerSec ?? null
       };
       return {
@@ -2637,7 +2694,8 @@
             p95Ms: seed.p95,
             msgCount: seed.messages ?? null,
             cpuPct: seed.cpu ?? seed.load ?? null,
-            memPct: seed.mem ?? null
+            memPct: seed.mem ?? null,
+            diskPct: seed.disk ?? null
           });
         });
 
@@ -2686,6 +2744,7 @@
         load: metrics.cpuPct,
         cpu: metrics.cpuPct,
         mem: metrics.memPct,
+        disk: metrics.diskPct,
         messages: metrics.msgCount
       };
     }
@@ -3086,6 +3145,24 @@
       `;
     }
 
+    function allSitesStageMetricsHtml(node, tone) {
+      const avgText = node.avg == null ? "--" : `${node.avg}ms`;
+      const p95Text = node.p95 == null ? "--" : `${node.p95}ms`;
+      const msgLine = node.name === "BG"
+        ? `<div class="line msg msg-inline"><span>MSG:</span><strong>${(node.messages || 0).toLocaleString()}</strong></div>`
+        : "";
+      return `
+        <div class="metrics">
+          <div class="line metric-inline">
+            <span class="metric-block"><span>AVG:</span><strong>${avgText}</strong></span>
+            <span class="metric-divider">/</span>
+            <span class="metric-block"><span>P95:</span><strong class="${tone}">${p95Text}</strong></span>
+          </div>
+          ${msgLine}
+        </div>
+      `;
+    }
+
     function pushSingleSiteLink(target, from, to, base, group, kind, current, extra = {}) {
       const existing = linkById[`${from}__${to}`];
       if (existing) {
@@ -3137,6 +3214,7 @@
       const subline = stageSublineText(node, isProcessLike);
       const cpu = node.cpu ?? node.load ?? 0;
       const mem = node.mem ?? Math.min(100, cpu + 8);
+      const disk = node.disk ?? Math.min(100, mem + 6);
       return `
         <article class="node stage${process}${bgHcsTone}${bgCard}" style="left:${node.x - singleSiteStageHalfW}px; top:${node.y - singleSiteStageHalfH}px;">
           <div class="title">
@@ -3144,10 +3222,15 @@
             <span class="badge ${tone}">${tone}</span>
           </div>
           <div class="sub">${subline}</div>
-          ${stageMetricsHtml(node, tone)}
-          <div class="resource-row">
-            ${resourceBarHtml("cpu", cpu, "cpu")}
-            ${resourceBarHtml("mem", mem, "mem")}
+          ${allSitesStageMetricsHtml(node, tone)}
+          <div class="resource-stack">
+            <div class="resource-row single">
+              ${resourceBarHtml("cpu", cpu, "cpu")}
+            </div>
+            <div class="resource-row">
+              ${resourceBarHtml("mem", mem, "mem")}
+              ${resourceBarHtml("disk", disk, "disk")}
+            </div>
           </div>
         </article>
       `;
