@@ -100,8 +100,10 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: linear-gradient(180deg, rgba(10, 31, 45, 0.94), rgba(5, 15, 22, 0.94));
-      padding: 10px 12px;
+      padding: 10px 12px 12px;
       min-height: 152px;
+      display: flex;
+      flex-direction: column;
     }
 
     .card .name {
@@ -113,46 +115,41 @@
     }
 
     .card .val {
-      margin-top: 8px;
+      margin: 0;
       font-size: 28px;
       font-weight: 700;
       line-height: 1;
     }
 
     .card .row {
-      margin-top: 10px;
+      margin-top: auto;
       display: grid;
-      grid-template-columns: 42px minmax(0, 1fr);
-      gap: 10px;
-      align-items: center;
+      grid-template-columns: 52px minmax(0, 1fr);
+      gap: 12px;
+      align-items: end;
     }
 
     .icon-box {
       display: grid;
       place-items: center;
-      width: 42px;
-      height: 42px;
-      border-radius: 12px;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
       background: rgba(255,255,255,0.025);
       border: 1px solid rgba(255,255,255,0.04);
     }
 
     .icon-box img {
-      width: 36px;
-      height: 36px;
+      width: 44px;
+      height: 44px;
       display: block;
     }
 
     .meter-stack {
       display: grid;
-      gap: 8px;
-    }
-
-    .meter-caption {
-      color: rgba(141,179,200,0.8);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.7px;
+      gap: 6px;
+      align-self: end;
+      width: 100%;
     }
 
     .meter {
@@ -166,36 +163,24 @@
       display: block;
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, var(--cyan), var(--green));
-      box-shadow: 0 0 14px rgba(99,230,255,0.32);
+      background: linear-gradient(90deg, #37efb0, #75ffd0);
+      box-shadow: 0 0 14px rgba(55,239,176,0.32);
+      transition: width 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
     }
 
-    .card.external .meter span {
-      background: linear-gradient(90deg, var(--cyan), var(--green));
+    .meter.ok span {
+      background: linear-gradient(90deg, #37efb0, #75ffd0);
+      box-shadow: 0 0 14px rgba(55,239,176,0.32);
     }
 
-    .card.capture .meter span {
-      background: linear-gradient(90deg, var(--green), var(--cyan));
+    .meter.warn span {
+      background: linear-gradient(90deg, #ffd768, #ffb357);
+      box-shadow: 0 0 14px rgba(255,215,104,0.34);
     }
 
-    .card.calculation .meter span {
-      background: linear-gradient(90deg, var(--blue), var(--cyan));
-    }
-
-    .card.reconciliation .meter span {
-      background: linear-gradient(90deg, var(--amber), #ffefaa);
-    }
-
-    .card.broadcast .meter span {
-      background: linear-gradient(90deg, var(--amber), var(--red));
-    }
-
-    .card.health .meter span {
-      background: linear-gradient(90deg, var(--violet), var(--cyan));
-    }
-
-    .card.vendor .meter span {
-      background: linear-gradient(90deg, var(--green), var(--cyan));
+    .meter.critical span {
+      background: linear-gradient(90deg, #ff6374, #ff9a82);
+      box-shadow: 0 0 14px rgba(255,99,116,0.34);
     }
 
     .notes {
@@ -225,86 +210,79 @@
       </div>
 
       <div class="grid">
-        <article class="card external">
+        <article class="card external" data-current="27" data-total="27" data-threshold1="27" data-threshold2="26">
           <div class="name">External Sources</div>
-          <div class="val">27/27</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-external-sources.svg" alt="External Sources icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Multi-feed ingress hub</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">27/27</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
 
-        <article class="card capture">
+        <article class="card capture" data-current="9" data-total="9" data-threshold1="9" data-threshold2="8">
           <div class="name">Captures (L1)</div>
-          <div class="val">9/9</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-captures-l1.svg" alt="Captures icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Ingress capture tray</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">9/9</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
 
-        <article class="card calculation">
+        <article class="card calculation" data-current="12" data-total="12" data-threshold1="12" data-threshold2="11">
           <div class="name">Calculations (L2)</div>
-          <div class="val">12/12</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-calculations-l2.svg" alt="Calculations icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Compute processor grid</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">12/12</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
 
-        <article class="card reconciliation">
+        <article class="card reconciliation" data-current="3" data-total="3" data-threshold1="3" data-threshold2="2">
           <div class="name">Reconciliation (L3)</div>
-          <div class="val">3/3</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-reconciliation-l3.svg" alt="Reconciliation icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Compare and confirm</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">3/3</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
 
-        <article class="card broadcast">
+        <article class="card broadcast" data-current="3" data-total="3" data-threshold1="3" data-threshold2="2">
           <div class="name">BroadcastGateways (BG)</div>
-          <div class="val">3/3</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-broadcastgateways-bg.svg" alt="BroadcastGateways icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Signal relay tower</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">3/3</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
 
-        <article class="card health">
+        <article class="card health" data-current="3" data-total="3" data-threshold1="3" data-threshold2="2">
           <div class="name">HealthCheckServices (HCS)</div>
-          <div class="val">3/3</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-healthcheckservices-hcs.svg" alt="HealthCheckServices icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Heartbeat and verify</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">3/3</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
 
-        <article class="card vendor">
+        <article class="card vendor" data-current="10" data-total="10" data-threshold1="10" data-threshold2="9">
           <div class="name">Vendors</div>
-          <div class="val">10/10</div>
           <div class="row">
             <div class="icon-box"><img src="./icon-stat-vendors.svg" alt="Vendors icon" /></div>
             <div class="meter-stack">
-              <div class="meter-caption">Partner network mesh</div>
-              <div class="meter"><span style="width: 100%;"></span></div>
+              <div class="val">10/10</div>
+              <div class="meter"><span></span></div>
             </div>
           </div>
         </article>
@@ -316,5 +294,28 @@
       </div>
     </div>
   </div>
+  <script>
+    document.querySelectorAll(".card[data-current]").forEach((card) => {
+      const current = Number(card.dataset.current || 0);
+      const total = Number(card.dataset.total || 0);
+      const threshold1 = Number(card.dataset.threshold1 || total);
+      const threshold2 = Number(card.dataset.threshold2 || Math.max(0, total - 1));
+      const ratio = total > 0 ? Math.max(0, Math.min(100, (current / total) * 100)) : 0;
+      const val = card.querySelector(".val");
+      const meter = card.querySelector(".meter");
+      const fill = meter.querySelector("span");
+
+      val.textContent = `${current}/${total}`;
+      fill.style.width = `${ratio}%`;
+
+      if (current < threshold2) {
+        meter.classList.add("critical");
+      } else if (current < threshold1) {
+        meter.classList.add("warn");
+      } else {
+        meter.classList.add("ok");
+      }
+    });
+  </script>
 </body>
 </html>

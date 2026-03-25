@@ -278,16 +278,50 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: linear-gradient(180deg, rgba(10, 31, 45, 0.94), rgba(5, 15, 22, 0.94));
-      padding: 10px 12px;
+      padding: 10px 12px 12px;
+      min-height: 152px;
+      display: flex;
+      flex-direction: column;
     }
 
     /* 统计卡的大号数值。
        影响范围：External Sources 到 Refresh Cycle 六张 stat 卡的主读数。 */
     .stat .val {
-      margin-top: 8px;
+      margin: 0;
       font-size: 28px;
       font-weight: 700;
       line-height: 1;
+    }
+
+    .stat-bottom {
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: 52px minmax(0, 1fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .stat-icon-box {
+      display: grid;
+      place-items: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .stat-icon-box img {
+      width: 44px;
+      height: 44px;
+      display: block;
+    }
+
+    .stat-meter-stack {
+      display: grid;
+      gap: 6px;
+      width: 100%;
+      align-self: end;
     }
 
     /* 统计卡底部进度条底板。
@@ -300,15 +334,34 @@
       overflow: hidden;
     }
 
+    .stat .meter {
+      margin-top: 0;
+    }
+
     /* 统计卡进度条填充段。
        影响范围：meter 内部彩色条的长度变化和发光效果。 */
     .meter span {
       display: block;
       height: 100%;
       border-radius: inherit;
-      background: linear-gradient(90deg, var(--cyan), var(--green));
-      box-shadow: 0 0 14px rgba(99,230,255,0.32);
-      transition: width 0.35s ease;
+      background: linear-gradient(90deg, #37efb0, #75ffd0);
+      box-shadow: 0 0 14px rgba(55,239,176,0.32);
+      transition: width 0.35s ease, background 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .meter.ok span {
+      background: linear-gradient(90deg, #37efb0, #75ffd0);
+      box-shadow: 0 0 14px rgba(55,239,176,0.32);
+    }
+
+    .meter.warn span {
+      background: linear-gradient(90deg, #ffd768, #ffb357);
+      box-shadow: 0 0 14px rgba(255,215,104,0.34);
+    }
+
+    .meter.critical span {
+      background: linear-gradient(90deg, #ff6374, #ff9a82);
+      box-shadow: 0 0 14px rgba(255,99,116,0.34);
     }
 
     /* 主内容区：上方拓扑图，下方三个辅助面板。 */
@@ -1697,10 +1750,11 @@
       .stat {
         padding: 12px 14px;
         border-radius: 16px;
+        min-height: 152px;
       }
 
       .stat .val {
-        margin-top: 9px;
+        margin: 0;
         font-size: 31px;
       }
 
@@ -1901,38 +1955,73 @@
         <div class="stats">
           <div class="stat">
             <div class="name">External Sources</div>
-            <div class="val" id="statSources">27/27</div>
-            <div class="meter"><span style="width:100%"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-external-sources.svg" alt="External Sources icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statSources">27/27</div>
+                <div class="meter" id="meterSources"><span></span></div>
+              </div>
+            </div>
           </div>
           <div class="stat">
             <div class="name">Captures (L1)</div>
-            <div class="val" id="statCaptures">9/9</div>
-            <div class="meter"><span style="width:100%"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-captures-l1.svg" alt="Captures icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statCaptures">9/9</div>
+                <div class="meter" id="meterCaptures"><span></span></div>
+              </div>
+            </div>
           </div>
           <div class="stat">
             <div class="name">Calculations (L2)</div>
-            <div class="val" id="statCalculations">12/12</div>
-            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--blue), var(--cyan));"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-calculations-l2.svg" alt="Calculations icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statCalculations">12/12</div>
+                <div class="meter" id="meterCalculations"><span></span></div>
+              </div>
+            </div>
           </div>
           <div class="stat">
             <div class="name">Reconciliation (L3)</div>
-            <div class="val" id="statReconciliation">3/3</div>
-            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--amber), #ffefaa);"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-reconciliation-l3.svg" alt="Reconciliation icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statReconciliation">3/3</div>
+                <div class="meter" id="meterReconciliation"><span></span></div>
+              </div>
+            </div>
           </div>
           <div class="stat">
             <div class="name">BroadcastGateways (BG)</div>
-            <div class="val" id="statBg">3/3</div>
-            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--amber), var(--red));"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-broadcastgateways-bg.svg" alt="BroadcastGateways icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statBg">3/3</div>
+                <div class="meter" id="meterBg"><span></span></div>
+              </div>
+            </div>
           </div>
           <div class="stat">
             <div class="name">HealthCheckServices (HCS)</div>
-            <div class="val" id="statHcs">3/3</div>
-            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--violet), var(--cyan));"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-healthcheckservices-hcs.svg" alt="HealthCheckServices icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statHcs">3/3</div>
+                <div class="meter" id="meterHcs"><span></span></div>
+              </div>
+            </div>
           </div>
           <div class="stat">
             <div class="name">Vendors</div>
-            <div class="val" id="statVendors">10/10</div>
-            <div class="meter"><span style="width:100%; background: linear-gradient(90deg, var(--green), var(--cyan));"></span></div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-vendors.svg" alt="Vendors icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statVendors">10/10</div>
+                <div class="meter" id="meterVendors"><span></span></div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -4084,6 +4173,30 @@
       return `${summary.healthy}/${summary.total}`;
     }
 
+    function summaryMeterStatus(summary) {
+      const threshold1 = summary.total;
+      const threshold2 = Math.max(0, summary.total - 1);
+      if (summary.healthy < threshold2) return "critical";
+      if (summary.healthy < threshold1) return "warn";
+      return "ok";
+    }
+
+    function summaryMeterWidth(summary) {
+      if (!summary.total) return 0;
+      return Math.max(0, Math.min(100, (summary.healthy / summary.total) * 100));
+    }
+
+    function renderStatCard(valueId, meterId, summary) {
+      const valueEl = document.getElementById(valueId);
+      const meterEl = document.getElementById(meterId);
+      if (!valueEl || !meterEl) return;
+      const fillEl = meterEl.querySelector("span");
+      valueEl.textContent = summaryPairText(summary);
+      fillEl.style.width = `${summaryMeterWidth(summary)}%`;
+      meterEl.classList.remove("ok", "warn", "critical");
+      meterEl.classList.add(summaryMeterStatus(summary));
+    }
+
     /* 渲染事件流。
        这里不是严格日志，而是从当前最热路径生成一段说明性文本。 */
     function renderFeed() {
@@ -4126,13 +4239,13 @@
       heroAlerts.textContent = `${warns} / ${criticals}`;
       heroAlerts.className = `val ${alertTone}`;
       document.getElementById("heroAlertState").textContent = criticals > 0 ? "Critical Active" : warns > 0 ? "Watch" : "Stable";
-      document.getElementById("statSources").textContent = summaryPairText(summaryCardDefaults.externalSources);
-      document.getElementById("statCaptures").textContent = summaryPairText(summaryCardDefaults.capturesL1);
-      document.getElementById("statCalculations").textContent = summaryPairText(summaryCardDefaults.calculationsL2);
-      document.getElementById("statReconciliation").textContent = summaryPairText(summaryCardDefaults.reconciliationL3);
-      document.getElementById("statBg").textContent = summaryPairText(summaryCardDefaults.broadcastGatewaysBg);
-      document.getElementById("statHcs").textContent = summaryPairText(summaryCardDefaults.healthCheckServicesHcs);
-      document.getElementById("statVendors").textContent = summaryPairText(summaryCardDefaults.vendors);
+      renderStatCard("statSources", "meterSources", summaryCardDefaults.externalSources);
+      renderStatCard("statCaptures", "meterCaptures", summaryCardDefaults.capturesL1);
+      renderStatCard("statCalculations", "meterCalculations", summaryCardDefaults.calculationsL2);
+      renderStatCard("statReconciliation", "meterReconciliation", summaryCardDefaults.reconciliationL3);
+      renderStatCard("statBg", "meterBg", summaryCardDefaults.broadcastGatewaysBg);
+      renderStatCard("statHcs", "meterHcs", summaryCardDefaults.healthCheckServicesHcs);
+      renderStatCard("statVendors", "meterVendors", summaryCardDefaults.vendors);
     }
 
     /* 总渲染入口。
