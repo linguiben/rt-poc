@@ -1268,17 +1268,15 @@
       inset: 0 auto 0 0;
       width: var(--value, 0%);
       border-radius: inherit;
-      background: linear-gradient(90deg, rgba(99,230,255,0.78), rgba(55,239,176,0.72));
+      background: linear-gradient(90deg, rgba(55,239,176,0.82), rgba(117,255,208,0.74));
     }
 
-    /* MEM 资源条配色覆盖。
-       影响范围：stage 卡片底部第二条资源条，使其与 CPU 条形成色彩区分。 */
-    .node.stage .resource-bar.mem::before {
-      background: linear-gradient(90deg, rgba(125,168,255,0.76), rgba(162,141,255,0.7));
+    .node.stage .resource-bar.warn::before {
+      background: linear-gradient(90deg, rgba(255,215,104,0.84), rgba(255,179,87,0.74));
     }
 
-    .node.stage .resource-bar.disk::before {
-      background: linear-gradient(90deg, rgba(255,215,104,0.82), rgba(255,99,116,0.7));
+    .node.stage .resource-bar.critical::before {
+      background: linear-gradient(90deg, rgba(255,99,116,0.84), rgba(255,154,130,0.74));
     }
 
     /* 半透明文字覆盖在进度条上方，既能读数值，也能保留条形填充。 */
@@ -2018,7 +2016,7 @@
             <div class="stat-bottom">
               <div class="stat-icon-box"><img src="./icon-stat-vendors.svg" alt="Vendors icon" /></div>
               <div class="stat-meter-stack">
-                <div class="val" id="statVendors">10/10</div>
+                <div class="val" id="statVendors">8/10</div>
                 <div class="meter" id="meterVendors"><span></span></div>
               </div>
             </div>
@@ -2643,6 +2641,15 @@
 
     /* 默认阈值给节点和未配置链路兜底；group/link 可按需覆盖。 */
     const defaultThresholds = { threshold1: 100, threshold2: 180 };
+    const stageMetricThresholds = {
+      avg: { threshold1: 60, threshold2: 100 },
+      p95: { threshold1: 80, threshold2: 100 }
+    };
+    const resourceMetricThresholds = {
+      cpu: { threshold1: 65, threshold2: 85 },
+      mem: { threshold1: 75, threshold2: 90 },
+      disk: { threshold1: 80, threshold2: 92 }
+    };
 
     /* heatmap 走 group 阈值；没有专门配置的 group 会回落到 defaultThresholds。 */
     const groupThresholds = {
@@ -2670,6 +2677,25 @@
       return "ok";
     }
 
+    function metricStatusClass(value, thresholds) {
+      if (value == null) return "unknown";
+      if (value > thresholds.threshold2) return "critical";
+      if (value > thresholds.threshold1) return "warn";
+      return "ok";
+    }
+
+    function stageMetricTone(metricName, value) {
+      const thresholds = stageMetricThresholds[metricName];
+      if (!thresholds || value == null) return "";
+      return metricStatusClass(value, thresholds);
+    }
+
+    function resourceMetricTone(metricName, value) {
+      const thresholds = resourceMetricThresholds[metricName];
+      if (!thresholds || value == null) return "ok";
+      return metricStatusClass(value, thresholds);
+    }
+
     function thresholdsForGroup(group) {
       return groupThresholds[group] || defaultThresholds;
     }
@@ -2691,7 +2717,7 @@
     }
 
     function deriveNodeStatusFromMetrics(metrics) {
-      if (metrics.p95Ms != null) return statusClass(metrics.p95Ms, defaultThresholds);
+      if (metrics.p95Ms != null) return metricStatusClass(metrics.p95Ms, stageMetricThresholds.p95);
       if (metrics.ratePerSec != null) return statusClass(Math.round(metrics.ratePerSec / 12), defaultThresholds);
       return "unknown";
     }
@@ -3193,15 +3219,19 @@
 
     /* source 节点用 rate 粗略映射状态，stage 节点用 p95 映射状态。 */
     function nodeStatus(node) {
-      return node.status || statusClass(node.p95 || Math.round((node.rate || 0) / 12), defaultThresholds);
+      if (node.status) return node.status;
+      if (node.p95 != null) return metricStatusClass(node.p95, stageMetricThresholds.p95);
+      if (node.rate != null) return statusClass(Math.round(node.rate / 12), defaultThresholds);
+      return "unknown";
     }
 
     /* 生成资源进度条 HTML。
        label 只区分 CPU / MEM，value 使用百分比并直接决定填充宽度。 */
     function resourceBarHtml(label, value, className) {
       const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+      const tone = resourceMetricTone(className, safeValue);
       return `
-        <div class="resource-bar ${className}" style="--value:${safeValue}%;">
+        <div class="resource-bar ${className} ${tone}" style="--value:${safeValue}%;">
           <span>${label}:${safeValue}%</span>
         </div>
       `;
@@ -3216,19 +3246,30 @@
         if (options.compactBg) return "";
         return `${node.site} Gateway`;
       }
+      const stageLabelMap = {
+        L1: "Capture",
+        L2: "Calculation",
+        L3: "Reconciliation",
+        HCS: "HealthCheck"
+      };
+      if (stageLabelMap[node.name]) {
+        return `${node.site} ${stageLabelMap[node.name]}`;
+      }
       return node.site + " " + (isProcessLike ? "Compute" : "Gateway");
     }
 
     function stageMetricsHtml(node, tone) {
       const avgText = node.avg == null ? "--" : `${node.avg}ms`;
       const p95Text = node.p95 == null ? "--" : `${node.p95}ms`;
+      const avgTone = stageMetricTone("avg", node.avg);
+      const p95Tone = stageMetricTone("p95", node.p95);
       const msgLine = node.name === "BG"
         ? `<div class="line msg"><span>MSG:</span><strong>${(node.messages || 0).toLocaleString()}</strong></div>`
         : "";
       return `
         <div class="metrics">
-          <div class="line"><span>AVG</span><strong>${avgText}</strong></div>
-          <div class="line"><span>P95</span><strong class="${tone}">${p95Text}</strong></div>
+          <div class="line"><span>AVG</span><strong class="${avgTone}">${avgText}</strong></div>
+          <div class="line"><span>P95</span><strong class="${p95Tone}">${p95Text}</strong></div>
           ${msgLine}
         </div>
       `;
@@ -3237,15 +3278,17 @@
     function allSitesStageMetricsHtml(node, tone) {
       const avgText = node.avg == null ? "--" : `${node.avg}ms`;
       const p95Text = node.p95 == null ? "--" : `${node.p95}ms`;
+      const avgTone = stageMetricTone("avg", node.avg);
+      const p95Tone = stageMetricTone("p95", node.p95);
       const msgLine = node.name === "BG"
         ? `<div class="line msg msg-inline"><span>MSG:</span><strong>${(node.messages || 0).toLocaleString()}</strong></div>`
         : "";
       return `
         <div class="metrics">
           <div class="line metric-inline">
-            <span class="metric-block"><span>AVG:</span><strong>${avgText}</strong></span>
+            <span class="metric-block"><span>AVG:</span><strong class="${avgTone}">${avgText}</strong></span>
             <span class="metric-divider">/</span>
-            <span class="metric-block"><span>P95:</span><strong class="${tone}">${p95Text}</strong></span>
+            <span class="metric-block"><span>P95:</span><strong class="${p95Tone}">${p95Text}</strong></span>
           </div>
           ${msgLine}
         </div>
@@ -3843,8 +3886,8 @@
                   <span class="badge ${nodeStatus(server)}">${nodeStatus(server)}</span>
                 </div>
                 <div class="server-metrics">
-                  <div class="server-metric">AVG<strong>${server.avg == null ? "--" : `${server.avg}ms`}</strong></div>
-                  <div class="server-metric">P95<strong class="${nodeStatus(server)}">${server.p95 == null ? "--" : `${server.p95}ms`}</strong></div>
+                  <div class="server-metric">AVG<strong class="${stageMetricTone("avg", server.avg)}">${server.avg == null ? "--" : `${server.avg}ms`}</strong></div>
+                  <div class="server-metric">P95<strong class="${stageMetricTone("p95", server.p95)}">${server.p95 == null ? "--" : `${server.p95}ms`}</strong></div>
                   <div class="server-metric">CPU<strong>${server.cpu == null ? "--" : `${server.cpu}%`}</strong></div>
                   <div class="server-metric">MEM<strong>${server.mem == null ? "--" : `${server.mem}%`}</strong></div>
                 </div>
