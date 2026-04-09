@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>HealthCheckServices (HCS)</title>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1D2146"/>
+      <stop offset="1" stop-color="#07111C"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="14" y1="10" x2="50" y2="50" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A28DFF"/>
+      <stop offset="1" stop-color="#63E6FF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(31 31) rotate(90) scale(19)">
+      <stop stop-color="#A28DFF" stop-opacity=".26"/>
+      <stop offset="1" stop-color="#A28DFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="16" fill="url(#bg)" stroke="#4D538A" stroke-opacity=".82"/>
+  <circle cx="31" cy="31" r="18" fill="url(#glow)"/>
+  <rect x="11.5" y="15.5" width="34" height="24" rx="7.5" fill="#08111C" stroke="url(#stroke)" stroke-width="2.2"/>
+  <path d="M17 28H23L26 22L30 32L34 26H40" stroke="url(#stroke)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M21 46H36" stroke="#89E5FF" stroke-width="2" stroke-linecap="round" opacity=".75"/>
+  <path d="M45 31V45.5C45 49.0899 41.8485 52.5 38 54C34.1515 52.5 31 49.0899 31 45.5V31.5C33.2871 31.2697 35.2865 30.2575 38 28C40.7135 30.2575 42.7129 31.2697 45 31Z" fill="#0B1521" stroke="#63E6FF" stroke-width="2"/>
+  <path d="M35.5 43L37.5 45L41 41.5" stroke="#AEEBFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

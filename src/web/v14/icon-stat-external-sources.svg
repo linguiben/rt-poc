@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <title>External Sources</title>
+  <defs>
+    <linearGradient id="bg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#123546"/>
+      <stop offset="1" stop-color="#071720"/>
+    </linearGradient>
+    <linearGradient id="stroke" x1="14" y1="12" x2="50" y2="46" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#63E6FF"/>
+      <stop offset="1" stop-color="#37EFB0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(32 34) rotate(90) scale(20)">
+      <stop stop-color="#63E6FF" stop-opacity=".28"/>
+      <stop offset="1" stop-color="#63E6FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="3.5" y="3.5" width="57" height="57" rx="16" fill="url(#bg)" stroke="#2B5568" stroke-opacity=".75"/>
+  <circle cx="32" cy="34" r="18" fill="url(#glow)"/>
+  <path d="M17 18L27.5 30.5H36.5L47 18" stroke="url(#stroke)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22 15L27.5 22.5M42 15L36.5 22.5" stroke="url(#stroke)" stroke-width="2" stroke-linecap="round"/>
+  <path d="M32 30.5V40.5" stroke="url(#stroke)" stroke-width="2.4" stroke-linecap="round"/>
+  <circle cx="17" cy="18" r="3.2" fill="#061219" stroke="#63E6FF" stroke-width="1.6"/>
+  <circle cx="22" cy="15" r="2.6" fill="#061219" stroke="#63E6FF" stroke-width="1.4"/>
+  <circle cx="42" cy="15" r="2.6" fill="#061219" stroke="#37EFB0" stroke-width="1.4"/>
+  <circle cx="47" cy="18" r="3.2" fill="#061219" stroke="#37EFB0" stroke-width="1.6"/>
+  <circle cx="32" cy="44" r="6.5" fill="#07151D" stroke="url(#stroke)" stroke-width="2"/>
+  <circle cx="32" cy="44" r="2.2" fill="#63E6FF"/>
+  <path d="M24 48.5H40" stroke="#86F2FF" stroke-width="1.8" stroke-linecap="round" opacity=".75"/>
+</svg>

@@ -1,0 +1,4447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+    <!-- 此页面需要匹配 1920 * 1080 屏幕 -->
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Index Calculation System Monitor v14</title>
+  <style>
+    /* 主题变量集中定义。
+       后续如果要统一改色、改边框透明度、改发光效果，优先改这里。
+       影响范围：整页所有 panel、node、连线、文本颜色。 */
+    :root {
+      --bg-0: #041018;
+      --bg-1: #092331;
+      --bg-2: #103649;
+      --panel: rgba(8, 25, 36, 0.94);
+      --panel-soft: rgba(10, 31, 45, 0.9);
+      --line: rgba(113, 192, 235, 0.2);
+      --text: #f1f9ff;
+      --muted: #8db3c8;
+      --cyan: #63e6ff;
+      --green: #37efb0;
+      --amber: #ffd768;
+      --red: #ff6374;
+      --blue: #98bafd;
+      --violet: #a28dff;
+      --shadow: 0 24px 60px rgba(0, 0, 0, 0.42);
+    }
+
+    /* 全局盒模型统一，避免 padding / border 把尺寸撑大导致布局难算。 */
+    * { box-sizing: border-box; }
+
+    /* 页面最外层背景。
+       这里决定的是整页视觉氛围，不影响功能逻辑。 */
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      font-family: "Barlow Condensed", "DIN Alternate", "Arial Narrow", sans-serif;
+      background:
+        radial-gradient(circle at 14% 0%, rgba(55,239,176,0.11), transparent 24%),
+        radial-gradient(circle at 90% 0%, rgba(125,168,255,0.15), transparent 28%),
+        linear-gradient(180deg, var(--bg-2), var(--bg-0));
+      overflow-x: hidden;
+    }
+
+    /* 叠一层固定网格纹理，用来增强“监控大盘”观感。 */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+      background-size: 42px 42px;
+      mask-image: radial-gradient(circle at center, #000 60%, transparent 100%);
+      opacity: 0.34;
+    }
+
+    /* 节点卡片呼吸光效。关掉不会影响数据逻辑，只影响视觉动效。 */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 0 rgba(99,230,255,0); }
+      50% { box-shadow: 0 0 18px rgba(99,230,255,0.16); }
+    }
+
+    /* 连线路径流动动画。调这里会影响所有 SVG 路径的流动速度。 */
+    @keyframes routeFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -58; }
+    }
+
+    /* L3 -> BG 专用的心跳脉冲。保持原有流向感，再叠一层短促增强。 */
+    @keyframes routeHeartbeat {
+      0%, 46%, 100% {
+        stroke-opacity: 0.72;
+        stroke-width: 4.5;
+      }
+      10% {
+        stroke-opacity: 1;
+        stroke-width: 6.4;
+      }
+      18% {
+        stroke-opacity: 0.9;
+        stroke-width: 5.6;
+      }
+      28% {
+        stroke-opacity: 0.78;
+        stroke-width: 4.8;
+      }
+    }
+
+    /* critical 路径闪烁提醒。只闪主动态线，不闪底线。 */
+    @keyframes routeAlertBlink {
+      0%, 42%, 100% {
+        opacity: 1;
+        filter: drop-shadow(0 0 14px rgba(255,99,116,0.42));
+      }
+      52%, 78% {
+        opacity: 0.22;
+        filter: drop-shadow(0 0 6px rgba(255,99,116,0.12));
+      }
+    }
+
+    /* 主站标签闪烁效果。只作用在塔顶部 Primary 标记。 */
+    @keyframes signalBlink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.45; }
+    }
+
+    /* 当前 primary tower 的边框呼吸效果。
+       影响范围：仅用于 ALL-SITES 视图中被选为主站的塔背景高亮。 */
+    @keyframes towerPrimaryPulse {
+      0%, 100% {
+        opacity: 0.7;
+        box-shadow:
+          0 0 0 rgba(255, 215, 104, 0),
+          inset 0 0 0 rgba(255, 215, 104, 0);
+      }
+      50% {
+        opacity: 1;
+        box-shadow:
+          0 0 24px rgba(255, 215, 104, 0.14),
+          inset 0 0 30px rgba(255, 215, 104, 0.08);
+      }
+    }
+
+    /* 页面最大宽度容器，控制整体居中和外边距。 */
+    .app {
+      max-width: 1940px;
+      margin: 0 auto;
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 最外层大卡片，包住 header + main。 */
+    .shell {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(8, 26, 39, 0.98), rgba(4, 14, 20, 0.97));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    /* 顶部总览区：标题、摘要卡、统计卡。 */
+    .header {
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(12, 43, 60, 0.9), rgba(6, 20, 29, 0.55));
+    }
+
+    /* 顶部分两列：左边标题说明，右边三张 headline-card。 */
+    .header-top {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    /* 页眉左上角的细标签行。
+       影响范围：主标题上方的 NXGEN Tri-DC Flow View 文案和其横向排布。 */
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      font-size: 13px;
+    }
+
+    /* 细标签前面的装饰线。
+       影响范围：仅影响 eyebrow 左侧那条渐变短线，不影响标题或卡片布局。 */
+    .eyebrow::before {
+      content: "";
+      width: 34px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan));
+    }
+
+    /* 页面主标题。
+       影响范围：header 左侧最大号标题文字的字号、字距和紧凑度。 */
+    h1 {
+      margin: 8px 0 0;
+      font-size: clamp(34px, 4vw, 60px);
+      line-height: 0.95;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* 主标题下方说明文字。
+       影响范围：header 左侧 subtitle 的可读性和与标题之间的间距。 */
+    .subtitle {
+      margin-top: 10px;
+      font-size: 16px;
+      color: var(--muted);
+      letter-spacing: 0.7px;
+    }
+
+    /* 顶部摘要卡的栅格布局。 */
+    .headline {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    /* 顶部单张摘要卡外壳。
+       影响范围：header 右侧摘要卡的边框、底色和圆角。 */
+    .headline-card {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.98), rgba(6, 18, 27, 0.92));
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 摘要卡底部的光晕层。
+       影响范围：headline-card 内部的装饰发光，不影响数据文本和交互。 */
+    .headline-card::after {
+      content: "";
+      position: absolute;
+      inset: auto -24% -72% -24%;
+      height: 130%;
+      background: radial-gradient(circle, rgba(99,230,255,0.14), transparent 60%);
+    }
+
+    /* 卡片/统计块的小标题文字样式。
+       影响范围：headline-card、stat、kpi（若后续启用）的 name 文本。 */
+    .headline-card .name,
+    .stat .name,
+    .kpi .name {
+      position: relative;
+      z-index: 1;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.4px;
+      font-size: 12px;
+    }
+
+    /* 摘要卡中最醒目的主数值。
+       影响范围：heroPrimary、heroAlerts 等 header 摘要卡里的大号数字或站点名。 */
+    .headline-card .val {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      font-size: 36px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    /* 摘要卡底部辅助信息行。
+       影响范围：每张 headline-card 底部左右两端的 meta 文案布局。 */
+    .headline-card .meta {
+      position: relative;
+      z-index: 1;
+      margin-top: 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      color: #d4e8f3;
+      font-size: 13px;
+    }
+
+    /* 第二排统计卡。数量变化时，优先调整这里的列数。 */
+    .stats {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: repeat(9, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    /* 单张统计卡外壳。
+       影响范围：六张 stat 卡的底色、边框、圆角和卡片内留白。 */
+    .stat {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.94), rgba(5, 15, 22, 0.94));
+      padding: 9px 10px 10px;
+      min-height: 138px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat .name {
+      min-height: 30px;
+      line-height: 1.2;
+    }
+
+    /* 统计卡的大号数值。
+       影响范围：External Sources 到 Refresh Cycle 六张 stat 卡的主读数。 */
+    .stat .val {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-bottom {
+      margin-top: auto;
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr);
+      gap: 10px;
+      align-items: end;
+    }
+
+    .stat-icon-box {
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .stat-icon-box img {
+      width: 38px;
+      height: 38px;
+      display: block;
+    }
+
+    .stat-meter-stack {
+      display: grid;
+      gap: 5px;
+      width: 100%;
+      align-self: end;
+    }
+
+    .stat-icon-tag {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.08);
+      background: linear-gradient(180deg, rgba(14, 55, 74, 0.94), rgba(5, 22, 31, 0.96));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    .stat-icon-tag.growth {
+      background: linear-gradient(180deg, rgba(15, 77, 58, 0.96), rgba(6, 34, 25, 0.96));
+    }
+
+    .stat-icon-tag.bis {
+      background: linear-gradient(180deg, rgba(58, 43, 14, 0.96), rgba(28, 20, 5, 0.96));
+    }
+
+    /* 统计卡底部进度条底板。
+       影响范围：所有 stat 卡中的 meter 轨道高度、圆角和背景亮度。 */
+    .meter {
+      margin-top: 10px;
+      height: 6px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      overflow: hidden;
+    }
+
+    .stat .meter {
+      margin-top: 0;
+    }
+
+    /* 统计卡进度条填充段。
+       影响范围：meter 内部彩色条的长度变化和发光效果。 */
+    .meter span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #37efb0, #75ffd0);
+      box-shadow: 0 0 14px rgba(55,239,176,0.32);
+      transition: width 0.35s ease, background 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .meter.ok span {
+      background: linear-gradient(90deg, #37efb0, #75ffd0);
+      box-shadow: 0 0 14px rgba(55,239,176,0.32);
+    }
+
+    .meter.warn span {
+      background: linear-gradient(90deg, #ffd768, #ffb357);
+      box-shadow: 0 0 14px rgba(255,215,104,0.34);
+    }
+
+    .meter.critical span {
+      background: linear-gradient(90deg, #ff6374, #ff9a82);
+      box-shadow: 0 0 14px rgba(255,99,116,0.34);
+    }
+
+    /* 主内容区：上方拓扑图，下方三个辅助面板。 */
+    .main {
+      padding: 14px;
+      display: grid;
+      gap: 14px;
+    }
+
+    /* 通用面板样式，拓扑图、watchlist、heatmap、feed 共用。 */
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(10, 31, 45, 0.96), rgba(5, 16, 24, 0.96));
+    }
+
+    /* 面板头部通用布局。
+       影响范围：拓扑图、watchlist、heatmap、event feed 的标题行和右侧说明区域。 */
+    .panel-head {
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-size: 13px;
+    }
+
+    /* 面板头部中的粗体主标题。
+       影响范围：每个 panel-head 里 strong 的字号和强调程度。 */
+    .panel-head strong {
+      color: var(--text);
+      font-size: 17px;
+      letter-spacing: 0.8px;
+    }
+
+    /* 面板主体的统一内边距。
+       影响范围：所有 panel-body 内部内容与边框之间的留白。 */
+    .panel-body { padding: 14px; }
+
+    /* 拓扑图面板右上角图例容器。
+       影响范围：四个 legend 项的横向排列和换行行为。 */
+    .legend {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* 单个图例胶囊。
+       影响范围：legend 中每个颜色说明标签的背景、边框和内边距。 */
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* 图例前面的圆点色块。
+       影响范围：legend 中表示 primary / intra / backup / feedback / critical 的小圆点。 */
+    .legend i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* 拓扑面板右上角图例 + 操作按钮容器。 */
+    .topology-head-tools {
+      display: inline-flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .site-switch {
+      display: inline-flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .site-switch-btn,
+    .flow-toggle-btn {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .site-switch-btn:hover,
+    .flow-toggle-btn:hover {
+      border-color: rgba(99,230,255,0.28);
+      background: rgba(99,230,255,0.1);
+      color: var(--text);
+    }
+
+    .site-switch-btn[aria-pressed="true"],
+    .flow-toggle-btn[aria-pressed="true"] {
+      border-color: rgba(99,230,255,0.44);
+      background: rgba(99,230,255,0.16);
+      color: var(--text);
+      box-shadow: 0 0 18px rgba(99,230,255,0.12);
+    }
+
+    .site-switch-btn:disabled,
+    .flow-toggle-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.46;
+      border-color: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+    }
+
+    .toolbar-separator {
+      color: rgba(255,255,255,0.28);
+      font-size: 16px;
+      line-height: 1;
+      user-select: none;
+    }
+
+    /* 拓扑图横向超宽时允许滚动，纵向保持裁切。 */
+    .topology-wrap {
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    /* 拓扑图画布。
+       这里的宽高要和 SVG viewBox、tower 高度、节点坐标体系一起看。
+       如果只改单一数值，容易出现节点超出可视区域。 */
+    .topology-board {
+      width: 1640px;
+      height: 1180px;
+      position: relative;
+      border: 1px solid rgba(99,230,255,0.12);
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+        radial-gradient(circle at 50% 40%, rgba(99,230,255,0.06), transparent 42%),
+        linear-gradient(180deg, rgba(4, 15, 23, 0.96), rgba(7, 20, 29, 0.98));
+      background-size: 44px 44px, 44px 44px, auto, auto;
+      overflow: hidden;
+    }
+
+    /* 单站模式收紧画布高度，去掉 tower 下方多余空白。
+       注意：single-site 的 SVG viewBox 高度也必须同步修改，否则线层会和节点层错位。 */
+    .topology-board.layout-single {
+      width: 1572px;
+      height: 602px;
+    }
+
+    .topology-board.layout-cloud {
+      width: 1572px;
+      height: 640px;
+    }
+
+    /* 每个数据中心塔的背景容器，只负责视觉分区，不参与数据计算。 */
+    .tower {
+      position: absolute;
+      top: 40px;
+      width: 500px;
+      height: 1100px;
+      border-radius: 18px;
+      border: 1px solid rgba(99,230,255,0.12);
+      background: linear-gradient(180deg, rgba(11, 37, 53, 0.26), rgba(4, 13, 20, 0.18));
+    }
+
+    .tower::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      opacity: 0;
+    }
+
+    .tower.is-primary-site {
+      border-color: rgba(255, 215, 104, 0.3);
+      background:
+        radial-gradient(circle at 50% 10%, rgba(255, 215, 104, 0.12), transparent 28%),
+        radial-gradient(circle at 50% 42%, rgba(99,230,255,0.08), transparent 44%),
+        linear-gradient(180deg, rgba(25, 44, 57, 0.4), rgba(8, 18, 26, 0.26));
+      box-shadow: inset 0 0 0 1px rgba(255, 215, 104, 0.08);
+    }
+
+    .tower.is-primary-site::after {
+      opacity: 1;
+      border: 1px solid rgba(255, 215, 104, 0.26);
+      animation: towerPrimaryPulse 2.4s ease-in-out infinite;
+    }
+
+    /* 三座塔左右定位基准。
+       影响范围：背景塔本身的左右留白，以及与节点/标题的整体横向对齐。 */
+    .tower.left { left: 42px; }
+    .tower.center { left: 570px; }
+    .tower.right { right: 42px; }
+
+    .topology-board.layout-single .tower {
+      top: 18px;
+      width: 1460px;
+      height: 564px;
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 28% 50%, rgba(99,230,255,0.08), transparent 28%),
+        linear-gradient(180deg, rgba(11, 37, 53, 0.32), rgba(4, 13, 20, 0.22));
+    }
+
+    .topology-board.layout-single .tower.single {
+      left: 40px;
+      right: auto;
+    }
+
+    .topology-board.layout-single .tower.single .tower-tag {
+      left: 32px;
+    }
+
+    /* 塔顶部站点标签。
+       影响范围：NX1 Backup / NX9 Primary / NX2 Tertiary 三个圆角标签。 */
+    .tower-tag {
+      position: absolute;
+      left: 18px;
+      top: 14px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(6, 21, 33, 0.92);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    /* Primary 标记的强调色和闪烁。
+       影响范围：仅作用于 NX9 标签里的 mark，不影响其它 tower-tag。 */
+    .tower-tag .mark {
+      color: var(--amber);
+      margin-left: 8px;
+      animation: signalBlink 1.9s ease-in-out infinite;
+    }
+
+    .tower.is-primary-site .tower-tag {
+      border-color: rgba(255, 215, 104, 0.34);
+      background: linear-gradient(180deg, rgba(52, 38, 16, 0.96), rgba(21, 17, 11, 0.94));
+      box-shadow: 0 0 18px rgba(255, 215, 104, 0.12);
+    }
+
+    /* SVG 层负责画线；node-layer 负责放 HTML 卡片。
+       两层绝对定位叠加，便于“线和卡片分别渲染”。 */
+    .topology-svg,
+    .node-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* SVG 绘图层。
+       影响范围：所有连线、标签、pulse 动画的承载区域，不参与鼠标交互。 */
+    .topology-svg {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* route-base 是底线，route-flow 是上面的高亮流动线。
+       这种双层画法便于同时保留轨迹和动态效果。 */
+    .route-base {
+      fill: none;
+      stroke: rgba(99,230,255,0.12);
+      stroke-width: 2;
+    }
+
+    /* feedback 底层轨迹。
+       影响范围：所有回流线底线的暖色和虚线节奏。 */
+    .route-base.feedback {
+      stroke: rgba(255, 215, 104, 0.22);
+      stroke-dasharray: 4 10;
+      stroke-width: 0.5;
+    }
+
+    /* feedback 回流链路的默认样式。
+       影响范围：BG -> L3、L3 -> L1 等反馈线的颜色、虚线节奏和发光。 */
+    .route-flow.feedback {
+      stroke: var(--blue);
+      stroke-dasharray: 4 10;
+      stroke-width: 1.0;
+      stroke-opacity: 0.5;
+      --route-flow-animation: routeFlow 2.2s linear infinite;
+      filter: drop-shadow(0 0 12px rgba(255,215,104,0.18));
+    }
+
+    /* 所有动态主路线的默认样式。
+       影响范围：所有 route-flow 线条的粗细、流动节奏和默认青色发光。 */
+    .route-flow {
+      fill: none;
+      stroke-width: 4;
+      stroke-linecap: round;
+      stroke-dasharray: 10 14;
+      --route-flow-animation: routeFlow 3s linear infinite;
+      --route-alert-animation: none;
+      animation: var(--route-flow-animation), var(--route-alert-animation);
+      filter: drop-shadow(0 0 10px rgba(99,230,255,0.14));
+    }
+
+    /* 关闭 flow 时仅暂停流动动画，warn / critical 的闪烁继续保留。 */
+    .topology-board.flow-paused .route-flow {
+      animation-play-state: paused;
+    }
+
+    .topology-board.flow-paused .route-flow.warn,
+    .topology-board.flow-paused .route-flow.critical {
+      animation-play-state: paused, running;
+    }
+
+    /* 塔内前向链路的基础视觉。
+       影响范围：同塔 sources / l1-l2 / l3-bg / bg-hcs 等 intra 路由。 */
+    .route-flow.intra {
+      stroke: var(--cyan);
+      stroke-dasharray: 14 10;
+      stroke-width: 4;
+    }
+
+    /* sources -> L1 外部主线跟 source 卡片内小 feed 保持同一视觉语言。 */
+    .route-base.sources {
+      stroke: rgba(99,230,255,0.1);
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .route-flow.sources {
+      stroke: rgba(99,230,255,0.68);
+      stroke-width: 1.45;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 4 7;
+      --route-flow-animation: routeFlow 1.9s linear infinite;
+      filter: drop-shadow(0 0 4px rgba(99,230,255,0.12));
+    }
+
+    .route-base.sources.primary-active {
+      stroke: rgba(99,230,255,0.28);
+      stroke-width: 1.5;
+    }
+
+    .route-flow.sources.primary-active {
+      stroke: rgba(143,240,255,0.99);
+      stroke-width: 3.15;
+      stroke-dasharray: 6 8;
+      opacity: 1;
+      filter: drop-shadow(0 0 12px rgba(99,230,255,0.46)) drop-shadow(0 0 22px rgba(99,230,255,0.26));
+    }
+
+    .route-flow.sources.warn {
+      stroke: var(--amber);
+      filter: drop-shadow(0 0 6px rgba(255,215,104,0.2));
+    }
+
+    .route-flow.sources.warn.primary-active {
+      filter: drop-shadow(0 0 10px rgba(255,215,104,0.38)) drop-shadow(0 0 18px rgba(255,215,104,0.18));
+    }
+
+    .route-flow.sources.critical {
+      stroke: var(--red);
+      filter: drop-shadow(0 0 6px rgba(255,99,116,0.22));
+    }
+
+    .route-flow.sources.critical.primary-active {
+      filter: drop-shadow(0 0 10px rgba(255,99,116,0.4)) drop-shadow(0 0 18px rgba(255,99,116,0.2));
+    }
+
+    /* 主桥接前向链路的基础视觉。
+       影响范围：l3-bg、bg-hcs 中 kind=primary 的主桥接线条。 */
+    .route-flow.primary {
+      stroke: var(--cyan);
+      stroke-dasharray: 16 11;
+      stroke-width: 4;
+    }
+
+    /* 备份跨塔前向链路。
+       影响范围：l2-l3 中 kind=backup 的跨塔备援路线，视觉权重低于 intra。 */
+    .route-flow.backup {
+      stroke: var(--cyan);
+      stroke-dasharray: 6 14;
+      stroke-width: 1.8;
+      stroke-opacity: 0.6;
+      --route-flow-animation: routeFlow 2.6s linear infinite;
+      filter: drop-shadow(0 0 8px rgba(99,230,255,0.10));
+    }
+
+    .route-base.backup {
+      stroke: rgba(99,230,255,0.09);
+      stroke-dasharray: 4 12;
+      stroke-width: 0.6;
+    }
+
+    /* 视觉上被选为 primary 的线路统一强化：
+       保持原有色相，只增加线宽、亮度和存在感。 */
+    .route-base.primary-active {
+      stroke-width: 2.4;
+      stroke-opacity: 1;
+    }
+
+    .route-flow.primary-active {
+      stroke-width: 5.2;
+      opacity: 1;
+      filter: drop-shadow(0 0 14px rgba(99,230,255,0.24));
+    }
+
+    .route-flow.primary-active.feedback {
+      filter: drop-shadow(0 0 14px rgba(152,186,253,0.26));
+    }
+
+    /* 告警级别颜色覆盖。
+       影响范围：所有动态 route-flow 在 warn / critical 状态下的最终主色。 */
+    .route-flow.warn { 
+      stroke: var(--amber); 
+      --route-alert-animation: routeAlertBlink 0.9s linear infinite;
+    }
+    .route-flow.critical {
+      stroke: var(--red);
+      --route-alert-animation: routeAlertBlink 0.9s linear infinite;
+    }
+
+    /* pulse 动画图元的公共约束。
+       影响范围：沿 L3 -> BG 路径运动的 glow/core 两层圆点。 */
+    .route-pulse-glow,
+    .route-pulse-core {
+      pointer-events: none;
+    }
+
+    /* pulse 外层光团。
+       影响范围：L3 -> BG 路径上移动的发光外圈，决定扩散感。 */
+    .route-pulse-glow {
+      opacity: 0;
+      fill: rgba(99,230,255,0.94);
+      filter: drop-shadow(0 0 18px rgba(99,230,255,0.68));
+    }
+
+    /* pulse 内核亮点。
+       影响范围：L3 -> BG 路径上移动的亮芯，决定脉冲中心的可见度。 */
+    .route-pulse-core {
+      opacity: 0;
+      fill: #effdff;
+      filter: drop-shadow(0 0 9px rgba(255,255,255,0.7));
+    }
+
+    /* pulse 颜色映射。
+       默认沿用前向链路的青色，feedback 单独保留蓝色，告警继续覆盖。 */
+    .route-pulse-glow.feedback { fill: rgba(152,186,253,0.92); }
+    .route-pulse-core.feedback { fill: #ebf2ff; }
+    .route-pulse-glow.warn { fill: rgba(255,215,104,0.92); }
+    .route-pulse-core.warn { fill: #fff2c1; }
+    .route-pulse-glow.critical { fill: rgba(255,99,116,0.92); }
+    .route-pulse-core.critical { fill: #ffe6ea; }
+
+    /* 降低 GPU 重绘压力：线路和脉冲统一去掉滤镜发光。 */
+    .route-flow,
+    .node.source .source-wire-flow,
+    .route-pulse-glow,
+    .route-pulse-core {
+      filter: none !important;
+    }
+
+    /* 路径耗时标签文字。
+       影响范围：主拓扑链路和 source feed 内部延迟标签的文字描边与可读性。 */
+    .latency-label text {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 11px;
+      font-weight: 600;
+      fill: #e6f7ff;
+      text-transform: none;
+      text-anchor: middle;
+      paint-order: stroke;
+      stroke: rgba(4, 16, 24, 0.92);
+      stroke-width: 4px;
+      stroke-linejoin: round;
+    }
+
+    @keyframes routeLabelAlertBlink {
+      0%, 42%, 100% { opacity: 1; }
+      52%, 78% { opacity: 0.32; }
+    }
+
+    .latency-label.warn text {
+      fill: var(--amber);
+      filter: drop-shadow(0 0 8px rgba(255,215,104,0.48));
+    }
+
+    .latency-label.critical text {
+      fill: var(--red);
+      filter: drop-shadow(0 0 9px rgba(255,99,116,0.58));
+    }
+
+    .source-wire-label text {
+      font-size: 9px;
+      stroke-width: 3px;
+    }
+
+    .source-wire-label.compact text {
+      font-size: 7.8px;
+      font-weight: 700;
+      letter-spacing: 0;
+      stroke-width: 2.5px;
+    }
+
+    .topology-board.layout-single .source-wire-label text {
+      font-size: 10px;
+      stroke-width: 3px;
+    }
+
+    /* 每一层的文字标题，比如 External Sources / BG Dispatch。
+       这里只是说明标签，不会驱动节点位置。 */
+    .tower-caption {
+      position: absolute;
+      width: 160px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 12px;
+    }
+
+    .topology-board.layout-single .tower-caption {
+      width: 180px;
+      top: 72px;
+    }
+
+    .topology-board.layout-single .tower-caption.sources-cluster {
+      width: 250px;
+    }
+
+    /* 所有节点卡片的基础样式，source / stage 都继承自这里。 */
+    .node {
+      position: absolute;
+      border-radius: 16px;
+      border: 1px solid rgba(99,230,255,0.18);
+      background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    /* 最上方外部源节点。
+       现在固定为四张卡，因此略微放宽卡片尺寸，容纳内部 feed 分割。 */
+    .node.source {
+      width: 112px;
+      height: 92px;
+      padding: 8px 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      text-align: center;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: linear-gradient(180deg, rgba(7, 46, 63, 0.96), rgba(4, 19, 27, 0.96));
+    }
+
+    .topology-board.layout-single .node.source {
+      width: 104px;
+      height: 108px;
+      padding: 0;
+      overflow: hidden;
+      border-radius: 20px;
+    }
+
+    .topology-board.layout-single .node.source .source-body {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 108px;
+      height: 104px;
+      padding: 0;
+      display: block;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      transform-origin: center;
+    }
+
+    /* source 卡片内部的小 feed 先汇聚，再接入外部 source -> L1 主线起点。 */
+    .node.source .source-wiring {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .node.source .source-name,
+    .node.source .source-splits {
+      position: relative;
+      z-index: 1;
+    }
+
+    .topology-board.layout-single .node.source .source-name,
+    .topology-board.layout-single .node.source .source-feed-cluster,
+    .topology-board.layout-single .node.source .source-splits {
+      position: absolute;
+      z-index: 1;
+    }
+
+    .topology-board.layout-single .node.source .source-feed-cluster {
+      inset: 0;
+      transform: rotate(180deg);
+      transform-origin: center;
+    }
+
+    .node.source .source-wire-base {
+      fill: none;
+      stroke: rgba(99,230,255,0.1);
+      stroke-width: 1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .node.source .source-wire-flow {
+      fill: none;
+      stroke: rgba(99,230,255,0.68);
+      stroke-width: 1.45;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-dasharray: 4 7;
+      animation: routeFlow 1.9s linear infinite;
+      filter: drop-shadow(0 0 4px rgba(99,230,255,0.12));
+    }
+
+    .node.source .source-wire-base.primary-active {
+      stroke: rgba(99,230,255,0.18);
+      stroke-width: 1.4;
+    }
+
+    .node.source .source-wire-flow.primary-active {
+      stroke: rgba(99,230,255,0.98);
+      stroke-width: 3.15;
+      stroke-dasharray: 6 8;
+      filter: drop-shadow(0 0 9px rgba(99,230,255,0.28));
+    }
+
+    .node.source.warn .source-wire-base {
+      stroke: rgba(255,215,104,0.18);
+    }
+
+    .node.source.warn .source-wire-flow {
+      stroke: var(--amber);
+      filter: drop-shadow(0 0 6px rgba(255,215,104,0.2));
+    }
+
+    .node.source.warn .source-wire-flow.primary-active {
+      filter: drop-shadow(0 0 8px rgba(255,215,104,0.28));
+    }
+
+    .node.source.critical .source-wire-base {
+      stroke: rgba(255,99,116,0.18);
+    }
+
+    .node.source.critical .source-wire-flow {
+      stroke: var(--red);
+      filter: drop-shadow(0 0 6px rgba(255,99,116,0.22));
+    }
+
+    .node.source.critical .source-wire-flow.primary-active {
+      filter: drop-shadow(0 0 8px rgba(255,99,116,0.3));
+    }
+
+    .topology-board.flow-paused .node.source .source-wire-flow {
+      animation-play-state: paused;
+    }
+
+    .source-feed-pulse-pack {
+      pointer-events: none;
+    }
+
+    .source-feed-pulse-pack .route-pulse-glow {
+      filter: drop-shadow(0 0 12px rgba(99,230,255,0.72));
+    }
+
+    .source-feed-pulse-pack .route-pulse-core {
+      filter: drop-shadow(0 0 7px rgba(255,255,255,0.78));
+    }
+
+    /* source 卡片标题。
+       影响范围：RT / BB / OMDC / CIIS 四张卡顶部主标题。 */
+    .node.source .source-name {
+      font-size: 13px;
+      line-height: 1;
+    }
+
+    .topology-board.layout-single .node.source .source-name {
+      top: 8px;
+      left: 50%;
+      width: calc(100% - 18px);
+      transform: translateX(-50%);
+      font-size: 14px;
+      line-height: 1;
+      letter-spacing: 1.2px;
+      text-align: center;
+      white-space: nowrap;
+      z-index: 2;
+    }
+
+    /* source 卡片中部分割网格。
+       RT / BB 走三列，CIIS 走两列，OMDC 走单卡。 */
+    .node.source .source-splits {
+      display: grid;
+      gap: 8px;
+    }
+
+    .topology-board.layout-single .node.source .source-splits {
+      left: 12px;
+      top: 66px;
+      width: calc(100% - 24px);
+      gap: 4px;
+    }
+
+    .topology-board.layout-single .node.source .source-splits.cols-1 .source-split {
+      width: 62px;
+      min-height: 26px;
+      justify-self: center;
+    }
+
+    .node.source .source-splits.cols-1 {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .node.source .source-splits.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .node.source .source-splits.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .node.source .source-split {
+      min-height: 26px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      border: 1px solid rgba(99,230,255,0.16);
+      background: rgba(255,255,255,0.045);
+      font-size: 8.5px;
+      line-height: 1;
+      letter-spacing: 0.8px;
+      color: rgba(241,249,255,0.9);
+    }
+
+    .topology-board.layout-single .source-split-label {
+      display: inline-block;
+      transform: rotate(-90deg);
+      transform-origin: center;
+      white-space: nowrap;
+    }
+
+    /* 业务处理节点（L1/L2/L3/BG/HCS）的统一卡片尺寸。 */
+    .node.stage {
+      width: 176px;
+      min-height: 126px;
+      padding: 10px 12px 12px;
+    }
+
+    /* L2 / L3 / BG 默认走 process 视觉风格。 */
+    .node.stage.process {
+      border-color: rgba(162, 141, 255, 0.22);
+      background: linear-gradient(180deg, rgba(47, 33, 85, 0.96), rgba(17, 13, 35, 0.96));
+    }
+
+    /* BG 仍然保留 process 节点的身份，但背景色刻意与 HCS 对齐。
+       影响范围：只有 BG 卡片底色，不影响连线、数据、坐标。 */
+    .node.stage.process.bg-hcs-tone {
+      background: linear-gradient(180deg, rgba(11, 39, 57, 0.96), rgba(5, 17, 25, 0.96));
+    }
+
+    /* stage 卡片标题行。
+       影响范围：L1/L2/L3/BG/HCS 卡片顶部名称与 badge 的左右布局。 */
+    .node.stage .title {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* stage 卡片副标题。
+       影响范围：站点角色说明或 BG 消息数下面那行说明文字。 */
+    .node.stage .sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* AVG/P95 指标区容器。
+       影响范围：stage 卡片中部两行 metrics 的纵向间距和等宽字体表现。 */
+    .node.stage .metrics {
+      margin-top: 10px;
+      display: grid;
+      gap: 5px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 12px;
+    }
+
+    /* 单行指标左右对齐。
+       影响范围：metrics 中每一行 span 与 strong 的分布。 */
+    .node.stage .line {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .topology-board.layout-all .node.stage {
+      min-height: 142px;
+    }
+
+    .topology-board.layout-all .node.stage .metrics {
+      margin-top: 8px;
+      gap: 4px;
+    }
+
+    .topology-board.layout-all .node.stage .line.metric-inline {
+      justify-content: flex-start;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .topology-board.layout-all .node.stage .line.metric-inline .metric-block {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .topology-board.layout-all .node.stage .line.metric-inline .metric-divider {
+      color: rgba(141,179,200,0.68);
+    }
+
+    .topology-board.layout-all .node.stage .line.msg-inline {
+      justify-content: flex-start;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .topology-board.layout-all .node.stage .resource-stack {
+      margin-top: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .topology-board.layout-all .node.stage .resource-stack .resource-row {
+      margin-top: 0;
+    }
+
+    .topology-board.layout-all .node.stage .resource-bar span {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding-left: 10px;
+    }
+
+    .node.stage .resource-stack {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    /* stage 卡片底部的资源条容器：CPU / MEM 第一行并排，DISK 单独第二行。 */
+    .node.stage .resource-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    /* 单个资源条本体。背景是低亮度底板，::before 负责实际进度填充。 */
+    .node.stage .resource-bar {
+      position: relative;
+      height: 17px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(6, 16, 24, 0.78);
+      border: 1px solid rgba(255,255,255,0.09);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04);
+    }
+
+    /* 资源条填充层。
+       影响范围：CPU / MEM 资源条内实际填充宽度，宽度由 --value 控制。 */
+    .node.stage .resource-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--value, 0%);
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(11,118,79,0.98), rgba(27,166,115,0.92));
+    }
+
+    .node.stage .resource-bar.warn::before {
+      background: linear-gradient(90deg, rgba(160,91,18,0.98), rgba(223,132,34,0.92));
+    }
+
+    .node.stage .resource-bar.critical::before {
+      background: linear-gradient(90deg, rgba(184,43,66,0.98), rgba(233,92,112,0.92));
+    }
+
+    /* 半透明文字覆盖在进度条上方，既能读数值，也能保留条形填充。 */
+    .node.stage .resource-bar span {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1;
+      text-transform: uppercase;
+      color: rgba(248,252,255,0.96);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.78);
+      letter-spacing: 0.35px;
+      pointer-events: none;
+    }
+
+    /* 单站模式单独放大 stage 卡片，提升大屏下的视觉占比和可读性。 */
+    .topology-board.layout-single .node.stage {
+      width: 196px;
+      min-height: 166px;
+      padding: 12px 14px 14px;
+      border-radius: 18px;
+    }
+
+    .topology-board.layout-single .node.stage .title {
+      gap: 10px;
+      font-size: 20px;
+    }
+
+    .topology-board.layout-single .node.stage .sub {
+      margin-top: 4px;
+      font-size: 13px;
+      letter-spacing: 1.1px;
+    }
+
+    .topology-board.layout-single .node.stage .metrics {
+      margin-top: 12px;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-stack {
+      margin-top: 12px;
+      gap: 10px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-row {
+      gap: 10px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-bar {
+      height: 19px;
+    }
+
+    .topology-board.layout-single .node.stage .resource-bar span {
+      font-size: 11px;
+    }
+
+    .topology-board.layout-single .node.stage .badge {
+      padding: 3px 7px;
+      font-size: 11px;
+    }
+
+    /* 单站 L2 改成 4 台竖排 server，不再沿用普通 stage 卡片结构。 */
+    .topology-board.layout-single .node.stage.l2-cluster {
+      width: 176px;
+      min-height: 358px;
+      padding: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      animation: none;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster::before {
+      content: "";
+      position: absolute;
+      inset: 12px 18px;
+      border-radius: 20px;
+      border: 1px solid rgba(162, 141, 255, 0.16);
+      background:
+        linear-gradient(180deg, rgba(41, 28, 73, 0.28), rgba(14, 10, 27, 0.12)),
+        radial-gradient(circle at 50% 50%, rgba(162,141,255,0.08), transparent 72%);
+      pointer-events: none;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server-stack {
+      position: relative;
+      display: grid;
+      gap: 10px;
+      z-index: 1;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server {
+      min-height: 82px;
+      padding: 11px 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(162, 141, 255, 0.24);
+      background: linear-gradient(180deg, rgba(47, 33, 85, 0.96), rgba(17, 13, 35, 0.96));
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server .server-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server .badge {
+      padding: 3px 7px;
+      font-size: 11px;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server .server-metrics {
+      margin-top: 9px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server .server-metric {
+      padding: 5px 4px 6px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.045);
+      text-align: center;
+      color: rgba(141,179,200,0.88);
+      font-size: 10px;
+      line-height: 1.1;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+
+    .topology-board.layout-single .node.stage.l2-cluster .l2-server .server-metric strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      color: var(--text);
+      letter-spacing: 0;
+    }
+
+    .node.stage.bg-card .metrics,
+    .topology-board.layout-single .node.stage.bg-compact .metrics {
+      gap: 4px;
+    }
+
+    .node.stage.bg-card .title {
+      gap: 6px;
+      font-size: 17px;
+    }
+
+    .node.stage.bg-card .sub {
+      margin-top: 2px;
+      font-size: 11px;
+      letter-spacing: 0.8px;
+    }
+
+    .node.stage.bg-card .metrics {
+      margin-top: 8px;
+      font-size: 11px;
+    }
+
+    .node.stage.bg-card .resource-stack {
+      margin-top: 8px;
+      gap: 6px;
+    }
+
+    .node.stage.bg-card .resource-row {
+      gap: 6px;
+    }
+
+    .node.stage.bg-card .resource-bar {
+      height: 15px;
+    }
+
+    .node.stage.bg-card .resource-bar span {
+      font-size: 9px;
+    }
+
+    .node.stage .line.msg strong {
+      color: #dceef7;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact {
+      width: 158px;
+      min-height: 132px;
+      padding: 10px 11px 11px;
+      border-radius: 16px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .title {
+      gap: 7px;
+      font-size: 15px;
+      letter-spacing: 0.7px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .title span:first-child {
+      white-space: nowrap;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .sub {
+      margin-top: 2px;
+      font-size: 11px;
+      letter-spacing: 0.8px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .metrics {
+      margin-top: 8px;
+      font-size: 11px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .resource-stack {
+      margin-top: 8px;
+      gap: 8px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .resource-row {
+      gap: 8px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .resource-bar {
+      height: 16px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .resource-bar span {
+      font-size: 10px;
+    }
+
+    .topology-board.layout-single .node.stage.bg-compact .badge {
+      padding: 2px 6px;
+      font-size: 9px;
+    }
+
+    /* 节点状态徽标基础样式。
+       影响范围：所有 badge 的边框、圆角、字距，颜色由状态类单独接管。 */
+    .badge {
+      padding: 2px 6px;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      font-size: 10px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* 通用状态色工具类。
+       影响范围：节点 badge、摘要大字、watchlist、heatmap、feed 等所有复用状态色的文本。 */
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .critical { color: var(--red); }
+    .cyan { color: var(--cyan); }
+
+    /* 下方辅助模块区域。
+       当前仅保留 Event Feed，因此使用单列全宽布局。 */
+    .lower {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    /* 右下三类列表容器的统一纵向栅格。
+       影响范围：watch-list、heat-grid、feed-list 内部项目之间的间距。 */
+    .watch-list,
+    .heat-grid,
+    .feed-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    /* watchlist / feed 卡片外壳。
+       影响范围：Route Watchlist 与 Event Feed 列表项的背景、边框、圆角。 */
+    .watch-item,
+    .feed-item {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.025);
+      padding: 10px 12px;
+    }
+
+    /* watchlist 顶部行。
+       影响范围：每条 watch-item 的路径名称与状态标签左右布局。 */
+    .watch-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    /* watchlist 数值行。
+       影响范围：watch-item 中 current latency 与 base latency 的对齐方式。 */
+    .watch-value {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: end;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    /* watchlist 主时延数字。
+       影响范围：watch-item 中最醒目的毫秒数字号。 */
+    .watch-value strong {
+      font-size: 24px;
+      line-height: 1;
+    }
+
+    /* heatmap 主表格列结构。
+       影响范围：第一列标签 + 四列数据的整体宽度分配。 */
+    .heat-grid {
+      grid-template-columns: 170px repeat(4, minmax(0, 1fr));
+    }
+
+    /* heatmap 表头 / 行头 / 数据格的共同外壳。
+       影响范围：Heatmap 中所有单元格的高度、边框、留白和居中方式。 */
+    .heat-head,
+    .heat-label,
+    .heat-cell {
+      min-height: 64px;
+      border-radius: 14px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.06);
+      display: grid;
+      align-content: center;
+    }
+
+    /* heatmap 行列标题单元格。
+       影响范围：Heatmap 左侧 label 和顶部 head 的弱化文字样式。 */
+    .heat-head,
+    .heat-label {
+      background: rgba(255,255,255,0.035);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 13px;
+    }
+
+    /* heatmap 数据单元格。
+       影响范围：每个热力格子的底色、定位上下文以及溢出裁切。 */
+    .heat-cell {
+      background: rgba(255,255,255,0.03);
+      position: relative;
+      overflow: hidden;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    /* heatmap 底部色条。
+       影响范围：heat-cell 下边缘那条按 currentColor 着色的状态提示线。 */
+    .heat-cell::after {
+      content: "";
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 4px;
+      background: currentColor;
+    }
+
+    /* heatmap 主数值。
+       影响范围：每个 heat-cell 内的大号毫秒读数。 */
+    .heat-cell strong {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    /* heatmap 辅助说明。
+       影响范围：每个 heat-cell 内的 secondary text，例如站点对比说明。 */
+    .heat-cell span {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #d4e7f2;
+    }
+
+    /* 事件流卡片的左侧强调条和等宽字体。
+       影响范围：Event Feed 中每一条事件的卡片视觉重心。 */
+    .feed-item {
+      border-left: 4px solid var(--cyan);
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+
+    /* 事件流的告警颜色覆盖。
+       影响范围：feed-item 在 warn / critical 状态下左边强调条的颜色。 */
+    .feed-item.warn { border-left-color: var(--amber); }
+    .feed-item.critical { border-left-color: var(--red); }
+
+    /* 事件时间戳。
+       影响范围：Event Feed 中 time 标签的颜色和与正文的间距。 */
+    .feed-item time {
+      color: var(--muted);
+      margin-right: 8px;
+    }
+
+    .topology-board.layout-cloud {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 22px;
+    }
+
+    .cloud-view {
+      display: grid;
+      justify-items: center;
+      gap: 18px;
+    }
+
+    .cloud-tabs {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .cloud-chip {
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+    }
+
+    .cloud-chip.active {
+      border-color: rgba(99,230,255,0.34);
+      background: rgba(99,230,255,0.12);
+      color: var(--text);
+      box-shadow: 0 0 18px rgba(99,230,255,0.1);
+    }
+
+    .topology-loading {
+      font-size: clamp(24px, 3.4vw, 44px);
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(241,249,255,0.82);
+    }
+
+    /* 大屏展示模式：
+       只在足够宽的屏幕上统一抬高页头、统计卡、拓扑 caption 和按钮的字号/留白，
+       让它们和已经放大的 single-site stage 卡片处在同一视觉层级。 */
+    @media (min-width: 1680px) {
+      .app {
+        padding: 18px;
+      }
+
+      .header {
+        padding: 22px 24px 18px;
+      }
+
+      .header-top {
+        gap: 18px;
+      }
+
+      .eyebrow {
+        gap: 12px;
+        font-size: 14px;
+        letter-spacing: 2.2px;
+      }
+
+      .eyebrow::before {
+        width: 40px;
+      }
+
+      h1 {
+        margin-top: 10px;
+        font-size: clamp(40px, 4.1vw, 66px);
+        letter-spacing: 1.2px;
+      }
+
+      .headline {
+        gap: 12px;
+      }
+
+      .headline-card {
+        padding: 14px 16px;
+        border-radius: 18px;
+      }
+
+      .headline-card .name,
+      .stat .name,
+      .kpi .name {
+        font-size: 13px;
+        letter-spacing: 1.6px;
+      }
+
+      .headline-card .val {
+        margin-top: 10px;
+        font-size: 40px;
+      }
+
+      .headline-card .meta {
+        margin-top: 10px;
+        font-size: 14px;
+      }
+
+      .stats {
+        margin-top: 16px;
+        gap: 10px;
+      }
+
+      .stat {
+        padding: 10px 12px 11px;
+        border-radius: 16px;
+        min-height: 144px;
+      }
+
+      .stat .name {
+        min-height: 32px;
+      }
+
+      .stat .val {
+        margin: 0;
+        font-size: 29px;
+      }
+
+      .stat-bottom {
+        grid-template-columns: 50px minmax(0, 1fr);
+        gap: 12px;
+      }
+
+      .stat-icon-box {
+        width: 50px;
+        height: 50px;
+      }
+
+      .stat-icon-box img {
+        width: 40px;
+        height: 40px;
+      }
+
+      .meter {
+        margin-top: 12px;
+        height: 7px;
+      }
+
+      .main {
+        padding: 16px;
+        gap: 16px;
+      }
+
+      .panel-head {
+        padding: 14px 18px;
+        gap: 14px;
+        font-size: 14px;
+        letter-spacing: 1.4px;
+      }
+
+      .panel-head strong {
+        font-size: 19px;
+        letter-spacing: 0.9px;
+      }
+
+      .legend {
+        gap: 12px;
+      }
+
+      .legend span {
+        padding: 5px 10px;
+      }
+
+      .topology-head-tools,
+      .site-switch {
+        gap: 12px;
+      }
+
+      .site-switch-btn,
+      .flow-toggle-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+        letter-spacing: 1.1px;
+      }
+
+      .topology-board.layout-single .tower.single .tower-tag {
+        left: 36px;
+      }
+
+      .topology-board.layout-single .tower-tag {
+        top: 16px;
+        padding: 8px 14px;
+        font-size: 16px;
+        letter-spacing: 1.1px;
+      }
+
+      .topology-board.layout-single .tower-caption {
+        width: 220px;
+        top: 72px;
+        font-size: 14px;
+        font-weight: 700;
+        letter-spacing: 1.2px;
+        line-height: 1.05;
+        color: rgba(209,229,240,0.74);
+      }
+
+      .topology-board.layout-single .tower-caption.sources-cluster {
+        width: 290px;
+      }
+
+      .topology-board.layout-single .node.source .source-name {
+        top: 9px;
+        font-size: 15px;
+        letter-spacing: 1.3px;
+      }
+
+      .topology-board.layout-single .node.source .source-splits {
+        top: 64px;
+        gap: 5px;
+      }
+
+      .topology-board.layout-single .node.source .source-split {
+        font-size: 9px;
+      }
+
+      .topology-board.layout-single .source-wire-label text {
+        font-size: 11px;
+        stroke-width: 3.2px;
+      }
+    }
+
+    @media (min-width: 1760px) {
+      .topology-board.layout-single {
+        width: 1680px;
+      }
+
+      .topology-board.layout-single .tower {
+        width: 1588px;
+        height: 574px;
+      }
+    }
+
+    /* 平板和较窄桌面下，顶部和底部辅助面板改成单列。 */
+    @media (max-width: 1460px) {
+      .header-top,
+      .lower {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 中等宽度下，摘要卡和统计卡缩成两列，heatmap 也降维。 */
+    @media (max-width: 1100px) {
+      .headline,
+      .stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .heat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* 手机宽度下全部单列，去掉外围圆角，减少边距。 */
+    @media (max-width: 720px) {
+      /* 手机下收掉页面边距。
+         影响范围：最外层 app，避免窄屏再被双侧留白压缩内容。 */
+      .app { padding: 0; }
+      /* 手机下取消最外层圆角。
+         影响范围：shell 整体外框，减少边缘裁切感。 */
+      .shell { border-radius: 0; }
+      .header,
+      /* 手机下压缩主要内容区内边距。
+         影响范围：header 与 main 两块主容器的边距。 */
+      .main { padding: 12px; }
+      .headline,
+      .stats,
+      .heat-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 动效降级模式。
+       影响范围：系统偏好减少动画时，关闭主线路和 source feed 的流动脉冲。 */
+    @media (prefers-reduced-motion: reduce) {
+      .route-flow,
+      .node.source .source-wire-flow,
+      .route-flow.critical {
+        animation: none !important;
+      }
+
+      .latency-label.warn text,
+      .latency-label.critical text {
+        animation: none !important;
+      }
+
+      .route-pulse-pack {
+        display: none;
+      }
+
+      .source-feed-pulse-pack {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!--
+    页面结构分三层：
+    1. app/shell: 外层容器和壳子
+    2. header: 顶部总览指标
+    3. main: 拓扑图 + 底部事件面板
+  -->
+  <div class="app">
+    <div class="shell">
+      <header class="header">
+        <!-- 顶部说明区。右侧 headline 是最重要的摘要卡。 -->
+        <div class="header-top">
+          <div>
+            <div class="eyebrow">NXGEN Tri-DC Flow View</div>
+            <h1>Index Calculation System Monitor</h1>
+            <!-- <div class="subtitle">指数计算系统实时监控仪表盘</div> -->
+          </div>
+          <!-- 这两张卡由 JS 动态刷新。修改 id 会直接导致 renderSummary 失效。 -->
+          <div class="headline">
+            <div class="headline-card">
+              <div class="name">Primary Site</div>
+              <div class="val cyan" id="heroPrimary">NX9</div>
+              <div class="meta"><span>Dispatch Tower</span><span id="heroClock">09:24:40</span></div>
+            </div>
+            <div class="headline-card">
+              <div class="name">Warn / Critical</div>
+              <div class="val warn" id="heroAlerts">4 / 1</div>
+              <div class="meta"><span>Route Alerts</span><span id="heroAlertState">Critical Active</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 统计卡区域：多数数字和进度条由 renderSummary() 写入。 -->
+        <div class="stats">
+          <div class="stat">
+            <div class="name">External Sources</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-external-sources.svg" alt="External Sources icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statSources">27/27</div>
+                <div class="meter" id="meterSources"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">Captures (L1)</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-captures-l1.svg" alt="Captures icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statCaptures">9/9</div>
+                <div class="meter" id="meterCaptures"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">Calculations (L2)</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-calculations-l2.svg" alt="Calculations icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statCalculations">12/12</div>
+                <div class="meter" id="meterCalculations"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">Reconciliation (L3)</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-reconciliation-l3.svg" alt="Reconciliation icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statReconciliation">3/3</div>
+                <div class="meter" id="meterReconciliation"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">BroadcastGateways (BG)</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-broadcastgateways-bg.svg" alt="BroadcastGateways icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statBg">3/3</div>
+                <div class="meter" id="meterBg"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">Growth Index</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><div class="stat-icon-tag growth">GI</div></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statGrowthIndex">1/1</div>
+                <div class="meter" id="meterGrowthIndex"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">BIS</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><div class="stat-icon-tag bis">BIS</div></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statBis">1/1</div>
+                <div class="meter" id="meterBis"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">HealthCheckServices (HCS)</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-healthcheckservices-hcs.svg" alt="HealthCheckServices icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statHcs">3/3</div>
+                <div class="meter" id="meterHcs"><span></span></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="name">Vendors</div>
+            <div class="stat-bottom">
+              <div class="stat-icon-box"><img src="./icon-stat-vendors.svg" alt="Vendors icon" /></div>
+              <div class="stat-meter-stack">
+                <div class="val" id="statVendors">10/10</div>
+                <div class="meter" id="meterVendors"><span></span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="panel">
+          <!-- 核心区域：三塔拓扑图。 -->
+          <div class="panel-head">
+            <strong id="topologyTitle">All-Sites Topology</strong>
+            <div class="topology-head-tools">
+              <div class="site-switch" id="siteSwitch" aria-label="Topology scope">
+                <button type="button" class="site-switch-btn" data-topology-scope="NX1" aria-pressed="false">NX1</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="NX9" aria-pressed="false">NX9</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="NX2" aria-pressed="false">NX2</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="CLD" aria-pressed="false">CLD</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="BIS" aria-pressed="false">BIS</button>
+                <button type="button" class="site-switch-btn" data-topology-scope="ALL" aria-pressed="true">ALL</button>
+              </div>
+              <span class="toolbar-separator" aria-hidden="true">|</span>
+              <button type="button" class="flow-toggle-btn" id="togglePulseBtn" aria-pressed="true">pulse</button>
+              <button type="button" class="flow-toggle-btn" id="toggleFlowBtn" aria-pressed="false">flow</button>
+            </div>
+          </div>
+          <div class="panel-body topology-wrap">
+            <div class="topology-board layout-all" id="topologyBoard">
+              <!-- 三个 tower 只是背景分栏，不是数据节点。 -->
+              <div class="tower left" data-site="NX1">
+                <div class="tower-tag">NX1 Backup</div>
+              </div>
+              <div class="tower center" data-site="NX9">
+                <div class="tower-tag">NX9 <span class="mark">Primary</span></div>
+              </div>
+              <div class="tower right" data-site="NX2">
+                <div class="tower-tag">NX2 Tertiary</div>
+              </div>
+              <!--
+                tower-caption 是每一层的行标题。
+                如果你调整 levelY（节点真实纵坐标），这里通常也要同步调整 top，
+                否则会出现“文字标题和卡片层级对不上”的问题。
+              -->
+              <div class="tower-caption" style="left:292px; top:96px;">External Sources</div>
+              <div class="tower-caption" style="left:820px; top:96px;">External Sources</div>
+              <div class="tower-caption" style="left:1348px; top:96px;">External Sources</div>
+              <div class="tower-caption" style="left:292px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:820px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:1348px; top:288px;">Input Gate</div>
+              <div class="tower-caption" style="left:292px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:820px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:1348px; top:452px;">Process Layer</div>
+              <div class="tower-caption" style="left:292px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:820px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:1348px; top:612px;">Compute Layer</div>
+              <div class="tower-caption" style="left:292px; top:789px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:820px; top:789px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:1348px; top:789px;">BG Dispatch</div>
+              <div class="tower-caption" style="left:292px; top:949px;">HCS Delivery</div>
+              <div class="tower-caption" style="left:820px; top:949px;">HCS Delivery</div>
+              <div class="tower-caption" style="left:1348px; top:949px;">HCS Delivery</div>
+              <!--
+                SVG 只负责绘制连线和连线标签。
+                节点卡片不放在 SVG 里，而是放在后面的 node-layer，
+                这样 HTML 卡片更容易写阴影、圆角和文字布局。
+              -->
+              <svg class="topology-svg" viewBox="0 0 1640 1180" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <defs>
+                  <marker id="route-arrow-cyan" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-cyan-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-blue-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--blue); stroke: var(--blue); stroke-width: 0.35; opacity: 0.5;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-amber-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-red" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35;"></path>
+                  </marker>
+                  <marker id="route-arrow-red-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                  <marker id="route-arrow-red-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+                    <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+                  </marker>
+                </defs>
+                <g id="routeLayer"></g>
+                <g id="labelLayer"></g>
+              </svg>
+              <!-- 节点 HTML 会由 renderTopology() 动态灌进这里。 -->
+              <div class="node-layer" id="nodeLayer"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="lower">
+          <!-- event feed: 用简短自然语言解释当前热点路径。 -->
+          <div class="panel">
+            <div class="panel-head">
+              <strong>Event Feed</strong>
+              <span id="eventMeta">topology anomalies</span>
+            </div>
+            <div class="panel-body">
+              <div class="feed-list" id="feedList"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    /*
+      ===== 数据模型总览 =====
+      这个页面没有框架，也没有模块系统，所有数据都放在一个 script 里。
+      维护时可以把它理解成 4 步：
+      1. 定义静态配置：塔位置、层级高度、初始节点数据、初始链路数据
+      2. 根据配置生成 nodes / links 两份内存数据
+      3. render*() 系列函数把内存数据渲染到 DOM / SVG
+      4. evolve*() 系列函数定时抖动数据，再重新 render
+    */
+
+    /* 三座塔在画布中的横向基准位置。
+       x / stagesX 决定节点和标题的水平中心。
+       调整这里会影响：
+       1. 节点卡片 left/top 计算
+       2. 所有连线起点终点
+       3. tower-caption 的 left 如果还是写死值，需要人工同步 */
+    const towers = {
+      NX1: { x: 292, stagesX: 292, label: "Backup", role: "secondary" },
+      NX9: { x: 820, stagesX: 820, label: "Primary", role: "primary" },
+      NX2: { x: 1348, stagesX: 1348, label: "Tertiary", role: "tertiary" }
+    };
+
+    /* 控制塔的遍历顺序。
+       这个顺序会影响：
+       1. nodes 的生成顺序
+       2. links 的生成顺序
+       3. 某些 UI 中同类数据的默认显示顺序 */
+    const siteOrder = ["NX1", "NX9", "NX2"];
+
+    /* 各层的纵向中心线。
+       这是整个拓扑图最关键的布局参数之一。
+       例如调 bg，会同时影响：
+       1. BG 卡片位置
+       2. 连接到 BG 的所有连线曲线
+       3. 连线标签位置
+       4. 与 tower-caption 的相对对齐关系
+       如果改动某一层，通常要检查上下游层之间是否还留有足够间距。 */
+    const levelY = {
+      sources: 156,
+      l1: 350,
+      l2: 510,
+      l3: 670,
+      bg: 847,
+      hcs: 1007
+    };
+
+    /* 同一座塔里，4 个 source 节点相对塔中心的横向偏移。 */
+    const sourceOffsets = [-180, -60, 60, 180];
+    /* source 节点显示名称。数组顺序会直接映射到横向排布顺序。 */
+    const sourceNames = ["RT", "BB", "OMDC", "CIIS"];
+    const sourcePartitions = {
+      RT: ["SS", "SZ", "HK"],
+      BB: ["SS", "SZ", "HK"],
+      OMDC: ["HK"],
+      CIIS: ["SS", "BJ"]
+    };
+    const initialPrimaryTower = "NX9";  // Primary Site
+    const initialPrimaryL3NodeId = "NX9-L3";  // Primary L3
+    // 以下两个集合控制出现脉冲效果
+    const initialPrimarySourceFeedIds = new Set([
+      "NX9-RT__SS",
+      "NX9-RT__SZ",
+      "NX9-OMDC__HK",
+      "NX9-CIIS__BJ",
+    ]);
+    const initialPrimaryLinkIds = new Set([
+      "NX9-OMDC__NX9-L1",
+      "NX9-RT__NX9-L1",
+      "NX9-CIIS__NX9-L1",
+      "NX9-L1__NX9-L2",
+      "NX9-L2__NX9-L3",
+      "NX9-BG__NX9-HCS",
+      "NX1-BG__NX1-HCS",
+      "NX2-BG__NX2-HCS"
+    ]);
+    const mockSourceFeedBaseLatency = {
+      RT: { SS: 28, SZ: 30, HK: 32 },
+      BB: { SS: 29, SZ: 31, HK: 34 },
+      OMDC: { HK: 26 },
+      CIIS: { SS: 31, BJ: 29 }
+    };
+    const mockSourceFeedSiteBias = { NX1: 4, NX9: 0, NX2: 3 };
+    const mockSourceFeedCurrentLift = {
+      RT: { SS: 3, SZ: 4, HK: 3 },
+      BB: { SS: 4, SZ: 5, HK: 4 },
+      OMDC: { HK: 3 },
+      CIIS: { SS: 4, BJ: 3 }
+    };
+    const summaryCardDefaults = {
+      externalSources: { healthy: 27, total: 27 },
+      capturesL1: { healthy: 9, total: 9 },
+      calculationsL2: { healthy: 12, total: 12 },
+      reconciliationL3: { healthy: 3, total: 3 },
+      broadcastGatewaysBg: { healthy: 3, total: 3 },
+      growthIndex: { healthy: 1, total: 1 },
+      bis: { healthy: 1, total: 1 },
+      healthCheckServicesHcs: { healthy: 3, total: 3 },
+      vendors: { healthy: 10, total: 10 }
+    };
+
+    /* ALL-SITES 静态节点模板。 */
+    const nodes = [];
+
+    /* 生成最上层 source 节点。
+       如果要增加 / 删除某类 source，优先改 sourceNames 和 sourceOffsets。 */
+    siteOrder.forEach((site) => {
+      sourceNames.forEach((name, idx) => {
+        nodes.push({
+          id: site + "-" + name,
+          site,
+          name,
+          type: "source",
+          x: towers[site].x + sourceOffsets[idx],
+          y: levelY.sources
+        });
+      });
+    });
+
+    /* 本地 mock 用的节点状态种子。后续接 API 时只需要替换取数层。 */
+    const mockStageMetricsSeed = {
+      NX1: {
+        L1: { avg: 29, p95: 42, load: 38, cpu: 38, mem: 44, disk: 51, kind: "flow" },
+        L2: { avg: 33, p95: 49, load: 42, cpu: 42, mem: 49, disk: 57, kind: "process" },
+        L3: { avg: 61, p95: 148, load: 70, cpu: 70, mem: 76, disk: 64, kind: "process" },
+        BG: { avg: 18, p95: 335, load: 24, cpu: 24, mem: 31, disk: 46, kind: "process", messages: 182340 },
+        HCS: { avg: 3, p95: 6, load: 10, cpu: 10, mem: 18, disk: 29, kind: "flow" }
+      },
+      NX9: {
+        L1: { avg: 31, p95: 45, load: 40, cpu: 40, mem: 46, disk: 54, kind: "flow" },
+        L2: { avg: 35, p95: 56, load: 47, cpu: 47, mem: 55, disk: 61, kind: "process" },
+        L3: { avg: 74, p95: 80, load: 82, cpu: 82, mem: 87, disk: 73, kind: "process" },
+        BG: { avg: 22, p95: 38, load: 31, cpu: 31, mem: 39, disk: 48, kind: "process", messages: 241680 },
+        HCS: { avg: 3, p95: 5, load: 12, cpu: 12, mem: 20, disk: 31, kind: "flow" }
+      },
+      NX2: {
+        L1: { avg: 30, p95: 44, load: 36, cpu: 36, mem: 42, disk: 50, kind: "flow" },
+        L2: { avg: 34, p95: 52, load: 43, cpu: 43, mem: 50, disk: 58, kind: "process" },
+        L3: { avg: 63, p95: 34, load: 72, cpu: 72, mem: 78, disk: 67, kind: "process" },
+        BG: { avg: 19, p95: 36, load: 25, cpu: 25, mem: 33, disk: 45, kind: "process", messages: 193120 },
+        HCS: { avg: 3, p95: 6, load: 11, cpu: 11, mem: 19, disk: 30, kind: "flow" }
+      }
+    };
+
+    /* 业务层静态模板只保留几何和业务种类，不再携带当前数值。 */
+    siteOrder.forEach((site) => {
+      ["L1", "L2", "L3", "BG", "HCS"].forEach((name) => {
+        const stageSeed = mockStageMetricsSeed[site][name];
+        nodes.push({
+          id: site + "-" + name,
+          site,
+          name,
+          type: "stage",
+          x: towers[site].stagesX,
+          y: levelY[name.toLowerCase()],
+          kind: stageSeed.kind
+        });
+      });
+    });
+
+    /* ALL-SITES 静态链路模板。 */
+    const links = [];
+
+    /* 统一新增链路的辅助函数。
+       group 用于“业务分组”和“路径几何规则”；
+       kind 用于“视觉风格”和“告警文本”。 */
+    function createLink(from, to, base, group, kind, seedCurrent, extra = {}) {
+      return { id: from + "__" + to, from, to, base, group, kind, seedCurrent, ...extra };
+    }
+
+    function addLink(targetOrFrom, maybeFrom, maybeTo, maybeBase, maybeGroup, maybeKind, maybeCurrent, maybeExtra = {}) {
+      const useCustomTarget = Array.isArray(targetOrFrom);
+      const target = useCustomTarget ? targetOrFrom : links;
+      const from = useCustomTarget ? maybeFrom : targetOrFrom;
+      const to = useCustomTarget ? maybeTo : maybeFrom;
+      const base = useCustomTarget ? maybeBase : maybeTo;
+      const group = useCustomTarget ? maybeGroup : maybeBase;
+      const kind = useCustomTarget ? maybeKind : maybeGroup;
+      const seedCurrent = useCustomTarget ? maybeCurrent : maybeKind;
+      const extra = useCustomTarget
+        ? maybeExtra
+        : maybeCurrent && typeof maybeCurrent === "object"
+          ? maybeCurrent
+          : {};
+      const link = createLink(from, to, base, group, kind, seedCurrent, extra);
+      target.push(link);
+      return link;
+    }
+
+    /* 先生成每座塔内部的 source -> L1 和 L1 -> L2。 */
+    siteOrder.forEach((site) => {
+      sourceNames.forEach((source) => {
+        addLink(site + "-" + source, site + "-L1", 30, "sources", "backup", 31);
+      });
+      addLink(site + "-L1", site + "-L2", 30, "l1-l2", site == "NX9" ? "intra" : "intra", 36);
+    });
+
+    /* 下面是跨层、跨塔和反馈链路。
+       维护时最重要的是理解：
+       1. group 决定 controlPointsForLink() 里的路径计算分支
+       2. id 可能被 routeVariantClass() / labelT() 特判
+       3. 如果新增一类 group，通常还要同步补对应的汇总和说明逻辑 
+       4. 光波脉冲效果由 snapshot 里的 link.isPrimary 决定 */
+    // addLink(from: , to: , base: , group: , kind: , current: )
+    addLink("NX1-L2", "NX1-L3", 50, "l2-l3", "intra", 18);
+    addLink("NX2-L2", "NX2-L3", 50, "l2-l3", "intra", 124);
+    addLink("NX1-L2", "NX9-L3", 50, "l2-l3", "backup", 68);
+    addLink("NX2-L2", "NX9-L3", 50, "l2-l3", "backup", 54);
+    addLink("NX9-L2", "NX1-L3", 50, "l2-l3", "backup", 196);
+    addLink("NX9-L2", "NX2-L3", 50, "l2-l3", "backup", 30);
+    addLink("NX9-L2", "NX9-L3", 50, "l2-l3", "intra", 59);
+
+    siteOrder.forEach((l3Site) => {
+      siteOrder.forEach((bgSite) => {
+        addLink(
+          `${l3Site}-L3`,
+          `${bgSite}-BG`,
+          30,
+          "l3-bg",
+          l3Site === bgSite ? "intra" : "primary",
+          bgSite === "NX9" ? 34 : bgSite === "NX2" ? 86 : 92
+        );
+      });
+    });
+
+    addLink("NX1-BG", "NX1-L3", 30, "bg-l3-feedback", "feedback", 56);
+    addLink("NX1-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 96);
+    addLink("NX2-BG", "NX2-L3", 30, "bg-l3-feedback", "feedback", 58);
+    addLink("NX2-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 94);
+    addLink("NX9-BG", "NX1-L3", 30, "bg-l3-feedback", "feedback", 88);
+    addLink("NX9-BG", "NX2-L3", 30, "bg-l3-feedback", "feedback", 82);
+    addLink("NX9-BG", "NX9-L3", 30, "bg-l3-feedback", "feedback", 52);
+
+    addLink("NX1-L3", "NX1-L1", 30, "l3-l1-feedback", "feedback", 48);
+    addLink("NX1-L3", "NX9-L1", 30, "l3-l1-feedback", "feedback", 102);
+    addLink("NX2-L3", "NX2-L1", 30, "l3-l1-feedback", "feedback", 52);
+    addLink("NX2-L3", "NX9-L1", 30, "l3-l1-feedback", "feedback", 98);
+    addLink("NX9-L3", "NX1-L1", 30, "l3-l1-feedback", "feedback", 34);
+    addLink("NX9-L3", "NX2-L1", 30, "l3-l1-feedback", "feedback", 46);
+    addLink("NX9-L3", "NX9-L1", 30, "l3-l1-feedback", "feedback", 61);
+
+    addLink("NX1-BG", "NX1-HCS", 30, "bg-hcs", "intra", 24);
+    addLink("NX1-BG", "NX9-HCS", 30, "bg-hcs", "backup", 72);
+    addLink("NX2-BG", "NX2-HCS", 30, "bg-hcs", "intra", 25);
+    addLink("NX2-BG", "NX9-HCS", 30, "bg-hcs", "backup", 70);
+    addLink("NX9-BG", "NX1-HCS", 30, "bg-hcs", "backup", 78);
+    addLink("NX9-BG", "NX2-HCS", 30, "bg-hcs", "backup", 74);
+    addLink("NX9-BG", "NX9-HCS", 30, "bg-hcs", "intra", 26);
+
+    /* 通过 id 建索引，供路径计算和单站模板复用。 */
+    const nodeById = Object.fromEntries(nodes.map((node) => [node.id, node]));
+    const linkById = Object.fromEntries(links.map((link) => [link.id, link]));
+
+    /* 页面上几个关键挂载点。
+       这些 id 如果被改名，相关 render 函数会直接失效。 */
+    const feedList = document.getElementById("feedList");
+    const topologyBoard = document.getElementById("topologyBoard");
+    const topologyTitle = document.getElementById("topologyTitle");
+    const togglePulseBtn = document.getElementById("togglePulseBtn");
+    const toggleFlowBtn = document.getElementById("toggleFlowBtn");
+    const siteSwitchButtons = Array.from(document.querySelectorAll(".site-switch-btn"));
+    const allSitesShellMarkup = topologyBoard.innerHTML;
+    const cloudScopes = ["CLD", "BIS"];
+    /* 需要和 .topology-board.layout-single 的 height 保持一致，保证 SVG 与 HTML 节点 1:1 对齐。 */
+    const singleSiteBoardHeight = 602;
+    const largeScreenSingleSiteQuery = window.matchMedia("(min-width: 1760px)");
+    const allSitesStageCardWidth = 176;
+    const allSitesStageCardHeight = 142;
+    const allSitesStageHalfW = allSitesStageCardWidth / 2;
+    const allSitesStageHalfH = allSitesStageCardHeight / 2;
+    const singleSiteStageCardWidth = 196;
+    const singleSiteStageCardHeight = 166;
+    const singleSiteStageHalfW = singleSiteStageCardWidth / 2;
+    const singleSiteStageHalfH = singleSiteStageCardHeight / 2;
+    const singleSiteL2ServerProfiles = [
+      { name: "L2-B1", avgDelta: -2, p95Delta: -4, cpuDelta: -6, memDelta: -5, ingressCurrent: 34, egressCurrent: 54 },
+      { name: "L2-B2", avgDelta: -1, p95Delta: -2, cpuDelta: -2, memDelta: -1, ingressCurrent: 36, egressCurrent: 57 },
+      { name: "L2-B3", avgDelta: 1, p95Delta: 2, cpuDelta: 3, memDelta: 2, ingressCurrent: 39, egressCurrent: 60 },
+      { name: "L2-B4", avgDelta: 3, p95Delta: 5, cpuDelta: 6, memDelta: 5, ingressCurrent: 42, egressCurrent: 63 }
+    ];
+    const singleSiteL2ServerCardWidth = 176;
+    const singleSiteL2ServerCardHeight = 82;
+    const singleSiteL2ServerGap = 10;
+    const singleSiteL2ServerHalfW = singleSiteL2ServerCardWidth / 2;
+    const singleSiteL2ServerHalfH = singleSiteL2ServerCardHeight / 2;
+    const singleSiteL2ClusterWidth = singleSiteL2ServerCardWidth;
+    const singleSiteL2ClusterHeight =
+      singleSiteL2ServerProfiles.length * singleSiteL2ServerCardHeight +
+      (singleSiteL2ServerProfiles.length - 1) * singleSiteL2ServerGap;
+    const singleSiteL2ClusterHalfW = singleSiteL2ClusterWidth / 2;
+    const singleSiteL2ClusterHalfH = singleSiteL2ClusterHeight / 2;
+    const singleSiteBgCardWidth = 158;
+    const singleSiteBgCardHeight = 132;
+    const singleSiteBgCardGap = 12;
+    const singleSiteBgCardHalfW = singleSiteBgCardWidth / 2;
+    const singleSiteBgCardHalfH = singleSiteBgCardHeight / 2;
+    const singleSiteDefaultGeometry = {
+      boardWidth: 1572,
+      sourceCaptionX: 236,
+      stageY: 300,
+      stageX: { L1: 470, L2: 700, L3: 930, BG: 1160, HCS: 1390 },
+      sourcePositions: {
+        RT: { x: 124, y: 150 },
+        BB: { x: 124, y: 270 },
+        OMDC: { x: 124, y: 390 },
+        CIIS: { x: 124, y: 510 }
+      }
+    };
+    const singleSiteWideGeometry = {
+      boardWidth: 1680,
+      sourceCaptionX: 250,
+      stageY: 300,
+      stageX: { L1: 482, L2: 738, L3: 994, BG: 1250, HCS: 1506 },
+      sourcePositions: {
+        RT: { x: 130, y: 146 },
+        BB: { x: 130, y: 274 },
+        OMDC: { x: 130, y: 402 },
+        CIIS: { x: 130, y: 530 }
+      }
+    };
+
+    function singleSiteGeometry() {
+      return largeScreenSingleSiteQuery.matches ? singleSiteWideGeometry : singleSiteDefaultGeometry;
+    }
+
+    function singleSiteBgSiteOrder(site) {
+      const others = siteOrder.filter((name) => name !== site);
+      return [others[0], site, others[1]];
+    }
+
+    /* 返回当前时间字符串，统一用于 UI 上的“updated xx:xx:xx”。 */
+    function nowText() {
+      const d = new Date();
+      const p = (v) => String(v).padStart(2, "0");
+      return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+    }
+
+    let pulseEnabled = true;
+    let flowPaused = true;
+    let topologyScope = "ALL";
+
+    function topologyLayers() {
+      return {
+        routeLayer: document.getElementById("routeLayer"),
+        labelLayer: document.getElementById("labelLayer"),
+        nodeLayer: document.getElementById("nodeLayer")
+      };
+    }
+
+    function isSingleSiteScope(scope) {
+      return scope !== "ALL" && !cloudScopes.includes(scope);
+    }
+
+    function topologyTitleText() {
+      return topologyScope === "ALL" ? "All-Sites Topology" : "Single-Site Topology";
+    }
+
+    function topologyBoardClassName() {
+      if (topologyScope === "ALL") return "topology-board layout-all";
+      if (cloudScopes.includes(topologyScope)) return "topology-board layout-cloud";
+      return "topology-board layout-single";
+    }
+
+    function svgDefsMarkup() {
+      return `
+        <defs>
+          <marker id="route-arrow-cyan" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35;"></path>
+          </marker>
+          <marker id="route-arrow-cyan-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--cyan); stroke: var(--cyan); stroke-width: 0.35; opacity: 0.6;"></path>
+          </marker>
+          <marker id="route-arrow-blue-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--blue); stroke: var(--blue); stroke-width: 0.35; opacity: 0.5;"></path>
+          </marker>
+          <marker id="route-arrow-amber" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35;"></path>
+          </marker>
+          <marker id="route-arrow-amber-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+          </marker>
+          <marker id="route-arrow-amber-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--amber); stroke: var(--amber); stroke-width: 0.35; opacity: 0.6;"></path>
+          </marker>
+          <marker id="route-arrow-red" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35;"></path>
+          </marker>
+          <marker id="route-arrow-red-dim" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="4" markerHeight="4" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+          </marker>
+          <marker id="route-arrow-red-feedback" viewBox="0 0 10 10" refX="8.8" refY="5" markerWidth="6" markerHeight="6" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 10 5 L 0 10 z" style="fill: var(--red); stroke: var(--red); stroke-width: 0.35; opacity: 0.6;"></path>
+          </marker>
+        </defs>
+      `;
+    }
+
+    function topologySvgMarkup(viewBox) {
+      return `
+        <svg class="topology-svg" viewBox="${viewBox}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          ${svgDefsMarkup()}
+          <g id="routeLayer"></g>
+          <g id="labelLayer"></g>
+        </svg>
+        <div class="node-layer" id="nodeLayer"></div>
+      `;
+    }
+
+    function towerTagMarkup(site) {
+      if (site === "NX9") return 'NX9 <span class="mark">Primary</span>';
+      return `${site} ${towers[site].label}`;
+    }
+
+    function singleSiteShellMarkup(site) {
+      const geometry = singleSiteGeometry();
+      return `
+        <div class="tower single">
+          <div class="tower-tag">${towerTagMarkup(site)}</div>
+        </div>
+        <div class="tower-caption sources-cluster" style="left:${geometry.sourceCaptionX}px;">External Sources</div>
+        <div class="tower-caption" style="left:${geometry.stageX.L1}px;">Capture (L1)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.L2}px;">Calculation (L2)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.L3}px;">Reconciliation (L3)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.BG}px;">BroadcastGateways (BG)</div>
+        <div class="tower-caption" style="left:${geometry.stageX.HCS}px;">HealthCheck (HCS)</div>
+        ${topologySvgMarkup(`0 0 ${geometry.boardWidth} ${singleSiteBoardHeight}`)}
+      `;
+    }
+
+    function cloudShellMarkup(scope) {
+      const tabs = cloudScopes.map((name) => `
+        <span class="cloud-chip${scope === name ? " active" : ""}">${name}</span>
+      `).join("");
+      return `
+        <div class="cloud-view">
+          <div class="cloud-tabs">${tabs}</div>
+          <div class="topology-loading">${scope} topology loading ...</div>
+        </div>
+      `;
+    }
+
+    function syncTopologyChrome() {
+      topologyTitle.textContent = topologyTitleText();
+      togglePulseBtn.disabled = cloudScopes.includes(topologyScope);
+      toggleFlowBtn.disabled = cloudScopes.includes(topologyScope);
+      siteSwitchButtons.forEach((button) => {
+        const active = button.dataset.topologyScope === topologyScope;
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+      });
+    }
+
+    function syncAllSitesPrimaryTowerAccent() {
+      const towerEls = Array.from(topologyBoard.querySelectorAll(".tower[data-site]"));
+      towerEls.forEach((towerEl) => {
+        const active = towerEl.dataset.site === topologySnapshot.primaryTower;
+        towerEl.classList.toggle("is-primary-site", active);
+      });
+    }
+
+    function renderTopologyBoardShell() {
+      const className = topologyBoardClassName();
+      const nextClassName = flowPaused ? className + " flow-paused" : className;
+      syncTopologyChrome();
+
+      if (topologyBoard.dataset.scope === topologyScope) {
+        topologyBoard.className = nextClassName;
+        if (topologyScope === "ALL") syncAllSitesPrimaryTowerAccent();
+        return;
+      }
+
+      topologyBoard.className = nextClassName;
+      topologyBoard.dataset.scope = topologyScope;
+      topologyBoard.innerHTML =
+        topologyScope === "ALL"
+          ? allSitesShellMarkup
+          : cloudScopes.includes(topologyScope)
+            ? cloudShellMarkup(topologyScope)
+            : singleSiteShellMarkup(topologyScope);
+
+      if (topologyScope === "ALL") syncAllSitesPrimaryTowerAccent();
+    }
+
+    function setPulseEnabled(enabled) {
+      pulseEnabled = enabled;
+      togglePulseBtn.setAttribute("aria-pressed", pulseEnabled ? "true" : "false");
+      renderTopology();
+    }
+
+    function setFlowPaused(paused) {
+      flowPaused = paused;
+      topologyBoard.classList.toggle("flow-paused", flowPaused);
+      toggleFlowBtn.setAttribute("aria-pressed", flowPaused ? "false" : "true");
+      renderTopology();
+    }
+
+    togglePulseBtn.addEventListener("click", () => {
+      setPulseEnabled(!pulseEnabled);
+    });
+
+    toggleFlowBtn.addEventListener("click", () => {
+      setFlowPaused(!flowPaused);
+    });
+
+    siteSwitchButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextScope = button.dataset.topologyScope;
+        if (!nextScope || nextScope === topologyScope) return;
+        topologyScope = nextScope;
+        renderTopology();
+      });
+    });
+
+    largeScreenSingleSiteQuery.addEventListener("change", () => {
+      if (topologyScope === "ALL" || cloudScopes.includes(topologyScope)) return;
+      renderTopology();
+    });
+
+    /* 默认阈值给节点和未配置链路兜底；group/link 可按需覆盖。 */
+    const defaultThresholds = { threshold1: 100, threshold2: 180 };
+    const stageMetricThresholds = {
+      avg: { threshold1: 60, threshold2: 100 },
+      p95: { threshold1: 80, threshold2: 100 }
+    };
+    const resourceMetricThresholds = {
+      cpu: { threshold1: 65, threshold2: 85 },
+      mem: { threshold1: 75, threshold2: 90 },
+      disk: { threshold1: 80, threshold2: 92 }
+    };
+
+    /* heatmap 走 group 阈值；没有专门配置的 group 会回落到 defaultThresholds。 */
+    const groupThresholds = {
+      sources: { threshold1: 100, threshold2: 180 },
+      "l1-l2": { threshold1: 100, threshold2: 180 },
+      "l2-l3": { threshold1: 100, threshold2: 180 },
+      "l3-bg": { threshold1: 100, threshold2: 180 },
+      "bg-l3-feedback": { threshold1: 100, threshold2: 180 },
+      "l3-l1-feedback": { threshold1: 100, threshold2: 180 },
+      "bg-hcs": { threshold1: 100, threshold2: 180 }
+    };
+
+    /* 单链路阈值覆盖入口。只在需要偏离 group 规则时填。 */
+    const linkThresholds = {};
+
+    /* 根据延迟数值映射成 ok / warn / critical 三档。
+       这会影响：
+       1. 节点 badge 颜色
+       2. 连线颜色
+       3. watchlist / heatmap / feed 的状态色
+       4. summary 里的健康度计算 */
+    function statusClass(value, thresholds = defaultThresholds) {
+      if (value >= thresholds.threshold2) return "critical";
+      if (value >= thresholds.threshold1) return "warn";
+      return "ok";
+    }
+
+    function metricStatusClass(value, thresholds) {
+      if (value == null) return "unknown";
+      if (value > thresholds.threshold2) return "critical";
+      if (value > thresholds.threshold1) return "warn";
+      return "ok";
+    }
+
+    function stageMetricTone(metricName, value) {
+      const thresholds = stageMetricThresholds[metricName];
+      if (!thresholds || value == null) return "";
+      return metricStatusClass(value, thresholds);
+    }
+
+    function resourceMetricTone(metricName, value) {
+      const thresholds = resourceMetricThresholds[metricName];
+      if (!thresholds || value == null) return "ok";
+      return metricStatusClass(value, thresholds);
+    }
+
+    function thresholdsForGroup(group) {
+      return groupThresholds[group] || defaultThresholds;
+    }
+
+    function thresholdsForLink(link) {
+      return linkThresholds[link.id] || thresholdsForGroup(link.group);
+    }
+
+    function statusClassForLink(link) {
+      if (link.status) return link.status;
+      if (link.current == null) return "unknown";
+      return statusClass(link.current, thresholdsForLink(link));
+    }
+
+    function sourceRateSeed(site, index) {
+      if (site === "NX9") return 940 - index * 20;
+      if (site === "NX2") return 900 - index * 17;
+      return 890 - index * 18;
+    }
+
+    function deriveNodeStatusFromMetrics(metrics) {
+      if (metrics.p95Ms != null) return metricStatusClass(metrics.p95Ms, stageMetricThresholds.p95);
+      if (metrics.ratePerSec != null) return statusClass(Math.round(metrics.ratePerSec / 12), defaultThresholds);
+      return "unknown";
+    }
+
+    function createNodeState(metrics = {}, extra = {}) {
+      const normalizedMetrics = {
+        avgMs: metrics.avgMs ?? null,
+        p95Ms: metrics.p95Ms ?? null,
+        msgCount: metrics.msgCount ?? null,
+        cpuPct: metrics.cpuPct ?? null,
+        memPct: metrics.memPct ?? null,
+        diskPct: metrics.diskPct ?? null,
+        ratePerSec: metrics.ratePerSec ?? null
+      };
+      return {
+        status: extra.status || deriveNodeStatusFromMetrics(normalizedMetrics),
+        isPrimary: !!extra.isPrimary,
+        metrics: normalizedMetrics
+      };
+    }
+
+    function createLinkState(latencyMs, group, extra = {}) {
+      return {
+        visible: extra.visible !== false,
+        status: extra.status || (latencyMs == null ? "unknown" : statusClass(latencyMs, thresholdsForGroup(group))),
+        isPrimary: !!extra.isPrimary,
+        latencyMs: latencyMs ?? null
+      };
+    }
+
+    function buildMockL2ServerMetrics(site, profile) {
+      const l2Seed = mockStageMetricsSeed[site].L2;
+      const baseCpu = l2Seed.cpu ?? l2Seed.load ?? 0;
+      const baseMem = l2Seed.mem ?? Math.min(100, baseCpu + 8);
+      const avgMs = clampInt(l2Seed.avg + profile.avgDelta, 1, 999);
+      const p95Ms = clampInt(Math.max(avgMs + 3, l2Seed.p95 + profile.p95Delta), avgMs + 3, 999);
+      const cpuPct = clampInt(baseCpu + profile.cpuDelta, 1, 99);
+      const memPct = clampInt(baseMem + profile.memDelta, 1, 99);
+      return { avgMs, p95Ms, cpuPct, memPct };
+    }
+
+    function isL3BgLinkId(linkId) {
+      const parts = linkId.split("__");
+      return parts.length === 2 && parts[0].endsWith("-L3") && parts[1].endsWith("-BG");
+    }
+
+    function syncPrimarySelection(snapshot) {
+      siteOrder.forEach((site) => {
+        const l3Id = `${site}-L3`;
+        if (!snapshot.nodeStatesById[l3Id]) {
+          snapshot.nodeStatesById[l3Id] = createNodeState();
+        }
+        snapshot.nodeStatesById[l3Id].isPrimary = l3Id === snapshot.primaryL3NodeId;
+      });
+
+      Object.entries(snapshot.linkStatesById).forEach(([linkId, linkState]) => {
+        if (!isL3BgLinkId(linkId)) return;
+        const [from] = linkId.split("__");
+        linkState.visible = from === snapshot.primaryL3NodeId;
+        linkState.isPrimary = linkState.visible;
+      });
+
+      return snapshot;
+    }
+
+    function buildMockSnapshotState() {
+      const snapshot = {
+        topologyTemplateVersion: "v13-static-1",
+        generatedAt: new Date().toISOString(),
+        refreshIntervalMs: 3000,
+        primaryTower: initialPrimaryTower,
+        primaryL3NodeId: initialPrimaryL3NodeId,
+        nodeStatesById: {},
+        linkStatesById: {},
+        sourceFeedStatesById: {}
+      };
+
+      siteOrder.forEach((site) => {
+        sourceNames.forEach((name, index) => {
+          snapshot.nodeStatesById[`${site}-${name}`] = createNodeState({
+            ratePerSec: sourceRateSeed(site, index)
+          });
+        });
+
+        ["L1", "L2", "L3", "BG", "HCS"].forEach((name) => {
+          const seed = mockStageMetricsSeed[site][name];
+          snapshot.nodeStatesById[`${site}-${name}`] = createNodeState({
+            avgMs: seed.avg,
+            p95Ms: seed.p95,
+            msgCount: seed.messages ?? null,
+            cpuPct: seed.cpu ?? seed.load ?? null,
+            memPct: seed.mem ?? null,
+            diskPct: seed.disk ?? null
+          });
+        });
+
+        singleSiteL2ServerProfiles.forEach((profile) => {
+          snapshot.nodeStatesById[`${site}-${profile.name}`] = createNodeState(buildMockL2ServerMetrics(site, profile));
+          snapshot.linkStatesById[`${site}-L1__${site}-${profile.name}`] = createLinkState(profile.ingressCurrent, "l1-l2");
+          snapshot.linkStatesById[`${site}-${profile.name}__${site}-L3`] = createLinkState(profile.egressCurrent, "l2-l3");
+        });
+      });
+
+      links.forEach((link) => {
+        snapshot.linkStatesById[link.id] = createLinkState(link.seedCurrent, link.group, {
+          isPrimary: initialPrimaryLinkIds.has(link.id)
+        });
+      });
+
+      siteOrder.forEach((site) => {
+        sourceNames.forEach((name) => {
+          (sourcePartitions[name] || []).forEach((part, idx) => {
+            const baseSeed = mockSourceFeedBaseLatency[name]?.[part] ?? 26;
+            const base = baseSeed + (mockSourceFeedSiteBias[site] || 0) + idx;
+            const latencyMs = base + (mockSourceFeedCurrentLift[name]?.[part] ?? 3);
+            const feedId = `${site}-${name}__${part}`;
+            snapshot.sourceFeedStatesById[feedId] = {
+              status: statusClass(latencyMs, thresholdsForGroup("sources")),
+              isPrimary: initialPrimarySourceFeedIds.has(feedId),
+              latencyMs
+            };
+          });
+        });
+      });
+
+      return syncPrimarySelection(snapshot);
+    }
+
+    function mergeNodeTemplateWithSnapshot(node, snapshot) {
+      const state = snapshot.nodeStatesById[node.id] || createNodeState();
+      const metrics = state.metrics || {};
+      return {
+        ...node,
+        status: state.status || "unknown",
+        isPrimary: !!state.isPrimary,
+        rate: metrics.ratePerSec,
+        avg: metrics.avgMs,
+        p95: metrics.p95Ms,
+        load: metrics.cpuPct,
+        cpu: metrics.cpuPct,
+        mem: metrics.memPct,
+        disk: metrics.diskPct,
+        messages: metrics.msgCount
+      };
+    }
+
+    function mergeLinkTemplateWithSnapshot(link, snapshot) {
+      const state = snapshot.linkStatesById[link.id] || createLinkState(link.seedCurrent, link.group);
+      return {
+        ...link,
+        current: state.latencyMs,
+        status: state.status || "unknown",
+        isPrimary: !!state.isPrimary,
+        visible: state.visible !== false
+      };
+    }
+
+    let topologySnapshot = buildMockSnapshotState();
+
+    function applyTopologySnapshot(nextSnapshot) {
+      topologySnapshot = syncPrimarySelection({
+        topologyTemplateVersion: nextSnapshot.topologyTemplateVersion || topologySnapshot.topologyTemplateVersion,
+        generatedAt: nextSnapshot.generatedAt || new Date().toISOString(),
+        refreshIntervalMs: nextSnapshot.refreshIntervalMs || topologySnapshot.refreshIntervalMs,
+        primaryTower: nextSnapshot.primaryTower || topologySnapshot.primaryTower,
+        primaryL3NodeId: nextSnapshot.primaryL3NodeId || topologySnapshot.primaryL3NodeId,
+        nodeStatesById: nextSnapshot.nodeStatesById || {},
+        linkStatesById: nextSnapshot.linkStatesById || {},
+        sourceFeedStatesById: nextSnapshot.sourceFeedStatesById || {}
+      });
+      render();
+    }
+
+    function buildAllSitesTopologyState() {
+      const mergedNodes = nodes.map((node) => mergeNodeTemplateWithSnapshot(node, topologySnapshot));
+      const mergedLinks = links
+        .map((link) => mergeLinkTemplateWithSnapshot(link, topologySnapshot))
+        .filter((link) => link.visible !== false);
+      return {
+        nodes: mergedNodes,
+        nodeById: Object.fromEntries(mergedNodes.map((node) => [node.id, node])),
+        links: mergedLinks
+      };
+    }
+
+    /* 预留的链路主色选择函数。
+       当前 renderTopology() 直接使用 statusClass + kind 组合，没有显式使用本函数，
+       但保留它有助于后续收口“路径视觉规则”的逻辑。 */
+    function routeTone(link) {
+      const severity = statusClassForLink(link);
+      if (severity !== "ok") return severity;
+      return link.kind;
+    }
+
+    /* 给特定链路附加视觉变体类。
+       当前 External Sources -> L1 默认统一，不再按 site 额外弱化。 */
+    function routeVariantClass(link) {
+      return "";
+    }
+
+    function visualModeClass(mode) {
+      return mode === "primary" ? "primary-active" : "";
+    }
+
+    function routeVisualMode(link) {
+      return link.isPrimary ? "primary" : "";
+    }
+
+    /* 把业务链路 id 转成安全的 SVG path id。 */
+    function pathIdForLink(link) {
+      return "route-path-" + link.id.replaceAll("_", "-");
+    }
+
+    function bezierPath(points) {
+      const { p0, p1, p2, p3 } = points;
+      return `M ${p0.x} ${p0.y} C ${p1.x} ${p1.y}, ${p2.x} ${p2.y}, ${p3.x} ${p3.y}`;
+    }
+
+    function curvePathMarkup({ pathId, d, baseClass, flowClass, markerId = "", pulseMarkup = "" }) {
+      const markerAttr = markerId ? ` marker-end="url(#${markerId})"` : "";
+      return `
+        <g>
+          <path id="${pathId}" class="${baseClass}" d="${d}"></path>
+          <path class="${flowClass}" d="${d}"${markerAttr}></path>
+          ${pulseMarkup}
+        </g>
+      `;
+    }
+
+    function latencyLabelMarkup({ x, y, text, severity = "ok", className = "", rotate = 0 }) {
+      const extraClass = className ? ` ${className}` : "";
+      const severityClass = severity ? ` ${severity}` : "";
+      const transform = rotate
+        ? `translate(${x}, ${y}) rotate(${rotate})`
+        : `translate(${x}, ${y})`;
+      return `
+        <g class="latency-label${extraClass}${severityClass}" transform="${transform}">
+          <text x="0" y="4">${text}</text>
+        </g>
+      `;
+    }
+
+    /* 按链路类型和告警级别选择箭头。
+       规则：
+       1. sources / 塔内 intra 线路不显示箭头
+       2. 跨塔 primary 用实色箭头
+       3. backup / feedback 用更淡的箭头，维持与线条权重一致 */
+    function markerIdForLink(link, severity) {
+      if (link.group === "sources") return "";
+      if (link.kind === "intra") return "";
+
+      const dimmed = link.kind === "backup" || link.kind === "feedback";
+
+      if (link.kind === "feedback") {
+        if (severity === "critical") return "route-arrow-red-feedback";
+        if (severity === "warn") return "route-arrow-amber-feedback";
+        return "route-arrow-blue-feedback";
+      }
+      if (severity === "critical") return dimmed ? "route-arrow-red-dim" : "route-arrow-red";
+      if (severity === "warn") return dimmed ? "route-arrow-amber-dim" : "route-arrow-amber";
+      return dimmed ? "route-arrow-cyan-dim" : "route-arrow-cyan";
+    }
+
+    /* 通用路径脉冲模板。
+       route 和 source feed 都复用这套 animateMotion，只在尺寸/节奏上做差异。 */
+    function pathPulseMarkup(pathId, options) {
+      const {
+        packClass = "",
+        toneClass = "",
+        severity = "ok",
+        travelDur = 2,
+        beatDur = 2,
+        glowRadius = 9,
+        coreRadius = 3.4,
+        glowRadiusValues = "4;13;8;11;4",
+        coreRadiusValues = "2.4;4.8;3.2;4.2;2.4",
+        glowOpacityValues = "0;0.95;0.45;0.92;0",
+        coreOpacityValues = "0;1;0.62;1;0",
+        motionCalcMode = "linear",
+        motionKeyPoints = "0;1",
+        motionKeyTimes = "0;1",
+        motionBegin = "0s"
+      } = options || {};
+      const packClassAttr = packClass ? ` ${packClass}` : "";
+      const toneClassAttr = toneClass ? ` ${toneClass}` : "";
+      const severityClassAttr = severity && severity !== "ok" ? ` ${severity}` : "";
+      return `
+        <g class="route-pulse-pack${packClassAttr}">
+          <circle class="route-pulse-glow${toneClassAttr}${severityClassAttr}" r="${glowRadius}">
+            <animate attributeName="r" values="${glowRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="${glowOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animateMotion begin="${motionBegin}" dur="${travelDur}s" repeatCount="indefinite" rotate="auto" calcMode="${motionCalcMode}" keyPoints="${motionKeyPoints}" keyTimes="${motionKeyTimes}">
+              <mpath href="#${pathId}"></mpath>
+            </animateMotion>
+          </circle>
+          <circle class="route-pulse-core${toneClassAttr}${severityClassAttr}" r="${coreRadius}">
+            <animate attributeName="r" values="${coreRadiusValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animate attributeName="opacity" values="${coreOpacityValues}" dur="${beatDur}s" repeatCount="indefinite"></animate>
+            <animateMotion begin="${motionBegin}" dur="${travelDur}s" repeatCount="indefinite" rotate="auto" calcMode="${motionCalcMode}" keyPoints="${motionKeyPoints}" keyTimes="${motionKeyTimes}">
+              <mpath href="#${pathId}"></mpath>
+            </animateMotion>
+          </circle>
+        </g>
+      `;
+    }
+
+    function sourceLikePulseOptions(severity) {
+      return {
+        packClass: "source-feed-pulse-pack",
+        severity,
+        travelDur: 1.35,
+        beatDur: 1.35,
+        glowRadius: 5.2,
+        coreRadius: 2.2,
+        glowRadiusValues: "2.8;7.8;4.6;6.2;2.8",
+        coreRadiusValues: "1.4;3.1;2;2.7;1.4",
+        glowOpacityValues: "0;0.95;0.45;0.9;0"
+      };
+    }
+
+    function primaryPulseOptionsForLink(link, severity) {
+      const options = {
+        severity,
+        toneClass: link.kind === "feedback" ? "feedback" : ""
+      };
+
+      if (link.group !== "sources") return options;
+
+      return {
+        ...sourceLikePulseOptions(severity),
+        ...options
+      };
+    }
+
+    function sourceFeedPathId(node, part) {
+      return `source-wire-${node.site}-${node.name}-${part}`.toLowerCase();
+    }
+
+    function sourceFeedMode(node, part) {
+      const feedState = topologySnapshot.sourceFeedStatesById[sourceFeedKey(node, part)];
+      return feedState && feedState.isPrimary ? "primary" : "";
+    }
+
+    function sourceFeedKey(node, part) {
+      return `${node.site}-${node.name}__${part}`;
+    }
+
+    function sourceFeedLatency(node, part) {
+      return topologySnapshot.sourceFeedStatesById[sourceFeedKey(node, part)] || {
+        status: "unknown",
+        isPrimary: false,
+        latencyMs: null
+      };
+    }
+
+    function sourceFeedSeverity(node, part) {
+      return sourceFeedLatency(node, part).status || "unknown";
+    }
+
+    function sourceFeedLabelText(latency, compact) {
+      return latency.latencyMs == null ? "--" : `${latency.latencyMs}ms`;
+    }
+
+    function staggerOffset(index, total, step) {
+      return (index - (total - 1) / 2) * step;
+    }
+
+    function sourceFeedLayoutConfig(layout) {
+      if (layout === "single") {
+        return {
+          viewBox: "0 0 108 104",
+          compactLabel: false,
+          labelRotate: -90,
+          partPoint(parts, idx) {
+            const splitLeft = 12;
+            const splitTopY = 66;
+            const splitGap = 4;
+            const splitAreaWidth = 108 - splitLeft * 2;
+            const splitWidth = (splitAreaWidth - splitGap * (parts.length - 1)) / parts.length;
+            return {
+              x: splitLeft + splitWidth / 2 + idx * (splitWidth + splitGap),
+              y: splitTopY
+            };
+          },
+          controlPoints(point) {
+            const exitX = 54;
+            const exitY = 0;
+            const bendY = point.y - Math.max(15, point.y * 0.42);
+            const approachX = exitX + (point.x - exitX) * 0.28;
+            return {
+              p0: point,
+              p1: { x: point.x, y: bendY },
+              p2: { x: approachX, y: exitY + 12 },
+              p3: { x: exitX, y: exitY }
+            };
+          },
+          labelPoint(points, idx, total) {
+            const point = pointAtCurveRatio(points, 0.5);
+            return {
+              x: point.x + staggerOffset(idx, total, 5),
+              y: point.y - 1
+            };
+          }
+        };
+      }
+
+      return {
+        viewBox: "0 0 112 92",
+        compactLabel: true,
+        labelRotate: 0,
+        partPoint(parts, idx) {
+          const paddingX = 10;
+          const splitGap = 8;
+          const splitBottomY = 58;
+          const innerWidth = 112 - paddingX * 2;
+          const splitWidth = (innerWidth - splitGap * (parts.length - 1)) / parts.length;
+          return {
+            x: paddingX + splitWidth / 2 + idx * (splitWidth + splitGap),
+            y: splitBottomY
+          };
+        },
+        controlPoints(point) {
+          const exitX = 56;
+          const exitY = 92;
+          const approachX = exitX + (point.x - exitX) * 0.3;
+          return {
+            p0: point,
+            p1: { x: point.x, y: point.y + 10 },
+            p2: { x: approachX, y: exitY - 16 },
+            p3: { x: exitX, y: exitY }
+          };
+        },
+        labelPoint(points, idx, total) {
+          const point = pointAtCurveRatio(points, 0.42);
+          return {
+            x: point.x,
+            y: point.y + staggerOffset(idx, total, 7)
+          };
+        }
+      };
+    }
+
+    function buildSourceFeedSegments(node, layout) {
+      const parts = sourcePartitions[node.name] || [];
+      if (parts.length === 0) return { viewBox: "", segments: [] };
+
+      const config = sourceFeedLayoutConfig(layout);
+
+      return {
+        viewBox: config.viewBox,
+        segments: parts.map((part, idx) => {
+          const point = config.partPoint(parts, idx);
+          const points = config.controlPoints(point);
+          const latency = sourceFeedLatency(node, part);
+          const severity = sourceFeedSeverity(node, part);
+          const mode = sourceFeedMode(node, part);
+          return {
+            id: sourceFeedKey(node, part),
+            pathId: sourceFeedPathId(node, part),
+            d: bezierPath(points),
+            severity,
+            mode,
+            labelText: sourceFeedLabelText(latency, config.compactLabel),
+            labelPoint: config.labelPoint(points, idx, parts.length),
+            labelRotate: config.labelRotate,
+            pulseOptions: pulseEnabled && mode === "primary" ? sourceLikePulseOptions(severity) : null
+          };
+        })
+      };
+    }
+
+    function sourceFeedSvgMarkup(node, layout) {
+      const { viewBox, segments } = buildSourceFeedSegments(node, layout);
+      if (segments.length === 0) return "";
+
+      return `
+        <svg class="source-wiring" viewBox="${viewBox}" preserveAspectRatio="none" aria-hidden="true">
+          ${segments.map((segment) => {
+            const visualClass = visualModeClass(segment.mode);
+            return curvePathMarkup({
+              pathId: segment.pathId,
+              d: segment.d,
+              baseClass: `source-wire-base${visualClass ? ` ${visualClass}` : ""}`,
+              flowClass: `source-wire-flow ${segment.severity}${visualClass ? ` ${visualClass}` : ""}`,
+              pulseMarkup: segment.pulseOptions ? pathPulseMarkup(segment.pathId, segment.pulseOptions) : ""
+            });
+          }).join("")}
+          ${segments.map((segment) => latencyLabelMarkup({
+            x: segment.labelPoint.x,
+            y: segment.labelPoint.y,
+            text: segment.labelText,
+            severity: segment.severity,
+            className: `source-wire-label${layout === "all" ? " compact" : ""}`,
+            rotate: segment.labelRotate
+          })).join("")}
+        </svg>
+      `;
+    }
+
+    /* source 节点用 rate 粗略映射状态，stage 节点用 p95 映射状态。 */
+    function nodeStatus(node) {
+      if (node.status) return node.status;
+      if (node.p95 != null) return metricStatusClass(node.p95, stageMetricThresholds.p95);
+      if (node.rate != null) return statusClass(Math.round(node.rate / 12), defaultThresholds);
+      return "unknown";
+    }
+
+    /* 生成资源进度条 HTML。
+       label 只区分 CPU / MEM / DISK，value 使用百分比并直接决定填充宽度。 */
+    function resourceBarHtml(label, value, className) {
+      const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+      const tone = resourceMetricTone(className, safeValue);
+      return `
+        <div class="resource-bar ${className} ${tone}" style="--value:${safeValue}%;">
+          <span>${String(label).toUpperCase()} ${safeValue}%</span>
+        </div>
+      `;
+    }
+
+    function clampInt(value, min, max) {
+      return Math.max(min, Math.min(max, Math.round(value)));
+    }
+
+    function stageSublineText(node, isProcessLike, options = {}) {
+      const includeSite = options.includeSite !== false;
+      if (node.name === "BG") {
+        if (options.compactBg) return "";
+        return includeSite ? `${node.site} Gateway` : "Gateway";
+      }
+      const stageLabelMap = {
+        L1: "Capture",
+        L2: "Calculation",
+        L3: "Reconciliation",
+        HCS: "HealthCheck"
+      };
+      if (stageLabelMap[node.name]) {
+        return includeSite ? `${node.site} ${stageLabelMap[node.name]}` : stageLabelMap[node.name];
+      }
+      return includeSite
+        ? node.site + " " + (isProcessLike ? "Compute" : "Gateway")
+        : (isProcessLike ? "Compute" : "Gateway");
+    }
+
+    function stageMetricsHtml(node, tone) {
+      const avgText = node.avg == null ? "--" : `${node.avg}ms`;
+      const p95Text = node.p95 == null ? "--" : `${node.p95}ms`;
+      const avgTone = stageMetricTone("avg", node.avg);
+      const p95Tone = stageMetricTone("p95", node.p95);
+      const msgLine = node.name === "BG"
+        ? `<div class="line msg"><span>MSG:</span><strong>${(node.messages || 0).toLocaleString()}</strong></div>`
+        : "";
+      return `
+        <div class="metrics">
+          <div class="line"><span>AVG</span><strong class="${avgTone}">${avgText}</strong></div>
+          <div class="line"><span>P95</span><strong class="${p95Tone}">${p95Text}</strong></div>
+          ${msgLine}
+        </div>
+      `;
+    }
+
+    function allSitesStageMetricsHtml(node, tone) {
+      const avgText = node.avg == null ? "--" : `${node.avg}ms`;
+      const p95Text = node.p95 == null ? "--" : `${node.p95}ms`;
+      const avgTone = stageMetricTone("avg", node.avg);
+      const p95Tone = stageMetricTone("p95", node.p95);
+      const msgLine = node.name === "BG"
+        ? `<div class="line msg msg-inline"><span>MSG:</span><strong>${(node.messages || 0).toLocaleString()}</strong></div>`
+        : "";
+      return `
+        <div class="metrics">
+          <div class="line metric-inline">
+            <span class="metric-block"><span>AVG:</span><strong class="${avgTone}">${avgText}</strong></span>
+            <span class="metric-divider">/</span>
+            <span class="metric-block"><span>P95:</span><strong class="${p95Tone}">${p95Text}</strong></span>
+          </div>
+          ${msgLine}
+        </div>
+      `;
+    }
+
+    function pushSingleSiteLink(target, from, to, base, group, kind, current, extra = {}) {
+      const existing = linkById[`${from}__${to}`];
+      if (existing) {
+        target.push({ ...existing, ...extra });
+        return target[target.length - 1];
+      }
+      return addLink(target, from, to, base, group, kind, current, extra);
+    }
+
+    /* source 卡片中部的 feed 分割内容。 */
+    function sourcePartitionsHtml(node) {
+      const parts = sourcePartitions[node.name];
+      if (!parts || parts.length === 0) return "";
+      return `
+        <div class="source-splits cols-${parts.length}">
+          ${parts.map((part) => `<span class="source-split">${part}</span>`).join("")}
+        </div>
+      `;
+    }
+
+    /* source 卡片内部的 fan-in 连接线。
+       它只负责把 SS / SZ / HK / BJ 这些小卡片视觉上汇到 source -> L1 主线起点。 */
+    function sourceWiringHtml(node) {
+      return sourceFeedSvgMarkup(node, "all");
+    }
+
+    /* 生成节点 HTML。
+       这是“数据对象 -> 卡片 DOM 字符串”的唯一入口。
+       如果要改节点文案、字段、徽标、卡片 class，优先看这里。 */
+    function nodeHtml(node) {
+      if (node.type === "source") {
+        const tone = nodeStatus(node);
+        return `
+          <div class="node source ${tone}" style="left:${node.x - 56}px; top:${node.y - 46}px;">
+            ${sourceWiringHtml(node)}
+            <div class="source-name">${node.name}</div>
+            ${sourcePartitionsHtml(node)}
+          </div>
+        `;
+      }
+
+      const tone = nodeStatus(node);
+      /* L1 业务上不是 process，但视觉上沿用 process 样式。 */
+      const isProcessLike = node.kind === "process" || node.name === "L1";
+      const process = isProcessLike ? " process" : "";
+      /* BG 的背景色跟 HCS 一致，是一个纯视觉覆盖，不改业务语义。 */
+      const bgHcsTone = node.name === "BG" ? " bg-hcs-tone" : "";
+      const bgCard = node.name === "BG" ? " bg-card" : "";
+      const subline = stageSublineText(node, isProcessLike, { includeSite: false });
+      const cpu = node.cpu ?? node.load ?? 0;
+      const mem = node.mem ?? Math.min(100, cpu + 8);
+      const disk = node.disk ?? Math.min(100, mem + 6);
+      return `
+        <article class="node stage${process}${bgHcsTone}${bgCard}" style="left:${node.x - allSitesStageHalfW}px; top:${node.y - allSitesStageHalfH}px;">
+          <div class="title">
+            <span>${node.name}</span>
+            <span class="badge ${tone}">${tone}</span>
+          </div>
+          <div class="sub">${subline}</div>
+          ${allSitesStageMetricsHtml(node, tone)}
+          <div class="resource-stack">
+            <div class="resource-row">
+              ${resourceBarHtml("cpu", cpu, "cpu")}
+              ${resourceBarHtml("mem", mem, "mem")}
+            </div>
+            <div class="resource-row single">
+              ${resourceBarHtml("disk", disk, "disk")}
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    /* 计算连线从节点哪个边缘出发/进入。
+       注意这里的 halfW / halfH 要和 .node.source / .node.stage 的实际尺寸一致，
+       否则线会插进卡片内部，或者悬空在卡片外面。 */
+    function edgePoint(node, side, offset) {
+      const ox = offset && offset.x ? offset.x : 0;
+      const oy = offset && offset.y ? offset.y : 0;
+      const halfW = node.type === "source" ? 56 : allSitesStageHalfW;
+      const halfH = node.type === "source" ? 46 : allSitesStageHalfH;
+
+      if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
+      if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
+      if (side === "left") return { x: node.x - halfW + ox, y: node.y + oy };
+      return { x: node.x + halfW + ox, y: node.y + oy };
+    }
+
+    /* 同塔 feedback 优先从外侧绕，避免回流线压在塔中间。 */
+    function outerSide(site, group) {
+      if (site === "NX1") return "left";
+      if (site === "NX2") return "right";
+      return group === "l3-l1-feedback" ? "right" : "left";
+    }
+
+    /* 判断连线应该朝左还是朝右走。 */
+    function sideToward(from, to) {
+      return from.x <= to.x ? "right" : "left";
+    }
+
+    /* 取相反方向，常用于跨塔连线的终点。 */
+    function oppositeSide(side) {
+      return side === "right" ? "left" : "right";
+    }
+
+    /* 整个拓扑图连线形状的核心函数。
+       输入一条业务链路，输出三次贝塞尔曲线的 4 个控制点。
+       维护时最重要的规则：
+       1. 不同 group / kind 走不同几何分支
+       2. 改这里会同时影响路径形状、标签位置、视觉拥挤程度
+       3. 如果新增链路类型，通常要在这里补一个分支，否则会退化成直线 */
+    function controlPointsForLink(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+
+      /* source -> L1：从上往下的轻微弯曲。 */
+      if (link.group === "sources") {
+        const start = edgePoint(from, "bottom");
+        const end = edgePoint(to, "top", { x: (from.x - to.x) * 0.1 });
+        return {
+          p0: start,
+          p1: { x: start.x, y: start.y + 46 },
+          p2: { x: end.x, y: end.y - 54 },
+          p3: end
+        };
+      }
+
+      /* 塔内直下链路：上下层之间的标准曲线。 */
+      if (link.kind === "intra") {
+        const start = edgePoint(from, "bottom");
+        const end = edgePoint(to, "top");
+        return {
+          p0: start,
+          p1: { x: start.x, y: start.y + 42 },
+          p2: { x: end.x, y: end.y - 42 },
+          p3: end
+        };
+      }
+
+      /* L2 -> L3 跨塔桥接：横向跨过去，再接入目标塔。 */
+      if ((link.kind === "primary" || link.kind === "backup") && link.group === "l2-l3") {
+        const startSide = sideToward(from, to);
+        const endSide = oppositeSide(startSide);
+        const start = edgePoint(from, startSide, { y: 10 });
+        const end = edgePoint(to, endSide, { y: -10 });
+        const bend = (start.x + end.x) / 2;
+        return {
+          p0: start,
+          p1: { x: bend, y: start.y },
+          p2: { x: bend, y: end.y },
+          p3: end
+        };
+      }
+
+      /* L3 -> BG 跨塔桥接：
+         这里刻意做成更扁的下滑弧线，让视觉上更像从 L3 向 BG 滑落。 */
+      if (link.kind === "primary" && link.group === "l3-bg") {
+        const startSide = sideToward(from, to);
+        const endSide = oppositeSide(startSide);
+        const dir = startSide === "right" ? 1 : -1;
+        const start = edgePoint(from, startSide, { y: 18 });
+        const end = edgePoint(to, endSide, { y: -18 });
+        const glide = 170;
+        return {
+          p0: start,
+          p1: { x: start.x + dir * glide, y: start.y + 8 },
+          p2: { x: end.x - dir * glide, y: end.y - 52 },
+          p3: end
+        };
+      }
+
+      /* BG -> HCS 跨塔：primary/backup 共用同一几何，
+         否则 backup 会掉进兜底分支，退化成直线且标签偏到起点附近。 */
+      if ((link.kind === "primary" || link.kind === "backup") && link.group === "bg-hcs") {
+        const startSide = sideToward(from, to);
+        const endSide = oppositeSide(startSide);
+        const start = edgePoint(from, startSide, { y: 22 });
+        const end = edgePoint(to, endSide, { y: 0 });
+        const bend = (start.x + end.x) / 2;
+        return {
+          p0: start,
+          p1: { x: bend, y: start.y + 24 },
+          p2: { x: bend, y: end.y - 20 },
+          p3: end
+        };
+      }
+
+      /* BG -> L3 回流线。
+         sameSite 时尽量绕外侧；
+         crossSite 时尽量收紧跨度，避免三塔中央被回流线塞满。 */
+      if (link.group === "bg-l3-feedback") {
+        const sameSite = from.site === to.site;
+        const side = sameSite ? outerSide(from.site, link.group) : sideToward(from, to);
+        const endSide = sameSite ? outerSide(to.site, link.group) : oppositeSide(side);
+        const dir = side === "right" ? 1 : -1;
+        const endDir = endSide === "right" ? 1 : -1;
+        const singleTouchL3 =
+          link.id === "NX9-BG__NX1-L3" ||
+          link.id === "NX9-BG__NX2-L3" ||
+          link.id === "NX1-BG__NX9-L3" ||
+          link.id === "NX2-BG__NX9-L3";
+        const start = edgePoint(from, side, { y: 12 });
+        const end = edgePoint(to, endSide, { y: (sameSite ? 46 : 46) });
+        /* span 越大，弧线越张开；越小，弧线越贴近节点。 */
+        const span = sameSite ? 90 : 70;
+        return {
+          p0: start,
+          p1: { x: start.x + dir * span, y: start.y - 16 },
+          p2: {
+            x: end.x + (singleTouchL3 ? endDir : dir) * span,
+            y: singleTouchL3 ? end.y : end.y + 16
+          },
+          p3: end
+        };
+      }
+
+      /* L3 -> L1 回流线。
+         这组线跨层距离更大，所以需要更大的纵向控制点偏移。 */
+      if (link.group === "l3-l1-feedback") {
+        const sameSite = from.site === to.site;
+        const side = sameSite ? outerSide(from.site, link.group) : sideToward(from, to);
+        const endSide = sameSite ? outerSide(to.site, link.group) : oppositeSide(side);
+        const dir = side === "right" ? 1 : -1;
+        const endDir = endSide === "right" ? 1 : -1;
+        const singleTouchL1 =
+          link.id === "NX1-L3__NX9-L1" ||
+          link.id === "NX2-L3__NX9-L1" ||
+          link.id === "NX9-L3__NX1-L1" ||
+          link.id === "NX9-L3__NX2-L1";
+        const start = edgePoint(from, side, { y: -46 });
+        const end = edgePoint(to, endSide, { y: 12 });
+        const span = sameSite ? 100 : 80;
+        return {
+          p0: start,
+          p1: { x: start.x + dir * span, y: start.y - 60 },
+          p2: {
+            x: end.x + (singleTouchL1 ? endDir : dir) * span,
+            y: singleTouchL1 ? end.y : end.y + 60
+          },
+          p3: end
+        };
+      }
+
+      /* 兜底分支：理论上不应频繁命中，命中说明有新 group 未被专门处理。 */
+      return {
+        p0: { x: from.x, y: from.y },
+        p1: { x: from.x, y: from.y },
+        p2: { x: to.x, y: to.y },
+        p3: { x: to.x, y: to.y }
+      };
+    }
+
+    /* 把控制点对象转成 SVG path 的 d 字符串。 */
+    function pathForLink(link) {
+      return bezierPath(controlPointsForLink(link));
+    }
+
+    /* 计算三次贝塞尔曲线上某个百分比位置的实际坐标。 */
+    function bezierPoint(points, t) {
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const t2 = t * t;
+      return {
+        x: mt2 * mt * points.p0.x + 3 * mt2 * t * points.p1.x + 3 * mt * t2 * points.p2.x + t2 * t * points.p3.x,
+        y: mt2 * mt * points.p0.y + 3 * mt2 * t * points.p1.y + 3 * mt * t2 * points.p2.y + t2 * t * points.p3.y
+      };
+    }
+
+    function pointAtCurveRatio(points, ratio, segments = 48) {
+      if (ratio <= 0) return points.p0;
+      if (ratio >= 1) return points.p3;
+
+      const samples = [{ length: 0, point: points.p0 }];
+      let totalLength = 0;
+      let previousPoint = points.p0;
+
+      for (let index = 1; index <= segments; index += 1) {
+        const point = bezierPoint(points, index / segments);
+        totalLength += Math.hypot(point.x - previousPoint.x, point.y - previousPoint.y);
+        samples.push({ length: totalLength, point });
+        previousPoint = point;
+      }
+
+      const targetLength = totalLength * ratio;
+      for (let index = 1; index < samples.length; index += 1) {
+        const current = samples[index];
+        if (current.length < targetLength) continue;
+
+        const previous = samples[index - 1];
+        const span = current.length - previous.length || 1;
+        const mix = (targetLength - previous.length) / span;
+        return {
+          x: previous.point.x + (current.point.x - previous.point.x) * mix,
+          y: previous.point.y + (current.point.y - previous.point.y) * mix
+        };
+      }
+
+      return samples[samples.length - 1].point;
+    }
+
+    /* 决定连线标签应该放在曲线的哪个百分比位置。
+       不是所有线都放中点，因为跨塔线如果都放中点，标签会堆叠在中央。 */
+    function labelT(link) {
+      const from = nodeById[link.from];
+      const to = nodeById[link.to];
+
+      /* 个别非常拥挤的路径需要单独特判。 */
+      if (link.id === "NX9-L3__NX1-BG") return 0.25;
+      if (link.id === "NX9-BG__NX1-HCS") return 0.25;
+      if (link.id === "NX2-BG__NX9-HCS") return 0.25;
+      if (link.id === "NX1-L2__NX9-L3") return 0.75;
+      if (link.id === "NX9-L2__NX2-L3") return 0.75;
+      if (link.id === "NX1-L3__NX9-L1") return 0.75;
+      if (link.id === "NX9-L3__NX2-L1") return 0.75;
+      if (link.id === "NX9-BG__NX1-L3") return 0.30;
+      if (link.id === "NX2-BG__NX9-L3") return 0.25;
+
+      const midpointCrowded =
+        ((link.kind === "primary" || link.kind === "backup") && (link.group === "l2-l3" || link.group === "l3-bg" || link.group === "bg-hcs")) ||
+        (link.group === "bg-l3-feedback" && from.site !== to.site) ||
+        (link.group === "l3-l1-feedback" && from.site !== to.site);
+
+      if (!midpointCrowded) return 0.5;
+
+      return from.x < to.x ? 0.28 : 0.72;
+    }
+
+    /* 计算标签最终坐标。 */
+    function labelPoint(link) {
+      const points = controlPointsForLink(link);
+      const t = labelT(link);
+      const point = bezierPoint(points, t);
+
+      if (link.kind !== "intra" || link.group === "sources") return point;
+
+      const offset = 22;
+
+      return {
+        x: point.x + offset,
+        y: point.y
+      };
+    }
+
+    /* 全站拓扑渲染。
+       这一块沿用 v9 的三塔布局，只是改成从当前 board 动态获取挂载层。 */
+    function renderAllSitesTopology() {
+      const state = buildAllSitesTopologyState();
+      const { routeLayer, labelLayer, nodeLayer } = topologyLayers();
+      if (!routeLayer || !labelLayer || !nodeLayer) return;
+
+      nodeLayer.innerHTML = state.nodes.map(nodeHtml).join("");
+
+      routeLayer.innerHTML = state.links.map((link) => {
+        const path = pathForLink(link);
+        const severity = statusClassForLink(link);
+        const variant = routeVariantClass(link);
+        const visualMode = routeVisualMode(link);
+        const primaryEnabled = visualMode === "primary";
+        const visualClass = primaryEnabled ? visualModeClass(visualMode) : "";
+        const pathId = pathIdForLink(link);
+        const markerId = markerIdForLink(link, severity);
+        return curvePathMarkup({
+          pathId,
+          d: path,
+          baseClass: `route-base ${link.group} ${link.kind} ${variant} ${visualClass}`.trim(),
+          flowClass: `route-flow ${link.group} ${link.kind} ${severity} ${variant} ${visualClass}`.trim(),
+          markerId,
+          pulseMarkup: pulseEnabled && primaryEnabled ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""
+        });
+      }).join("");
+
+      labelLayer.innerHTML = state.links.map((link) => {
+        const point = labelPoint(link);
+        const severity = statusClassForLink(link);
+        return latencyLabelMarkup({
+          x: point.x,
+          y: point.y,
+          text: `${link.current}ms`,
+          severity,
+          className: "route-label"
+        });
+      }).join("");
+    }
+
+    function buildSingleSiteTopologyTemplate(site) {
+      const geometry = singleSiteGeometry();
+      const singleSiteNodes = [];
+
+      sourceNames.forEach((name) => {
+        const original = nodeById[`${site}-${name}`];
+        const position = geometry.sourcePositions[name];
+        singleSiteNodes.push({
+          ...original,
+          x: position.x,
+          y: position.y
+        });
+      });
+
+      ["L1", "L2", "L3", "HCS"].forEach((name) => {
+        const original = nodeById[`${site}-${name}`];
+        singleSiteNodes.push({
+          ...original,
+          x: geometry.stageX[name],
+          y: geometry.stageY
+        });
+      });
+
+      const bgSites = singleSiteBgSiteOrder(site);
+      const bgCenterStep = singleSiteBgCardHeight + singleSiteBgCardGap;
+      const bgStartY = geometry.stageY - bgCenterStep;
+      const singleSiteBgNodes = bgSites.map((bgSite, index) => {
+        const original = nodeById[`${bgSite}-BG`];
+        return {
+          ...original,
+          x: geometry.stageX.BG,
+          y: bgStartY + index * bgCenterStep,
+          compactBg: true,
+          titleLabel: `BG (${bgSite})`,
+          anchorHalfW: singleSiteBgCardHalfW,
+          anchorHalfH: singleSiteBgCardHalfH,
+          branchIndex: index
+        };
+      });
+
+      singleSiteNodes.push(...singleSiteBgNodes);
+
+      const l2Node = singleSiteNodes.find((node) => node.id === `${site}-L2`);
+      const singleSiteL2Servers = l2Node
+        ? buildSingleSiteL2ServerTemplates(l2Node)
+        : [];
+
+      singleSiteNodes.push(...singleSiteL2Servers);
+
+      const singleSiteNodeById = Object.fromEntries(singleSiteNodes.map((node) => [node.id, node]));
+      const singleSiteLinks = [];
+
+      sourceNames.forEach((name) => {
+        const link = linkById[`${site}-${name}__${site}-L1`];
+        if (link) singleSiteLinks.push(link);
+      });
+
+      const l1L2ParentLink = linkById[`${site}-L1__${site}-L2`];
+      const l2L3ParentLink = linkById[`${site}-L2__${site}-L3`];
+
+      singleSiteL2Servers.forEach((server) => {
+        addLink(
+          singleSiteLinks,
+          `${site}-L1`,
+          server.id,
+          30,
+          "l1-l2",
+          "intra",
+          server.seedCurrent,
+          { parentId: l1L2ParentLink ? l1L2ParentLink.id : "", branchIndex: server.branchIndex, singleSiteDerived: true }
+        );
+      });
+
+      singleSiteL2Servers.forEach((server) => {
+        addLink(
+          singleSiteLinks,
+          server.id,
+          `${site}-L3`,
+          50,
+          "l2-l3",
+          "intra",
+          server.seedCurrentEgress,
+          { parentId: l2L3ParentLink ? l2L3ParentLink.id : "", branchIndex: server.branchIndex, singleSiteDerived: true }
+        );
+      });
+
+      singleSiteBgNodes.forEach((bgNode) => {
+        const bgSite = bgNode.site;
+        const bgIndex = bgNode.branchIndex;
+        const l3BgKind = bgSite === site ? "intra" : "primary";
+        const bgHcsKind = bgSite === site ? "intra" : "backup";
+
+        pushSingleSiteLink(
+          singleSiteLinks,
+          `${site}-L3`,
+          `${bgSite}-BG`,
+          30,
+          "l3-bg",
+          l3BgKind,
+          0,
+          { branchIndex: bgIndex, singleSiteBgLink: true, bgSite }
+        );
+
+        pushSingleSiteLink(
+          singleSiteLinks,
+          `${bgSite}-BG`,
+          `${site}-L3`,
+          30,
+          "bg-l3-feedback",
+          "feedback",
+          0,
+          { branchIndex: bgIndex, singleSiteBgLink: true, bgSite }
+        );
+
+        pushSingleSiteLink(
+          singleSiteLinks,
+          `${bgSite}-BG`,
+          `${site}-HCS`,
+          30,
+          "bg-hcs",
+          bgHcsKind,
+          0,
+          { branchIndex: bgIndex, singleSiteBgLink: true, bgSite }
+        );
+      });
+
+      [
+        `${site}-L3__${site}-L1`
+      ].forEach((id) => {
+        const link = linkById[id];
+        if (link) singleSiteLinks.push(link);
+      });
+
+      return {
+        nodes: singleSiteNodes,
+        nodeById: singleSiteNodeById,
+        links: singleSiteLinks
+      };
+    }
+
+    function buildSingleSiteTopologyState(site) {
+      const template = buildSingleSiteTopologyTemplate(site);
+      const mergedNodes = template.nodes.map((node) => mergeNodeTemplateWithSnapshot(node, topologySnapshot));
+      const mergedLinks = template.links
+        .map((link) => mergeLinkTemplateWithSnapshot(link, topologySnapshot))
+        .filter((link) => link.visible !== false);
+      return {
+        nodes: mergedNodes,
+        nodeById: Object.fromEntries(mergedNodes.map((node) => [node.id, node])),
+        links: mergedLinks
+      };
+    }
+
+    function singleSiteSourcePartitionsHtml(node) {
+      const parts = sourcePartitions[node.name];
+      if (!parts || parts.length === 0) return "";
+      return `
+        <div class="source-splits cols-${parts.length}">
+          ${parts.map((part) => `<span class="source-split"><span class="source-split-label">${part}</span></span>`).join("")}
+        </div>
+      `;
+    }
+
+    function singleSiteSourceWiringHtml(node) {
+      return sourceFeedSvgMarkup(node, "single");
+    }
+
+    function buildSingleSiteL2ServerTemplates(node) {
+      const firstServerY = node.y - singleSiteL2ClusterHalfH + singleSiteL2ServerHalfH;
+      return singleSiteL2ServerProfiles.map((profile, index) => {
+        return {
+          id: `${node.site}-${profile.name}`,
+          site: node.site,
+          name: "L2",
+          titleLabel: profile.name,
+          type: "stage-fragment",
+          x: node.x,
+          y: firstServerY + index * (singleSiteL2ServerCardHeight + singleSiteL2ServerGap),
+          anchorHalfW: singleSiteL2ServerHalfW,
+          anchorHalfH: singleSiteL2ServerHalfH,
+          branchIndex: index,
+          parentId: node.id,
+          hidden: true,
+          seedCurrent: profile.ingressCurrent,
+          seedCurrentEgress: profile.egressCurrent
+        };
+      });
+    }
+
+    function singleSiteL2ServerNodes(node, state) {
+      return singleSiteL2ServerProfiles
+        .map((profile) => state.nodeById[`${node.site}-${profile.name}`])
+        .filter(Boolean);
+    }
+
+    function singleSiteL2ClusterHtml(node, state) {
+      const servers = singleSiteL2ServerNodes(node, state);
+      return `
+        <article class="node stage process l2-cluster" style="left:${node.x - singleSiteL2ClusterHalfW}px; top:${node.y - singleSiteL2ClusterHalfH}px;">
+          <div class="l2-server-stack">
+            ${servers.map((server) => `
+              <section class="l2-server">
+                <div class="server-head">
+                  <span>${server.titleLabel || server.id}</span>
+                  <span class="badge ${nodeStatus(server)}">${nodeStatus(server)}</span>
+                </div>
+                <div class="server-metrics">
+                  <div class="server-metric">AVG<strong class="${stageMetricTone("avg", server.avg)}">${server.avg == null ? "--" : `${server.avg}ms`}</strong></div>
+                  <div class="server-metric">P95<strong class="${stageMetricTone("p95", server.p95)}">${server.p95 == null ? "--" : `${server.p95}ms`}</strong></div>
+                  <div class="server-metric">CPU<strong>${server.cpu == null ? "--" : `${server.cpu}%`}</strong></div>
+                  <div class="server-metric">MEM<strong>${server.mem == null ? "--" : `${server.mem}%`}</strong></div>
+                </div>
+              </section>
+            `).join("")}
+          </div>
+        </article>
+      `;
+    }
+
+    function singleSiteNodeHtml(node, state) {
+      if (node.type === "source") {
+        const tone = nodeStatus(node);
+        return `
+          <div class="node source ${tone}" style="left:${node.x - 52}px; top:${node.y - 54}px;">
+            <div class="source-name">${node.name}</div>
+            <div class="source-body">
+              <div class="source-feed-cluster">
+                ${singleSiteSourceWiringHtml(node)}
+                ${singleSiteSourcePartitionsHtml(node)}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      if (node.name === "L2") {
+        return singleSiteL2ClusterHtml(node, state);
+      }
+
+      const tone = nodeStatus(node);
+      const isProcessLike = node.kind === "process" || node.name === "L1";
+      const process = isProcessLike ? " process" : "";
+      const bgHcsTone = node.name === "BG" ? " bg-hcs-tone" : "";
+      const compactBg = node.name === "BG" && node.compactBg ? " bg-compact" : "";
+      const subline = stageSublineText(node, isProcessLike, { compactBg: node.compactBg });
+      const cpu = node.cpu ?? node.load ?? 0;
+      const mem = node.mem ?? Math.min(100, cpu + 8);
+      const disk = node.disk ?? Math.min(100, mem + 6);
+      const titleLabel = node.titleLabel || node.name;
+      const anchorHalfW = node.anchorHalfW || singleSiteStageHalfW;
+      const anchorHalfH = node.anchorHalfH || singleSiteStageHalfH;
+      const sublineMarkup = subline ? `<div class="sub">${subline}</div>` : "";
+      return `
+        <article class="node stage${process}${bgHcsTone}${compactBg}" style="left:${node.x - anchorHalfW}px; top:${node.y - anchorHalfH}px;">
+          <div class="title">
+            <span>${titleLabel}</span>
+            <span class="badge ${tone}">${tone}</span>
+          </div>
+          ${sublineMarkup}
+          ${stageMetricsHtml(node, tone)}
+          <div class="resource-stack">
+            <div class="resource-row">
+              ${resourceBarHtml("cpu", cpu, "cpu")}
+              ${resourceBarHtml("mem", mem, "mem")}
+            </div>
+            <div class="resource-row single">
+              ${resourceBarHtml("disk", disk, "disk")}
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function singleSiteStageAnchor(node) {
+      if (node.anchorHalfW && node.anchorHalfH) {
+        return { halfW: node.anchorHalfW, halfH: node.anchorHalfH };
+      }
+      if (node.type === "source") return { halfW: 52, halfH: 54 };
+      if (node.name === "L2") return { halfW: singleSiteL2ClusterHalfW, halfH: singleSiteL2ClusterHalfH };
+      return { halfW: singleSiteStageHalfW, halfH: singleSiteStageHalfH };
+    }
+
+    function singleSiteEdgePoint(node, side, offset) {
+      const ox = offset && offset.x ? offset.x : 0;
+      const oy = offset && offset.y ? offset.y : 0;
+      const { halfW, halfH } = singleSiteStageAnchor(node);
+
+      if (side === "top") return { x: node.x + ox, y: node.y - halfH + oy };
+      if (side === "bottom") return { x: node.x + ox, y: node.y + halfH + oy };
+      if (side === "left") return { x: node.x - halfW + ox, y: node.y + oy };
+      return { x: node.x + halfW + ox, y: node.y + oy };
+    }
+
+    function singleSiteHorizontalCurve(start, end) {
+      const gap = Math.abs(end.x - start.x);
+      const reach = Math.min(Math.max(28, gap * 0.42), Math.max(12, gap * 0.45));
+      if (start.x <= end.x) {
+        return {
+          p0: start,
+          p1: { x: start.x + reach, y: start.y },
+          p2: { x: end.x - reach, y: end.y },
+          p3: end
+        };
+      }
+      return {
+        p0: start,
+        p1: { x: start.x - reach, y: start.y },
+        p2: { x: end.x + reach, y: end.y },
+        p3: end
+      };
+    }
+
+    function singleSiteControlPointsForLink(link, state) {
+      const from = state.nodeById[link.from];
+      const to = state.nodeById[link.to];
+
+      if (!from || !to) {
+        return {
+          p0: { x: 0, y: 0 },
+          p1: { x: 0, y: 0 },
+          p2: { x: 0, y: 0 },
+          p3: { x: 0, y: 0 }
+        };
+      }
+
+      if (link.group === "sources") {
+        const start = singleSiteEdgePoint(from, "right");
+        const end = singleSiteEdgePoint(to, "left", { y: (from.y - to.y) * 0.08 });
+        return {
+          p0: start,
+          p1: { x: start.x + Math.max(80, (end.x - start.x) * 0.48), y: start.y },
+          p2: { x: end.x - Math.max(80, (end.x - start.x) * 0.48) * 0.65, y: end.y },
+          p3: end
+        };
+      }
+
+      if (link.singleSiteBgLink && link.group === "l3-bg") {
+        const laneOffset = staggerOffset(link.branchIndex || 0, 3, 16);
+        const start = singleSiteEdgePoint(from, "right", { y: laneOffset });
+        const end = singleSiteEdgePoint(to, "left");
+        return singleSiteHorizontalCurve(start, end);
+      }
+
+      if (link.singleSiteBgLink && link.group === "bg-l3-feedback") {
+        const branchIndex = link.branchIndex || 0;
+        if (branchIndex === 0) {
+          const start = singleSiteEdgePoint(from, "top", { x: -10 });
+          const end = singleSiteEdgePoint(to, "top", { x: 12, y: -6 });
+          const lift = 82;
+          return {
+            p0: start,
+            p1: { x: start.x - 26, y: start.y - lift },
+            p2: { x: end.x + 26, y: end.y - lift },
+            p3: end
+          };
+        }
+
+        const start = singleSiteEdgePoint(from, "bottom", { x: -10 });
+        const end = singleSiteEdgePoint(to, "bottom", { x: 12, y: branchIndex === 1 ? 8 : 18 });
+        const drop = branchIndex === 1 ? 62 : 88;
+        return {
+          p0: start,
+          p1: { x: start.x - 24, y: start.y + drop },
+          p2: { x: end.x + 24, y: end.y + drop },
+          p3: end
+        };
+      }
+
+      if (link.singleSiteBgLink && link.group === "bg-hcs") {
+        const laneOffset = staggerOffset(link.branchIndex || 0, 3, 14);
+        const start = singleSiteEdgePoint(from, "right");
+        const end = singleSiteEdgePoint(to, "left", { y: laneOffset });
+        return singleSiteHorizontalCurve(start, end);
+      }
+
+      if (link.group === "bg-l3-feedback") {
+        const start = singleSiteEdgePoint(from, "top", { x: -10 });
+        const end = singleSiteEdgePoint(to, "top", { x: 10 });
+        const lift = 132;
+        return {
+          p0: start,
+          p1: { x: start.x - 32, y: start.y - lift },
+          p2: { x: end.x + 32, y: end.y - lift },
+          p3: end
+        };
+      }
+
+      if (link.group === "l3-l1-feedback") {
+        const start = singleSiteEdgePoint(from, "bottom", { x: -8 });
+        const end = singleSiteEdgePoint(to, "bottom", { x: 8 });
+        const drop = 156;
+        return {
+          p0: start,
+          p1: { x: start.x - 20, y: start.y + drop },
+          p2: { x: end.x + 20, y: end.y + drop },
+          p3: end
+        };
+      }
+
+      if (link.group === "l1-l2") {
+        const laneOffset = link.singleSiteDerived
+          ? staggerOffset(link.branchIndex || 0, singleSiteL2ServerProfiles.length, 11)
+          : -16;
+        const start = singleSiteEdgePoint(from, "right", { y: laneOffset });
+        const end = singleSiteEdgePoint(to, "left");
+        return singleSiteHorizontalCurve(start, end);
+      }
+
+      if (link.group === "l2-l3") {
+        const laneOffset = link.singleSiteDerived
+          ? staggerOffset(link.branchIndex || 0, singleSiteL2ServerProfiles.length, 11)
+          : 16;
+        const start = singleSiteEdgePoint(from, "right");
+        const end = singleSiteEdgePoint(to, "left", { y: laneOffset });
+        return singleSiteHorizontalCurve(start, end);
+      }
+
+      const start = singleSiteEdgePoint(from, "right");
+      const end = singleSiteEdgePoint(to, "left");
+      return singleSiteHorizontalCurve(start, end);
+    }
+
+    function singleSitePathForLink(link, state) {
+      return bezierPath(singleSiteControlPointsForLink(link, state));
+    }
+
+    function singleSiteLabelT(link) {
+      if (link.group === "sources") return 0.68;
+      if (link.group === "bg-l3-feedback") return 0.46;
+      if (link.group === "l3-l1-feedback") return 0.54;
+      return 0.5;
+    }
+
+    function singleSiteLabelPoint(link, state) {
+      const points = singleSiteControlPointsForLink(link, state);
+      const ratio = link.group === "sources" ? 1 / 3 : undefined;
+      const point = ratio === undefined ? bezierPoint(points, singleSiteLabelT(link)) : pointAtCurveRatio(points, ratio);
+      const from = state.nodeById[link.from];
+      const to = state.nodeById[link.to];
+      const l2Node = from && from.name === "L2" ? from : to && to.name === "L2" ? to : null;
+
+      if (link.group === "sources") return { x: point.x, y: point.y - 12 };
+      if (link.singleSiteBgLink && link.group === "l3-bg" && to) {
+        return {
+          x: to.x - (to.anchorHalfW || singleSiteBgCardHalfW) - 24,
+          y: to.y - 8
+        };
+      }
+      if (link.singleSiteBgLink && link.group === "bg-l3-feedback" && from) {
+        const sign = (link.branchIndex || 0) === 0 ? -1 : 1;
+        return {
+          x: from.x - (from.anchorHalfW || singleSiteBgCardHalfW) - 24,
+          y: from.y + sign * ((from.anchorHalfH || singleSiteBgCardHalfH) * 0.55 + 18)
+        };
+      }
+      if (link.singleSiteBgLink && link.group === "bg-hcs" && from) {
+        return {
+          x: from.x + (from.anchorHalfW || singleSiteBgCardHalfW) + 24,
+          y: from.y
+        };
+      }
+      if (link.singleSiteDerived && link.group === "l1-l2" && to) {
+        return {
+          x: to.x - (to.anchorHalfW || singleSiteL2ServerHalfW) - 26,
+          y: to.y + staggerOffset(link.branchIndex || 0, singleSiteL2ServerProfiles.length, 4)
+        };
+      }
+      if (link.singleSiteDerived && link.group === "l2-l3" && from) {
+        return {
+          x: from.x + (from.anchorHalfW || singleSiteL2ServerHalfW) + 26,
+          y: from.y + staggerOffset(link.branchIndex || 0, singleSiteL2ServerProfiles.length, 4)
+        };
+      }
+      if (l2Node && (link.group === "l1-l2" || link.group === "l2-l3")) {
+        return { x: point.x, y: l2Node.y - singleSiteL2ClusterHalfH - 18 };
+      }
+      if (link.group === "l3-l1-feedback") return { x: point.x, y: point.y + 20 };
+      if (link.kind === "feedback") return { x: point.x, y: point.y - 14 };
+      return { x: point.x, y: point.y - 18 };
+    }
+
+    function singleSiteRouteVisualMode(link, site) {
+      return link.isPrimary ? "primary" : "";
+    }
+
+    function renderSingleSiteTopology(site) {
+      const state = buildSingleSiteTopologyState(site);
+      const { routeLayer, labelLayer, nodeLayer } = topologyLayers();
+      if (!routeLayer || !labelLayer || !nodeLayer) return;
+
+      nodeLayer.innerHTML = state.nodes.filter((node) => !node.hidden).map((node) => singleSiteNodeHtml(node, state)).join("");
+
+      routeLayer.innerHTML = state.links.map((link) => {
+        const path = singleSitePathForLink(link, state);
+        const severity = statusClassForLink(link);
+        const variant = routeVariantClass(link);
+        const visualMode = singleSiteRouteVisualMode(link, site);
+        const visualClass = visualModeClass(visualMode);
+        const pathId = pathIdForLink(link);
+        const markerId = markerIdForLink(link, severity);
+        return curvePathMarkup({
+          pathId,
+          d: path,
+          baseClass: `route-base ${link.group} ${link.kind} ${variant} ${visualClass}`.trim(),
+          flowClass: `route-flow ${link.group} ${link.kind} ${severity} ${variant} ${visualClass}`.trim(),
+          markerId,
+          pulseMarkup: pulseEnabled && visualMode === "primary" ? pathPulseMarkup(pathId, primaryPulseOptionsForLink(link, severity)) : ""
+        });
+      }).join("");
+
+      labelLayer.innerHTML = state.links.map((link) => {
+        const point = singleSiteLabelPoint(link, state);
+        const severity = statusClassForLink(link);
+        return latencyLabelMarkup({
+          x: point.x,
+          y: point.y,
+          text: `${link.current}ms`,
+          severity,
+          className: "route-label"
+        });
+      }).join("");
+    }
+
+    /* 拓扑总入口。
+       ALL 走三塔渲染；单站点走 v9.1 风格横向布局；CLOUD 只显示占位。 */
+    function renderTopology() {
+      renderTopologyBoardShell();
+
+      if (cloudScopes.includes(topologyScope)) return;
+      if (topologyScope === "ALL") {
+        renderAllSitesTopology();
+        return;
+      }
+
+      if (isSingleSiteScope(topologyScope)) {
+        renderSingleSiteTopology(topologyScope);
+      }
+    }
+
+    function summaryPairText(summary) {
+      return `${summary.healthy}/${summary.total}`;
+    }
+
+    function summaryMeterStatus(summary) {
+      const threshold1 = summary.total;
+      const threshold2 = Math.max(0, summary.total - 1);
+      if (summary.healthy < threshold2) return "critical";
+      if (summary.healthy < threshold1) return "warn";
+      return "ok";
+    }
+
+    function summaryMeterWidth(summary) {
+      if (!summary.total) return 0;
+      return Math.max(0, Math.min(100, (summary.healthy / summary.total) * 100));
+    }
+
+    function renderStatCard(valueId, meterId, summary) {
+      const valueEl = document.getElementById(valueId);
+      const meterEl = document.getElementById(meterId);
+      if (!valueEl || !meterEl) return;
+      const fillEl = meterEl.querySelector("span");
+      valueEl.textContent = summaryPairText(summary);
+      fillEl.style.width = `${summaryMeterWidth(summary)}%`;
+      meterEl.classList.remove("ok", "warn", "critical");
+      meterEl.classList.add(summaryMeterStatus(summary));
+    }
+
+    /* 渲染事件流。
+       这里不是严格日志，而是从当前最热路径生成一段说明性文本。 */
+    function renderFeed() {
+      const state = buildAllSitesTopologyState();
+      const time = nowText();
+      const items = [...state.links]
+        .filter((link) => link.current != null)
+        .sort((a, b) => b.current - a.current)
+        .slice(0, 5)
+        .map((link) => {
+          const tone = statusClassForLink(link);
+          let text = link.from + " -> " + link.to + " ";
+          if (link.kind === "primary") text += "primary cross-tower bridge above baseline.";
+          else if (link.kind === "backup") text += "backup cross-tower route under watch.";
+          else if (link.kind === "feedback") text += "feedback loop under watch.";
+          else text += "tower-local route stable.";
+          return { tone, text: text + " current " + link.current + "ms, base " + link.base + "ms." };
+        });
+
+      feedList.innerHTML = items.map((item) => `
+        <div class="feed-item ${item.tone}">
+          <time>${time}</time>${item.text}
+        </div>
+      `).join("");
+
+      document.getElementById("eventMeta").textContent = "updated " + time;
+    }
+
+    /* 渲染顶部摘要和统计卡。
+       这是多个模块的汇总层，依赖 links / nodes 当前状态。 */
+    function renderSummary() {
+      const state = buildAllSitesTopologyState();
+      const warns = state.links.filter((link) => statusClassForLink(link) === "warn").length;
+      const criticals = state.links.filter((link) => statusClassForLink(link) === "critical").length;
+      const alertTone = criticals > 0 ? "critical" : warns > 0 ? "warn" : "cyan";
+      const heroAlerts = document.getElementById("heroAlerts");
+
+      document.getElementById("heroPrimary").textContent = topologySnapshot.primaryTower;
+      document.getElementById("heroClock").textContent = nowText();
+      heroAlerts.textContent = `${warns} / ${criticals}`;
+      heroAlerts.className = `val ${alertTone}`;
+      document.getElementById("heroAlertState").textContent = criticals > 0 ? "Critical Active" : warns > 0 ? "Watch" : "Stable";
+      renderStatCard("statSources", "meterSources", summaryCardDefaults.externalSources);
+      renderStatCard("statCaptures", "meterCaptures", summaryCardDefaults.capturesL1);
+      renderStatCard("statCalculations", "meterCalculations", summaryCardDefaults.calculationsL2);
+      renderStatCard("statReconciliation", "meterReconciliation", summaryCardDefaults.reconciliationL3);
+      renderStatCard("statBg", "meterBg", summaryCardDefaults.broadcastGatewaysBg);
+      renderStatCard("statGrowthIndex", "meterGrowthIndex", summaryCardDefaults.growthIndex);
+      renderStatCard("statBis", "meterBis", summaryCardDefaults.bis);
+      renderStatCard("statHcs", "meterHcs", summaryCardDefaults.healthCheckServicesHcs);
+      renderStatCard("statVendors", "meterVendors", summaryCardDefaults.vendors);
+    }
+
+    /* 总渲染入口。
+       当前页面已改为 snapshot 驱动；接 API 后只需要替换 topologySnapshot 即可。 */
+    function render() {
+      renderTopology();
+      renderFeed();
+      renderSummary();
+    }
+
+    /* 首次加载先渲染一次。 */
+    render();
+  </script>
+</body>
+</html>
